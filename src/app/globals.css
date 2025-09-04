@@ -1,26 +1,78 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary-color: #ffffff;
+  --secondary-color: #00bc7d;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --background-light: #f9fafb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  font-family: 'Poppins';
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  background: var(--primary-color);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@layer components {
+  /* Global Button Classes */
+  .btn-primary {
+    @apply bg-[#00bc7d] hover:bg-[#00a06a] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-white border-2 border-[#00bc7d] text-[#00bc7d] hover:bg-[#00bc7d] hover:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200;
+  }
+  
+  /* Global Input Classes */
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200;
+  }
+  
+  /* Global Card Class */
+  .card {
+    @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+  }
+
+  /* Global Loading Spinner */
+  .loading-spinner {
+    @apply animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d];
+  }
+
+  /* Global Error Message */
+  .error-message {
+    @apply bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm;
+  }
+
+  /* Global Success Message */
+  .success-message {
+    @apply bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm;
+  }
+
+  /* Global Input Type Tel Focus */
+  input[type="tel"]:focus {
+    outline: none;
+  }
 }

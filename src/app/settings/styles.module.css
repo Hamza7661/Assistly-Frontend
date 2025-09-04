@@ -1,0 +1,160 @@
+/* Settings Page Styles */
+.container {
+  @apply min-h-screen bg-gray-50;
+}
+
+.pageHeader {
+  @apply bg-white shadow-sm border-b border-gray-200;
+}
+
+.pageHeaderContent {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.pageHeaderInner {
+  @apply flex justify-between items-center h-16;
+}
+
+.backButton {
+  @apply p-2 text-gray-400 hover:text-gray-600 transition-colors mr-2;
+}
+
+.logoIcon {
+  @apply h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center;
+}
+
+.pageTitle {
+  @apply ml-3 text-xl font-semibold text-gray-900;
+}
+
+.pageContainer {
+  @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+}
+
+.profileSection {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6 mb-8;
+}
+
+.profileHeader {
+  @apply flex justify-between items-center mb-6;
+}
+
+.profileTitle {
+  @apply text-xl font-semibold text-gray-900 flex items-center;
+}
+
+.profileTitleIcon {
+  @apply h-5 w-5 mr-2 text-[#00bc7d];
+}
+
+.editButton {
+  @apply bg-white border-2 border-[#00bc7d] text-[#00bc7d] hover:bg-[#00bc7d] hover:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center;
+}
+
+.editActions {
+  @apply flex space-x-3;
+}
+
+.cancelButton {
+  @apply bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-all duration-200;
+}
+
+.saveButton {
+  @apply bg-[#00bc7d] hover:bg-[#00a06a] text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center;
+}
+
+.saveButtonIcon {
+  @apply h-4 w-4 mr-2;
+}
+
+.profileForm {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-6;
+}
+
+.formField {
+  @apply space-y-2;
+}
+
+.formFieldFullWidth {
+  @apply md:col-span-2;
+}
+
+.formLabel {
+  @apply block text-sm font-medium text-gray-700 mb-2;
+}
+
+.formInput {
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200;
+}
+
+.formText {
+  @apply text-gray-900;
+}
+
+.settingsGrid {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-6 mb-8;
+}
+
+.settingCard {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+}
+
+.settingHeader {
+  @apply flex items-center mb-4;
+}
+
+.settingIcon {
+  @apply h-5 w-5 mr-2 text-[#00bc7d];
+}
+
+.settingTitle {
+  @apply text-lg font-semibold text-gray-900;
+}
+
+.settingItems {
+  @apply space-y-3;
+}
+
+.settingItem {
+  @apply w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors;
+}
+
+.settingItemTitle {
+  @apply font-medium text-gray-900;
+}
+
+.settingItemDescription {
+  @apply text-sm text-gray-500;
+}
+
+.dangerZone {
+  @apply bg-white rounded-xl shadow-lg border border-red-200 p-6 bg-red-50;
+}
+
+.dangerTitle {
+  @apply text-lg font-semibold text-red-900 mb-4;
+}
+
+.dangerContent {
+  @apply space-y-4;
+}
+
+.dangerWarning {
+  @apply text-sm text-red-700 mb-2;
+}
+
+.dangerButton {
+  @apply bg-white border-2 border-red-300 text-red-700 hover:bg-red-100 font-semibold py-3 px-6 rounded-lg transition-all duration-200;
+}
+
+.dangerDivider {
+  @apply pt-4 border-t border-red-200;
+}
+
+.logoutButton {
+  @apply bg-white border-2 border-red-300 text-red-700 hover:bg-red-100 font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center;
+}
+
+.logoutIcon {
+  @apply h-4 w-4 mr-2;
+}

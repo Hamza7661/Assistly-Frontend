@@ -1,0 +1,352 @@
+/* Packages Page Styles */
+.pageHeader {
+  @apply bg-white shadow-sm border-b border-gray-200;
+}
+
+.pageHeaderContent {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.pageHeaderInner {
+  @apply flex justify-between items-center h-16;
+}
+
+.backButton {
+  @apply p-2 text-gray-400 hover:text-gray-600 transition-colors mr-2;
+}
+
+.logoIcon {
+  @apply h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center;
+}
+
+.pageTitle {
+  @apply ml-3 text-xl font-semibold text-gray-900;
+}
+
+.pageContainer {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+}
+
+.welcomeBanner {
+  @apply bg-gradient-to-r from-[#00bc7d] to-[#00a06a] text-white p-6 rounded-xl shadow-lg mb-6;
+}
+
+.welcomeTitle {
+  @apply text-2xl font-bold mb-2;
+}
+
+.welcomeSubtitle {
+  @apply text-lg opacity-90;
+}
+
+.currentPackageBanner {
+  @apply bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-6 rounded-xl shadow-sm mb-6;
+}
+
+.currentPackageTitle {
+  @apply text-xl font-semibold text-gray-900 mb-4;
+}
+
+.currentPackageCard {
+  @apply bg-white rounded-lg border border-blue-200 p-4 flex justify-between items-center;
+}
+
+.currentPackageInfo {
+  @apply flex-1;
+}
+
+.currentPackageName {
+  @apply text-lg font-semibold text-gray-900 mb-1;
+}
+
+.currentPackagePrice {
+  @apply text-sm text-gray-600;
+}
+
+.currentPackageStatus {
+  @apply flex-shrink-0;
+}
+
+.currentPackageBadge {
+  @apply bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full;
+}
+
+.sectionHeader {
+  @apply text-center mb-12;
+}
+
+.sectionTitle {
+  @apply text-3xl font-bold text-gray-900 mb-4;
+}
+
+.sectionDescription {
+  @apply text-lg text-gray-600 max-w-2xl mx-auto;
+}
+
+.subscriptionNote {
+  @apply mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg max-w-2xl mx-auto;
+}
+
+.subscriptionNoteText {
+  @apply text-sm text-blue-700 font-medium text-center;
+}
+
+.packagesGrid {
+  @apply grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12;
+}
+
+.packageCard {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-300 border-2 hover:border-[#00bc7d] flex flex-col relative;
+}
+
+.currentPackageCardGrid {
+  @apply bg-white rounded-xl shadow-lg border-2 border-blue-300 p-6 hover:shadow-xl transition-shadow duration-300 flex flex-col relative;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.popularBadge {
+  @apply absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#00bc7d] text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md;
+}
+
+.currentPackageBadgeGrid {
+  @apply absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md;
+}
+
+.customPackageGridSection {
+  @apply mb-12;
+}
+
+.customPackageGridTitle {
+  @apply text-2xl font-bold text-gray-900 mb-6 text-center;
+}
+
+.customPackageDetails {
+  @apply mt-2;
+}
+
+.customPackageLimits {
+  @apply text-xs text-gray-500;
+}
+
+.packageHeader {
+  @apply text-center mb-6;
+}
+
+.packageName {
+  @apply text-2xl font-bold text-gray-900 mb-2;
+}
+
+.packagePrice {
+  @apply text-4xl font-bold text-[#00bc7d] mb-2;
+}
+
+.packageBilling {
+  @apply text-sm text-gray-500 mb-4;
+}
+
+.packageSection {
+  @apply mb-6;
+}
+
+.packageSectionTitle {
+  @apply font-semibold text-gray-900 mb-3 text-center;
+}
+
+.limitsGrid {
+  @apply grid grid-cols-3 gap-3 text-xs;
+}
+
+.limitItem {
+  @apply text-center p-2 bg-gray-50 rounded-lg;
+}
+
+.limitValue {
+  @apply font-medium text-gray-900;
+}
+
+.limitLabel {
+  @apply text-[10px] text-gray-500;
+}
+
+.featuresList {
+  @apply space-y-2;
+}
+
+.featureItem {
+  @apply flex items-start;
+}
+
+.featureBullet {
+  @apply w-2 h-2 bg-[#00bc7d] rounded-full mt-2 mr-3 flex-shrink-0;
+}
+
+.featureText {
+  @apply text-sm text-gray-600;
+}
+
+.packageButtonContainer {
+  @apply mt-auto pt-4;
+}
+
+.additionalFeatures {
+  @apply space-y-2;
+}
+
+.featureCheck {
+  @apply flex items-center justify-center;
+}
+
+.featureCheckIcon {
+  @apply h-4 w-4 mr-2;
+}
+
+.featureCheckText {
+  @apply text-sm text-gray-600 capitalize;
+}
+
+.customPackageSection {
+  @apply text-center;
+}
+
+.customPackageCard {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6 max-w-2xl mx-auto;
+}
+
+.customPackageTitle {
+  @apply text-2xl font-bold text-gray-900 mb-2;
+}
+
+.customPackageDescription {
+  @apply text-gray-600 mb-4;
+}
+
+.customPackageButtons {
+  @apply flex flex-col sm:flex-row gap-4 justify-center;
+}
+
+.modalOverlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50;
+}
+
+.modalContainer {
+  @apply bg-white rounded-xl max-w-2xl w-full max-h-[90vh] p-6;
+}
+
+.modalHeader {
+  @apply flex justify-between items-center mb-6;
+}
+
+.modalTitle {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.modalClose {
+  @apply p-2 text-gray-400 hover:text-gray-600 transition-colors;
+}
+
+.modalContent {
+  @apply space-y-8;
+}
+
+.formGroup {
+  @apply space-y-8;
+}
+
+.slidersContainer {
+  @apply flex flex-col gap-6;
+}
+
+.sliderGroup {
+  @apply flex flex-col;
+}
+
+.sliderContainer {
+  @apply flex flex-col mb-2;
+}
+
+.sliderMarks {
+  @apply flex justify-between text-xs text-gray-500 mb-2;
+}
+
+.mark {
+  @apply text-center;
+}
+
+.horizontalSlider {
+  @apply w-full h-2 appearance-none bg-gray-200 rounded-full cursor-pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.horizontalSlider::-webkit-slider-thumb {
+  @apply appearance-none w-5 h-5 bg-[#00bc7d] rounded-full cursor-pointer;
+  -webkit-appearance: none;
+}
+
+.horizontalSlider::-moz-range-thumb {
+  @apply w-5 h-5 bg-[#00bc7d] rounded-full cursor-pointer border-0;
+}
+
+.sliderValue {
+  @apply text-lg font-semibold text-gray-900 mt-2;
+}
+
+.sliderLabel {
+  @apply text-sm text-gray-600;
+}
+
+.toggleGroup {
+  @apply flex flex-col items-center;
+}
+
+.toggleContainer {
+  @apply flex items-center gap-3;
+}
+
+.toggleCheckbox {
+  @apply w-5 h-5 text-[#00bc7d] bg-gray-100 border-gray-300 rounded focus:ring-[#00bc7d] focus:ring-2;
+}
+
+.toggleLabel {
+  @apply text-sm text-gray-700 font-medium;
+}
+
+.formLabel {
+  @apply block text-sm font-medium text-gray-700 mb-2;
+}
+
+.formGrid {
+  @apply grid grid-cols-2 gap-4;
+}
+
+.priceDisplay {
+  @apply bg-gray-50 p-4 rounded-lg;
+}
+
+.priceRow {
+  @apply flex justify-between items-center;
+}
+
+.priceLabel {
+  @apply text-lg font-medium text-gray-900;
+}
+
+.priceAmount {
+  @apply text-3xl font-bold text-[#00bc7d];
+}
+
+.pricePeriod {
+  @apply text-sm text-gray-500 mt-1;
+}
+
+.modalActions {
+  @apply flex space-x-4;
+}
+
+.actionButton {
+  @apply flex-1;
+}
+
+.loadingSpinner {
+  @apply animate-spin rounded-full h-5 w-5 border-b-2 border-white;
+}

@@ -1,0 +1,156 @@
+/* Dashboard Page Styles */
+.container {
+  @apply min-h-screen bg-gray-50;
+}
+
+.pageContainer {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+}
+
+.welcomeSection {
+  @apply mb-8;
+}
+
+.welcomeTitle {
+  @apply text-3xl font-bold text-gray-900 mb-2;
+}
+
+.welcomeSubtitle {
+  @apply text-gray-600;
+}
+
+.statsGrid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8;
+}
+
+.statCard {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+}
+
+.statHeader {
+  @apply flex items-center justify-between;
+}
+
+.statInfo {
+  @apply flex items-center justify-between;
+}
+
+.statTitle {
+  @apply text-sm font-medium text-gray-600;
+}
+
+.statValue {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.statIcon {
+  @apply p-3 rounded-full;
+}
+
+.statChange {
+  @apply mt-4 flex items-center;
+}
+
+.statChangeIcon {
+  @apply h-4 w-4 mr-1;
+}
+
+.statChangeText {
+  @apply text-sm font-medium;
+}
+
+.statChangeLabel {
+  @apply text-sm text-gray-500 ml-1;
+}
+
+.chartsSection {
+  @apply grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8;
+}
+
+.chartCard {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+}
+
+.chartTitle {
+  @apply text-lg font-semibold text-gray-900 mb-4;
+}
+
+.servicesSection {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6 mb-8;
+}
+
+.servicesTitle {
+  @apply text-lg font-semibold text-gray-900 mb-6;
+}
+
+.servicesGrid {
+  @apply grid grid-cols-1 md:grid-cols-3 gap-6;
+}
+
+.serviceCard {
+  @apply text-center p-6 rounded-lg;
+}
+
+.serviceCardBlue {
+  @apply bg-blue-50;
+}
+
+.serviceCardGreen {
+  @apply bg-green-50;
+}
+
+.serviceCardPurple {
+  @apply bg-purple-50;
+}
+
+.serviceIcon {
+  @apply w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4;
+}
+
+.serviceIconBlue {
+  @apply bg-blue-500;
+}
+
+.serviceIconGreen {
+  @apply bg-green-500;
+}
+
+.serviceIconPurple {
+  @apply bg-purple-500;
+}
+
+.serviceIconInner {
+  @apply h-8 w-8 text-white;
+}
+
+.serviceTitle {
+  @apply text-lg font-semibold text-gray-900 mb-2;
+}
+
+.serviceDescription {
+  @apply text-gray-600 text-sm;
+}
+
+.quickActionsSection {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+}
+
+.quickActionsTitle {
+  @apply text-lg font-semibold text-gray-900 mb-6;
+}
+
+.quickActionsGrid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4;
+}
+
+.quickActionButton {
+  @apply p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#00bc7d] hover:bg-[#00bc7d] hover:text-white transition-all duration-200 text-center;
+}
+
+.quickActionIcon {
+  @apply h-8 w-8 mx-auto mb-2;
+}
+
+.quickActionText {
+  @apply font-medium;
+}
