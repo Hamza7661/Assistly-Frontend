@@ -19,7 +19,7 @@ export default function PackagesPage() {
   const [error, setError] = useState('');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
-  const [isSelectingPackage, setIsSelectingPackage] = useState(false);
+  const [selectingPackageId, setSelectingPackageId] = useState<string | null>(null);
 
   const [customPackage, setCustomPackage] = useState({
     chatbotQueries: 0,
@@ -47,7 +47,7 @@ export default function PackagesPage() {
   const handlePackageSelect = async (pkg: Package) => {
     if (!user) return;
     
-    setIsSelectingPackage(true);
+    setSelectingPackageId(pkg._id);
     try {
       const authService = await useAuthService();
       const response = await authService.updateUserProfile(user._id, {
@@ -59,14 +59,14 @@ export default function PackagesPage() {
         const updatedUser = new User({ ...user, package: pkg });
         updateUser(updatedUser);
         setSelectedPackage(pkg);
-        setIsSelectingPackage(false); // Stop loader immediately after package selection
+        setSelectingPackageId(null); // Stop loader immediately after package selection
         
         // Redirect to dashboard
         router.push('/dashboard');
       }
     } catch (err: any) {
       setError('Failed to select package. Please try again.');
-      setIsSelectingPackage(false);
+      setSelectingPackageId(null);
     }
   };
 
@@ -273,10 +273,10 @@ export default function PackagesPage() {
                   ) : (
                     <button
                       onClick={() => handlePackageSelect(pkg)}
-                      disabled={isSelectingPackage}
+                      disabled={!!selectingPackageId}
                       className="btn-primary w-full"
                     >
-                      {isSelectingPackage ? (
+                      {selectingPackageId === pkg._id ? (
                         <>
                           <Spinner size="sm" color="white" />
                           Loading...
