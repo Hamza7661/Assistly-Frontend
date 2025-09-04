@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthService, useTemplateService } from '@/services';
@@ -9,6 +9,14 @@ import { Mail, Lock, User as UserIcon, Eye, EyeOff, CheckCircle } from 'lucide-r
 import styles from './styles.module.css';
 
 export default function SigninPage() {
+  return (
+    <Suspense fallback={null}>
+      <SigninContent />
+    </Suspense>
+  );
+}
+
+function SigninContent() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
