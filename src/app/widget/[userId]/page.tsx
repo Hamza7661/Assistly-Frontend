@@ -59,12 +59,49 @@ export default function WidgetPage() {
     };
   }, [fullWsUrl]);
 
+  const sendText = (text: string) => {
+    const value = text.trim();
+    if (!value || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: 'user', content: value }));
+    setMessages((prev) => [...prev, { type: 'user', content: value }]);
+  };
+
   const send = () => {
-    const text = input.trim();
-    if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(JSON.stringify({ type: 'user', content: text }));
-    setMessages((prev) => [...prev, { type: 'user', content: text }]);
+    const text = input;
+    sendText(text);
     setInput('');
+  };
+
+  const renderBotContent = (text: string) => {
+    const parts: React.ReactNode[] = [];
+    const regex = /#button#([\s\S]*?)#button#/gi; // case-insensitive, match across lines
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        const chunk = text.slice(lastIndex, match.index).trim();
+        if (chunk) parts.push(<span key={`t-${lastIndex}`}>{chunk}</span>);
+      }
+      const label = (match[1] || '').trim();
+      if (label) {
+        parts.push(
+          <button
+            key={`b-${match.index}`}
+            className="inline-flex items-center rounded-full bg-[#00bc7d] text-white text-xs font-medium px-3 py-1.5 shadow-sm hover:bg-[#00a56f] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#00bc7d] active:translate-y-px transition mr-2 mt-1 whitespace-normal break-words"
+            onClick={() => sendText(label)}
+          >
+            {label}
+          </button>
+        );
+      }
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      const rest = text.slice(lastIndex).trim();
+      if (rest) parts.push(<span key={`t-${lastIndex}`}>{rest}</span>);
+    }
+    if (parts.length === 0) return text;
+    return <div className="flex flex-wrap items-center gap-2">{parts}</div>;
   };
 
   return (
@@ -74,11 +111,13 @@ export default function WidgetPage() {
         {messages.map((m, idx) => (
           <div key={idx} className={m.type === 'user' ? 'text-right' : ''}>
             <div className={`inline-block px-3 py-2 rounded-lg ${m.type === 'user' ? 'bg-[#00bc7d] text-white' : (m.type === 'bot' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-50 text-yellow-800')}`}>
-              {m.type === 'bot' || m.type === 'user' ? m.content : `${m.type.toUpperCase()}: ${m.content}`}
+              {m.type === 'bot'
+                ? renderBotContent(m.content)
+                : (m.type === 'user'
+                  ? m.content
+                  : `${m.type.toUpperCase()}: ${m.content}`)}
             </div>
-            {'step' in m && m.step && (
-              <div className="text-[10px] text-gray-500 mt-1">step: {m.step}</div>
-            )}
+            {/* step is intentionally not displayed */}
           </div>
         ))}
         {!messages.length && (
