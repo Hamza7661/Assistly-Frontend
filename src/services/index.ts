@@ -11,3 +11,4 @@ export const useQuestionnareService = () => import('./questionnareService').then
 export const useTreatmentPlanService = () => import('./treatmentPlanService').then(module => module.treatmentPlanService);
 export const useAvailabilityService = () => import('./availabilityService').then(module => module.availabilityService);
 export const useAppointmentService = () => import('./appointmentService').then(module => module.appointmentService);
+export const useLeadService = () => import('./leadService').then(module => module.leadService);

@@ -11,6 +11,7 @@ import {
   Settings, 
   LogOut, 
   User,
+  FileText,
   ChevronDown
 } from 'lucide-react';
 
@@ -27,12 +28,13 @@ export default function Navigation() {
     { name: 'Questionnare', href: '/questionnare', icon: User },
     { name: 'Availability', href: '/availability', icon: Settings },
     { name: 'Appointments', href: '/appointments', icon: Settings },
+    { name: 'Leads', href: '/leads', icon: FileText },
     { name: 'Packages', href: '/packages', icon: Package },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
   // Hide specific tabs via inline style (display: none)
-  const hiddenTabs = new Set(['Packages', 'Settings']);
+  const hiddenTabs = new Set(['Packages', 'Settings', 'Appointments']);
 
   const handleLogout = () => {
     logout();
