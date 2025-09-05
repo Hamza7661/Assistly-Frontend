@@ -12,6 +12,7 @@ import {
   LogOut, 
   User,
   FileText,
+  Plug,
   ChevronDown
 } from 'lucide-react';
 
@@ -29,6 +30,7 @@ export default function Navigation() {
     { name: 'Availability', href: '/availability', icon: Settings },
     { name: 'Appointments', href: '/appointments', icon: Settings },
     { name: 'Leads', href: '/leads', icon: FileText },
+    { name: 'Integration', href: '/integration', icon: Plug },
     { name: 'Packages', href: '/packages', icon: Package },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
