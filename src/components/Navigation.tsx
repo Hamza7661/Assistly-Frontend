@@ -26,6 +26,7 @@ export default function Navigation() {
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Questionnare', href: '/questionnare', icon: User },
     { name: 'Availability', href: '/availability', icon: Settings },
+    { name: 'Appointments', href: '/appointments', icon: Settings },
     { name: 'Packages', href: '/packages', icon: Package },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];

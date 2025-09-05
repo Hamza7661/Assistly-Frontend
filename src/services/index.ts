@@ -10,3 +10,4 @@ export const useTemplateService = () => import('./templateService').then(module 
 export const useQuestionnareService = () => import('./questionnareService').then(module => module.questionnareService);
 export const useTreatmentPlanService = () => import('./treatmentPlanService').then(module => module.treatmentPlanService);
 export const useAvailabilityService = () => import('./availabilityService').then(module => module.availabilityService);
+export const useAppointmentService = () => import('./appointmentService').then(module => module.appointmentService);
