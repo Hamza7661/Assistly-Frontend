@@ -3,6 +3,13 @@
   @apply min-h-screen bg-gradient-to-br from-white to-gray-50 flex items-center justify-center px-4;
 }
 
+/* iPhone safe-area top spacing for Sign-in only */
+@supports (-webkit-touch-callout: none) {
+  .formContainer {
+    margin-top: -8rem;
+  }
+}
+
 .formContainer {
   @apply max-w-md w-full space-y-8;
 }
