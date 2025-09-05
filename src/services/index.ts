@@ -9,3 +9,4 @@ export { HttpService } from './httpService';
 export const useTemplateService = () => import('./templateService').then(module => module.templateService);
 export const useQuestionnareService = () => import('./questionnareService').then(module => module.questionnareService);
 export const useTreatmentPlanService = () => import('./treatmentPlanService').then(module => module.treatmentPlanService);
+export const useAvailabilityService = () => import('./availabilityService').then(module => module.availabilityService);

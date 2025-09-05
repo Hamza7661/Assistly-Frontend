@@ -1,0 +1,34 @@
+.container {
+  @apply bg-white min-h-screen;
+}
+
+.pageContainer {
+  @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+}
+
+.title {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.subtitle {
+  @apply text-gray-600 mb-6;
+}
+
+.table {
+  @apply bg-white border border-gray-200 rounded-xl shadow-sm;
+}
+
+.dayRow {
+  @apply grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-gray-100 items-center;
+}
+
+.dayLabel { @apply md:col-span-2 font-medium text-gray-800; }
+.slotsColumn { @apply md:col-span-10; }
+
+.slotRow { @apply flex items-center gap-2 mb-2; }
+.timeInput { @apply border border-gray-300 rounded-md px-3 py-2; }
+.toSep { @apply text-gray-500 text-sm; }
+
+.actionsRow { @apply p-4 flex justify-end; }
+
+

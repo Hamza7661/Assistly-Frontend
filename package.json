@@ -11,12 +11,14 @@
   "dependencies": {
     "@headlessui/react": "^2.2.7",
     "@heroicons/react": "^2.2.0",
+    "analogue-time-picker": "^1.0.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.541.0",
     "next": "15.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-phone-number-input": "^3.4.12",
+    "react-toastify": "^11.0.5",
     "recharts": "^3.1.2"
   },
   "devDependencies": {

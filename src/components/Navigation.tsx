@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   Menu, 
@@ -17,6 +17,7 @@ import {
 export default function Navigation() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -24,6 +25,7 @@ export default function Navigation() {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Questionnare', href: '/questionnare', icon: User },
+    { name: 'Availability', href: '/availability', icon: Settings },
     { name: 'Packages', href: '/packages', icon: Package },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
@@ -64,17 +66,21 @@ export default function Navigation() {
               <span className="text-lg font-bold text-white">A</span>
             </div>
             <div className="hidden md:flex space-x-8">
-              {navigation.map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => handleNavigation(item.href)}
-                  className="text-gray-600 hover:text-[#00bc7d] px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
-                  style={hiddenTabs.has(item.name) ? { display: 'none' } : undefined}
-                >
-                  <item.icon className="h-4 w-4 mr-2" />
-                  {item.name}
-                </button>
-              ))}
+              {navigation.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => handleNavigation(item.href)}
+                    className={`${isActive ? 'text-[#00bc7d]' : 'text-gray-600 hover:text-[#00bc7d]'} px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center`}
+                    style={hiddenTabs.has(item.name) ? { display: 'none' } : undefined}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <item.icon className="h-4 w-4 mr-2" />
+                    {item.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -144,17 +150,21 @@ export default function Navigation() {
       {isMobileMenuOpen && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
-            {navigation.map((item) => (
-              <button
-                key={item.name}
-                onClick={() => handleNavigation(item.href)}
-                className="text-gray-600 hover:text-[#00bc7d] hover:bg-gray-50 block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center w-full text-left"
-                style={hiddenTabs.has(item.name) ? { display: 'none' } : undefined}
-              >
-                <item.icon className="h-5 w-5 mr-3" />
-                {item.name}
-              </button>
-            ))}
+            {navigation.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => handleNavigation(item.href)}
+                  className={`${isActive ? 'text-[#00bc7d] bg-gray-50' : 'text-gray-600 hover:text-[#00bc7d] hover:bg-gray-50'} block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center w-full text-left`}
+                  style={hiddenTabs.has(item.name) ? { display: 'none' } : undefined}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <item.icon className="h-5 w-5 mr-3" />
+                  {item.name}
+                </button>
+              );
+            })}
             <div className="border-t border-gray-200 pt-4">
               <button
                 onClick={() => {

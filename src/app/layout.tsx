@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { Toaster } from "@/components";
 
 const poppins = Poppins({ 
   subsets: ["latin"],
@@ -24,6 +25,7 @@ export default function RootLayout({
       <body className={poppins.className}>
         <AuthProvider>
           {children}
+          <Toaster />
         </AuthProvider>
       </body>
     </html>
