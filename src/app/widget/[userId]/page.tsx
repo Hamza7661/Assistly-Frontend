@@ -107,7 +107,7 @@ export default function WidgetPage() {
   return (
     <div className="min-h-[560px] w-[360px] bg-white flex flex-col">
       <div className="p-3 border-b text-sm font-medium">Assistly Chatbot</div>
-      <div className="flex-1 p-3 overflow-auto space-y-2 text-sm">
+      <div className="flex-1 p-3 overflow-auto thin-scrollbar space-y-2 text-sm">
         {messages.map((m, idx) => (
           <div key={idx} className={m.type === 'user' ? 'text-right' : ''}>
             <div className={`inline-block px-3 py-2 rounded-lg ${m.type === 'user' ? 'bg-[#00bc7d] text-white' : (m.type === 'bot' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-50 text-yellow-800')}`}>

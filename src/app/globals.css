@@ -71,6 +71,23 @@ a {
     @apply bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm;
   }
 
+  /* Thin scrollbar utility for scrollable containers */
+  .thin-scrollbar {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--secondary-color, #00bc7d) transparent; /* Firefox */
+  }
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 6px; /* Chrome, Safari, Edge */
+    height: 6px;
+  }
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--secondary-color, #00bc7d);
+    border-radius: 9999px;
+  }
+  .thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   /* Global Input Type Tel Focus */
   input[type="tel"]:focus {
     outline: none;
