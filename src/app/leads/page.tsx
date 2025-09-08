@@ -78,6 +78,9 @@ export default function LeadsPage() {
         title: editItem.title,
         summary: editItem.summary,
         description: editItem.description,
+        leadName: editItem.leadName,
+        leadPhoneNumber: editItem.leadPhoneNumber,
+        leadEmail: editItem.leadEmail,
         leadType: editItem.leadType,
         serviceType: editItem.serviceType,
       };
@@ -213,6 +216,18 @@ export default function LeadsPage() {
                     <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.title}</div>
                   </div>
                   <div className="text-sm">
+                    <div className="text-gray-700 font-medium mb-1">Lead name</div>
+                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadName || '-'}</div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-gray-700 font-medium mb-1">Lead phone</div>
+                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadPhoneNumber || '-'}</div>
+                  </div>
+                  <div className="text-sm md:col-span-2">
+                    <div className="text-gray-700 font-medium mb-1">Lead email</div>
+                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadEmail || '-'}</div>
+                  </div>
+                  <div className="text-sm">
                     <div className="text-gray-700 font-medium mb-1">Lead type</div>
                     <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadType || '-'}</div>
                   </div>
@@ -250,6 +265,9 @@ export default function LeadsPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input className="border border-gray-300 rounded px-3 py-2 md:col-span-2" placeholder="Title" value={editItem.title} onChange={(e) => setEditItem({ ...editItem, title: e.target.value })} />
+                  <input className="border border-gray-300 rounded px-3 py-2" placeholder="Lead name" value={editItem.leadName || ''} onChange={(e) => setEditItem({ ...editItem, leadName: e.target.value })} />
+                  <input className="border border-gray-300 rounded px-3 py-2" placeholder="Lead phone number" value={editItem.leadPhoneNumber || ''} onChange={(e) => setEditItem({ ...editItem, leadPhoneNumber: e.target.value })} />
+                  <input className="border border-gray-300 rounded px-3 py-2 md:col-span-2" placeholder="Lead email" value={editItem.leadEmail || ''} onChange={(e) => setEditItem({ ...editItem, leadEmail: e.target.value })} />
                   <input className="border border-gray-300 rounded px-3 py-2" placeholder="Lead type" value={editItem.leadType || ''} onChange={(e) => setEditItem({ ...editItem, leadType: e.target.value })} />
                   <input className="border border-gray-300 rounded px-3 py-2" placeholder="Service type" value={editItem.serviceType || ''} onChange={(e) => setEditItem({ ...editItem, serviceType: e.target.value })} />
                   <textarea className="w-full border border-gray-300 rounded px-3 py-2 md:col-span-2" rows={3} placeholder="Summary" value={editItem.summary || ''} onChange={(e) => setEditItem({ ...editItem, summary: e.target.value })}></textarea>

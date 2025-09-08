@@ -3,6 +3,9 @@ export interface Lead {
   title: string;
   summary?: string;
   description?: string;
+  leadName?: string;
+  leadPhoneNumber?: string;
+  leadEmail?: string;
   leadType?: string;
   serviceType?: string;
   leadDateTime?: string; // ISO string
