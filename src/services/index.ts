@@ -12,3 +12,5 @@ export const useTreatmentPlanService = () => import('./treatmentPlanService').th
 export const useAvailabilityService = () => import('./availabilityService').then(module => module.availabilityService);
 export const useAppointmentService = () => import('./appointmentService').then(module => module.appointmentService);
 export const useLeadService = () => import('./leadService').then(module => module.leadService);
+export const useIntegrationService = () => import('./integrationService').then(module => module.integrationService);
+export const useWidgetService = () => import('./widgetService').then(module => module.widgetService);

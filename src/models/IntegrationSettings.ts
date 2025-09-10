@@ -1,0 +1,24 @@
+export interface IntegrationSettings {
+  chatbotImage?: string;
+  assistantName?: string;
+  greeting?: string;
+  primaryColor?: string;
+}
+
+export interface IntegrationSettingsResponse {
+  status: 'success' | 'fail';
+  data: {
+    integration: IntegrationSettings & {
+      id: string;
+      owner: string;
+      createdAt: string;
+      updatedAt: string;
+      chatbotImage?: {
+        hasImage: boolean;
+        contentType: string;
+        filename: string;
+        data: string;
+      };
+    };
+  };
+}

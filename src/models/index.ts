@@ -7,3 +7,4 @@ export { CustomPackageResponse } from './CustomPackageResponse';
 export { SignupData } from './SignupData';
 export { SigninData } from './SigninData';
 export { CustomPackageData } from './CustomPackageData';
+export * from './IntegrationSettings';
