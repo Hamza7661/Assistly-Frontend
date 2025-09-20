@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { ChromePicker } from 'react-color';
+import { toast } from 'react-toastify';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +21,7 @@ export default function IntegrationPage() {
     greeting: '',
     primaryColor: '#00bc7d',
     validateEmail: false,
-    validatePhoneNumber: true
+    validatePhoneNumber: false
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,6 +30,8 @@ export default function IntegrationPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [originalSettings, setOriginalSettings] = useState<IntegrationSettings | null>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -49,14 +52,18 @@ export default function IntegrationPage() {
           setImagePreview(imageData);
         }
         
-        setSettings({
+        const loadedSettings = {
           chatbotImage: integration?.chatbotImage?.filename || '',
           assistantName: integration?.assistantName || '',
           greeting: integration?.greeting || '',
           primaryColor: integration?.primaryColor || '#00bc7d',
           validateEmail: integration?.validateEmail || false,
-          validatePhoneNumber: integration?.validatePhoneNumber || true
-        });
+          validatePhoneNumber: integration?.validatePhoneNumber || false
+        };
+        
+        setSettings(loadedSettings);
+        setOriginalSettings(loadedSettings);
+        setHasUnsavedChanges(false);
       } catch (e: any) {
         setError(e?.message || 'Failed to load settings');
       } finally {
@@ -123,7 +130,7 @@ export default function IntegrationPage() {
     setSelectedFile(file);
     
     // Update settings (we'll send the file separately)
-    setSettings({ ...settings, chatbotImage: file.name });
+    updateSettings({ ...settings, chatbotImage: file.name });
   };
 
   const handleDragOver = (event: React.DragEvent) => {
@@ -155,10 +162,30 @@ export default function IntegrationPage() {
     }
     setImagePreview(null);
     setSelectedFile(null);
-    setSettings({ ...settings, chatbotImage: '' });
+    updateSettings({ ...settings, chatbotImage: '' });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  // Check if settings have changed
+  const checkForChanges = (newSettings: IntegrationSettings) => {
+    if (!originalSettings) return false;
+    
+    return (
+      newSettings.assistantName !== originalSettings.assistantName ||
+      newSettings.greeting !== originalSettings.greeting ||
+      newSettings.primaryColor !== originalSettings.primaryColor ||
+      Boolean(newSettings.validateEmail) !== Boolean(originalSettings.validateEmail) ||
+      Boolean(newSettings.validatePhoneNumber) !== Boolean(originalSettings.validatePhoneNumber) ||
+      selectedFile !== null
+    );
+  };
+
+  // Update settings and check for changes
+  const updateSettings = (newSettings: IntegrationSettings) => {
+    setSettings(newSettings);
+    setHasUnsavedChanges(checkForChanges(newSettings));
   };
 
   const handleSaveSettings = async () => {
@@ -168,8 +195,17 @@ export default function IntegrationPage() {
     try {
       const svc = await useIntegrationService();
       await svc.updateSettings(settings, selectedFile || undefined);
+      
+      // Update original settings and clear unsaved changes
+      setOriginalSettings(settings);
+      setHasUnsavedChanges(false);
+      setSelectedFile(null);
+      
+      // Show success toast
+      toast.success('Settings saved successfully!');
     } catch (e: any) {
       setError(e?.message || 'Failed to save settings');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -292,7 +328,7 @@ export default function IntegrationPage() {
                     className="input-field"
                     placeholder="Your assistant name here"
                     value={settings.assistantName || ''}
-                    onChange={(e) => setSettings({ ...settings, assistantName: e.target.value })}
+                    onChange={(e) => updateSettings({ ...settings, assistantName: e.target.value })}
                   />
                 </div>
                 
@@ -309,7 +345,7 @@ export default function IntegrationPage() {
                       type="text"
                       className="input-field flex-1 cursor-pointer"
                       value={settings.primaryColor || ''}
-                      onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                      onChange={(e) => updateSettings({ ...settings, primaryColor: e.target.value })}
                       onClick={() => setShowColorPicker(true)}
                       placeholder="#10B981"
                       readOnly
@@ -319,7 +355,7 @@ export default function IntegrationPage() {
                     <div className="absolute top-full left-0 z-10 mt-2">
                       <ChromePicker
                         color={settings.primaryColor}
-                        onChange={(color: any) => setSettings({ ...settings, primaryColor: color.hex })}
+                        onChange={(color: any) => updateSettings({ ...settings, primaryColor: color.hex })}
                       />
                     </div>
                   )}
@@ -332,7 +368,7 @@ export default function IntegrationPage() {
                     rows={3}
                     placeholder="Your greeting message here"
                     value={settings.greeting || ''}
-                    onChange={(e) => setSettings({ ...settings, greeting: e.target.value })}
+                    onChange={(e) => updateSettings({ ...settings, greeting: e.target.value })}
                   />
                 </div>
 
@@ -350,7 +386,7 @@ export default function IntegrationPage() {
                           type="checkbox"
                           className="sr-only peer"
                           checked={settings.validateEmail || false}
-                          onChange={(e) => setSettings({ ...settings, validateEmail: e.target.checked })}
+                          onChange={(e) => updateSettings({ ...settings, validateEmail: e.target.checked })}
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                       </label>
@@ -366,7 +402,7 @@ export default function IntegrationPage() {
                           type="checkbox"
                           className="sr-only peer"
                           checked={settings.validatePhoneNumber || false}
-                          onChange={(e) => setSettings({ ...settings, validatePhoneNumber: e.target.checked })}
+                          onChange={(e) => updateSettings({ ...settings, validatePhoneNumber: e.target.checked })}
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                       </label>
@@ -376,14 +412,38 @@ export default function IntegrationPage() {
               </div>
             )}
             
-            <div className="mt-6 flex justify-end">
-              <button
-                className="btn-primary"
-                onClick={handleSaveSettings}
-                disabled={saving || loading}
-              >
-                {saving ? 'Saving...' : 'Save Settings'}
-              </button>
+            <div className="mt-6 flex items-center">
+              {hasUnsavedChanges && (
+                <div className="text-sm text-amber-600 flex items-center gap-2 mr-auto">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                  You have unsaved changes
+                </div>
+              )}
+              <div className="flex gap-2 ml-auto">
+                {hasUnsavedChanges && (
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      setSettings(originalSettings!);
+                      setHasUnsavedChanges(false);
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    disabled={saving || loading}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  className="btn-primary"
+                  onClick={handleSaveSettings}
+                  disabled={saving || loading || !hasUnsavedChanges}
+                >
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
