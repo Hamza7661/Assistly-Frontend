@@ -18,12 +18,14 @@ export default function WidgetPage() {
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [settings, setSettings] = useState<IntegrationSettings>({
-    assistantName: 'Assistly Chatbot',
-    greeting: '',
-    primaryColor: '#00bc7d',
-    chatbotImage: ''
-  });
+   const [settings, setSettings] = useState<IntegrationSettings>({
+     assistantName: 'Assistly Chatbot',
+     greeting: '',
+     primaryColor: '#00bc7d',
+     chatbotImage: '',
+     validateEmail: false,
+     validatePhoneNumber: true
+   });
   const [imageData, setImageData] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -44,13 +46,15 @@ export default function WidgetPage() {
         const res = await svc.getIntegrationSettings(userId);
         const integration = res.data?.integration;
         
-        if (integration) {
-          setSettings({
-            assistantName: integration.assistantName || 'Assistly Chatbot',
-            greeting: integration.greeting || '',
-            primaryColor: integration.primaryColor || '#00bc7d',
-            chatbotImage: integration.chatbotImage?.filename || ''
-          });
+         if (integration) {
+           setSettings({
+             assistantName: integration.assistantName || 'Assistly Chatbot',
+             greeting: integration.greeting || '',
+             primaryColor: integration.primaryColor || '#00bc7d',
+             chatbotImage: integration.chatbotImage?.filename || '',
+             validateEmail: integration.validateEmail || false,
+             validatePhoneNumber: integration.validatePhoneNumber || true
+           });
           
           // Set image data if available
           if (integration.chatbotImage?.hasImage && integration.chatbotImage.data) {
@@ -145,7 +149,7 @@ export default function WidgetPage() {
 
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
-    const regex = /#button#([\s\S]*?)#button#/gi; // case-insensitive, match across lines
+    const regex = /<button>([\s\S]*?)<\/button>/gi; // match <button>text</button> pattern
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(text)) !== null) {

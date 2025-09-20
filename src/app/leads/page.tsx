@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X } from 'lucide-react';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +33,12 @@ export default function LeadsPage() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // WebSocket for real-time updates
+  const [wsConnected, setWsConnected] = useState(false);
+  const [newLeadNotification, setNewLeadNotification] = useState<Lead | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  // Load leads data
   useEffect(() => {
     const load = async () => {
       if (!user?._id) return;
@@ -58,6 +64,67 @@ export default function LeadsPage() {
     };
     load();
   }, [user?._id, page, limit, q, leadType, serviceType, sortBy, sortOrder]);
+
+  // Socket.IO connection for real-time lead updates
+  useEffect(() => {
+    if (!user?._id) return;
+
+    // Connect to same port as API
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const baseUrl = apiUrl.replace('/api/v1', '');
+
+    // Import Socket.IO client dynamically
+    import('socket.io-client').then(({ io }) => {
+      const socket = io(baseUrl);
+      wsRef.current = socket;
+
+      socket.on('connect', () => {
+        setWsConnected(true);
+        console.log('Socket.IO connected for leads updates');
+        
+        // Join the user room
+        socket.emit('join', user._id);
+      });
+
+      socket.on('new_lead', (data) => {
+        const newLead = data.lead as Lead;
+        
+        // Add new lead to the beginning of the list
+        setItems(prevItems => [newLead, ...prevItems]);
+        
+        // Show notification
+        setNewLeadNotification(newLead);
+        
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => {
+          setNewLeadNotification(null);
+        }, 5000);
+        
+        // Update total count
+        setTotal(prev => prev !== null ? prev + 1 : 1);
+      });
+
+      socket.on('disconnect', () => {
+        setWsConnected(false);
+        console.log('Socket.IO disconnected for leads updates');
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+        setWsConnected(false);
+      });
+
+    }).catch((error) => {
+      console.error('Failed to load Socket.IO client:', error);
+    });
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.disconnect();
+        wsRef.current = null;
+      }
+    };
+  }, [user?._id]);
 
   const openView = (lead: Lead) => { setViewItem(lead); setIsViewOpen(true); };
   const closeView = () => { setIsViewOpen(false); setViewItem(null); };
@@ -291,6 +358,49 @@ export default function LeadsPage() {
                   <button className="btn-secondary" onClick={closeConfirm}>Cancel</button>
                   <button className="btn-primary" onClick={() => deleteId && remove(deleteId)} disabled={saving}>{saving ? 'Deleting...' : 'Delete'}</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* New Lead Notification */}
+          {newLeadNotification && (
+            <div className="fixed top-4 right-4 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <Bell className="w-5 h-5 text-green-500" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-900">New Lead Captured!</h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    <strong>{newLeadNotification.title}</strong>
+                    {newLeadNotification.leadName && (
+                      <span> from {newLeadNotification.leadName}</span>
+                    )}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => {
+                        openView(newLeadNotification);
+                        setNewLeadNotification(null);
+                      }}
+                      className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                    >
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => setNewLeadNotification(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setNewLeadNotification(null)}
+                  className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}

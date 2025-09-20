@@ -3,6 +3,8 @@ export interface IntegrationSettings {
   assistantName?: string;
   greeting?: string;
   primaryColor?: string;
+  validateEmail?: boolean;
+  validatePhoneNumber?: boolean;
 }
 
 export interface IntegrationSettingsResponse {

@@ -18,7 +18,9 @@ export default function IntegrationPage() {
     chatbotImage: '',
     assistantName: '',
     greeting: '',
-    primaryColor: '#00bc7d'
+    primaryColor: '#00bc7d',
+    validateEmail: false,
+    validatePhoneNumber: true
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,7 +53,9 @@ export default function IntegrationPage() {
           chatbotImage: integration?.chatbotImage?.filename || '',
           assistantName: integration?.assistantName || '',
           greeting: integration?.greeting || '',
-          primaryColor: integration?.primaryColor || '#00bc7d'
+          primaryColor: integration?.primaryColor || '#00bc7d',
+          validateEmail: integration?.validateEmail || false,
+          validatePhoneNumber: integration?.validatePhoneNumber || true
         });
       } catch (e: any) {
         setError(e?.message || 'Failed to load settings');
@@ -81,11 +85,11 @@ export default function IntegrationPage() {
 
   const snippet = useMemo(() => {
     const src = `${appUrl}/widget/${userId}`;
-    return `<iframe src="${src}" width="320" height="600" frameborder="0" style="position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;" allow="clipboard-write; clipboard-read"></iframe>`;
+    return `<iframe src="${src}" width="400" height="600" frameborder="0" style="position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;" allow="clipboard-write; clipboard-read"></iframe>`;
   }, [appUrl, userId]);
   const scriptSnippet = useMemo(() => {
     const src = `${appUrl}/widget/${userId}`;
-    return `<script>(function(){var f=document.createElement('iframe');f.src='${src}';f.width='320';f.height='600';f.frameBorder='0';f.allow='clipboard-write; clipboard-read';f.style.cssText='position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;';document.body.appendChild(f);})();</script>`;
+    return `<script>(function(){var f=document.createElement('iframe');f.src='${src}';f.width='400';f.height='600';f.frameBorder='0';f.allow='clipboard-write; clipboard-read';f.style.cssText='position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;';document.body.appendChild(f);})();</script>`;
   }, [appUrl, userId]);
   
   const [copied, setCopied] = useState(false);
@@ -330,6 +334,44 @@ export default function IntegrationPage() {
                     value={settings.greeting || ''}
                     onChange={(e) => setSettings({ ...settings, greeting: e.target.value })}
                   />
+                </div>
+
+                {/* Validation Settings */}
+                <div className="md:col-span-2">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Validation Settings</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Validate Email</label>
+                        <p className="text-sm text-gray-500">Require valid email format when users provide email addresses</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={settings.validateEmail || false}
+                          onChange={(e) => setSettings({ ...settings, validateEmail: e.target.checked })}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Validate Phone Number</label>
+                        <p className="text-sm text-gray-500">Require valid phone number format when users provide phone numbers</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={settings.validatePhoneNumber || false}
+                          onChange={(e) => setSettings({ ...settings, validatePhoneNumber: e.target.checked })}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

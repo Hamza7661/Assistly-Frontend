@@ -14,6 +14,10 @@ class IntegrationService extends HttpService {
     if (settings.greeting) formData.append('greeting', settings.greeting);
     if (settings.primaryColor) formData.append('primaryColor', settings.primaryColor);
     
+    // Add validation fields
+    if (settings.validateEmail !== undefined) formData.append('validateEmail', settings.validateEmail.toString());
+    if (settings.validatePhoneNumber !== undefined) formData.append('validatePhoneNumber', settings.validatePhoneNumber.toString());
+    
     // Add image file if provided
     if (imageFile) {
       formData.append('chatbotImage', imageFile);
