@@ -343,7 +343,7 @@ export default function IntegrationPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <label className="text-sm font-medium text-gray-700">Validate Email</label>
-                        <p className="text-sm text-gray-500">Require valid email format when users provide email addresses</p>
+                        <p className="text-sm text-gray-500">Require valid email when users provide email addresses</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -359,7 +359,7 @@ export default function IntegrationPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <label className="text-sm font-medium text-gray-700">Validate Phone Number</label>
-                        <p className="text-sm text-gray-500">Require valid phone number format when users provide phone numbers</p>
+                        <p className="text-sm text-gray-500">Require valid phone number when users provide phone numbers</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
