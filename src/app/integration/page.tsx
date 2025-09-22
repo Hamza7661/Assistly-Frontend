@@ -92,11 +92,10 @@ export default function IntegrationPage() {
 
   const snippet = useMemo(() => {
     const src = `${appUrl}/widget/${userId}`;
-    return `<iframe src="${src}" width="400" height="600" frameborder="0" style="position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;" allow="clipboard-write; clipboard-read"></iframe>`;
+    return `<iframe src="${src}" width="400" height="400" frameborder="0" style="position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;" allow="clipboard-write; clipboard-read"></iframe>`;
   }, [appUrl, userId]);
   const scriptSnippet = useMemo(() => {
-    const src = `${appUrl}/widget/${userId}`;
-    return `<script>(function(){var f=document.createElement('iframe');f.src='${src}';f.width='400';f.height='600';f.frameBorder='0';f.allow='clipboard-write; clipboard-read';f.style.cssText='position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;';document.body.appendChild(f);})();</script>`;
+    return `<script src="${appUrl}/widget.js" data-assistly-user-id="${userId}" data-assistly-base-url="${appUrl}"></script>`;
   }, [appUrl, userId]);
   
   const [copied, setCopied] = useState(false);
@@ -236,7 +235,7 @@ export default function IntegrationPage() {
               </pre>
             </div>
             <p className="text-sm text-gray-600 mb-6">
-              This iframe renders a compact chat widget that appears in the bottom-right corner with a clickable chat button and message bubble.
+              This iframe renders a compact chat widget that appears in the bottom-right corner. When closed, it shows only a small chat button. When opened, it expands to show the full chat interface without blocking website content.
             </p>
             
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 relative">
@@ -246,10 +245,26 @@ export default function IntegrationPage() {
               >
                 {copiedScript ? 'Copied' : 'Copy'}
               </button>
-              <div className="text-sm font-medium text-gray-700 mb-2">Attach via script</div>
+              <div className="text-sm font-medium text-gray-700 mb-2">Minimal JavaScript Integration</div>
               <pre className="whitespace-pre-wrap break-all text-sm pr-16">
 {scriptSnippet}
               </pre>
+              <div className="text-xs text-gray-600 mt-3">
+                This minimal script loads our optimized widget code and automatically initializes the chat widget. It handles dynamic resizing, provides better performance, and is easier to maintain.
+              </div>
+              
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm font-medium text-blue-800 mb-2">Alternative: Manual Initialization</div>
+                <div className="text-xs text-blue-700 mb-2">
+                  For more control, you can load the script and initialize manually:
+                </div>
+                <pre className="text-xs text-blue-600 whitespace-pre-wrap break-all">
+{`<script src="${appUrl}/widget.js"></script>
+<script>
+  AssistlyWidget.init('${userId}', '${appUrl}');
+</script>`}
+                </pre>
+              </div>
             </div>
           </div>
 

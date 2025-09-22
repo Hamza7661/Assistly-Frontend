@@ -16,7 +16,7 @@ export default function WidgetPage() {
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<AnyMessage[]>([]);
   const [input, setInput] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
    const [settings, setSettings] = useState<IntegrationSettings>({
      assistantName: 'Assistly Chatbot',
@@ -147,6 +147,16 @@ export default function WidgetPage() {
     setInput('');
   };
 
+  // Function to resize iframe based on widget state
+  const resizeIframe = (height: number) => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'resize-iframe',
+        height: height
+      }, '*');
+    }
+  };
+
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
     const regex = /<button>([\s\S]*?)<\/button>/gi; // match <button>text</button> pattern
@@ -162,7 +172,7 @@ export default function WidgetPage() {
         parts.push(
           <button
             key={`b-${match.index}`}
-            className="block w-full text-left rounded-full text-white text-xs font-medium px-3 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 active:translate-y-px transition mt-1 whitespace-normal break-words"
+            className="block w-full text-left rounded-full text-white text-xs font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 active:translate-y-px transition mt-1 whitespace-normal break-words"
             style={{ 
               backgroundColor: settings.primaryColor || '#00bc7d',
               '--hover-color': (settings.primaryColor || '#00bc7d') + 'dd'
@@ -192,10 +202,10 @@ export default function WidgetPage() {
   if (!isOpen) {
     // Compact widget - inline message and chat button
     return (
-      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3">
-        {/* Chat message bubble */}
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 max-w-xs relative">
-          <div className="text-sm text-gray-800">
+      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 sm:gap-3">
+        {/* Chat message bubble - always visible in iframe */}
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-2 sm:p-3 max-w-xs relative">
+          <div className="text-xs sm:text-sm text-gray-800">
             Click here to chat
           </div>
           {/* Arrow pointing to the button */}
@@ -210,8 +220,10 @@ export default function WidgetPage() {
             setConnected(false);
             setIsTyping(false);
             setIsOpen(true);
+            // Resize iframe to accommodate expanded widget
+            resizeIframe(400);
           }}
-          className="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
+          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
           title={`Chat with ${settings.assistantName}`}
         >
@@ -219,10 +231,10 @@ export default function WidgetPage() {
             <img 
               src={imageData} 
               alt="Chat" 
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover"
             />
           ) : (
-            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
             </svg>
           )}
@@ -247,9 +259,9 @@ export default function WidgetPage() {
           background: transparent;
         }
       `}</style>
-      <div className="fixed bottom-4 right-4 z-50 w-80 h-96 bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col">
+      <div className="fixed bottom-4 right-4 z-50 w-72 sm:w-96 h-80 sm:h-96 bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl border border-gray-200 flex flex-col max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)]">
       {/* Header */}
-      <div className="p-3 border-b text-sm font-medium flex items-center justify-between">
+      <div className="p-3 border-b text-sm sm:text-base font-medium flex items-center justify-between">
         <div className="flex items-center gap-2">
           {imageData && (
             <img 
@@ -267,6 +279,8 @@ export default function WidgetPage() {
             if (wsRef.current) {
               wsRef.current.close();
             }
+            // Resize iframe back to compact size
+            resizeIframe(100);
           }}
           className="text-gray-400 hover:text-gray-600 text-lg"
         >
@@ -275,11 +289,11 @@ export default function WidgetPage() {
       </div>
       
       {/* Messages */}
-      <div className="flex-1 p-3 overflow-auto custom-scrollbar space-y-2 text-sm">
+      <div className="flex-1 p-1 sm:p-2 overflow-auto custom-scrollbar space-y-4 text-sm sm:text-base">
         {messages.map((m, idx) => (
           <div key={idx} className={m.type === 'user' ? 'text-right' : ''}>
             <div 
-              className={`inline-block px-3 py-2 rounded-lg ${
+              className={`inline-block px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg max-w-[95%] break-words ${
                 m.type === 'user' 
                   ? 'text-white' 
                   : (m.type === 'bot' 
@@ -297,22 +311,22 @@ export default function WidgetPage() {
           </div>
         ))}
         {!messages.length && (
-          <div className="text-gray-500 text-sm">Connecting to chat...</div>
+          <div className="text-gray-500 text-xs sm:text-sm">Connecting to chat...</div>
         )}
         {isTyping && (
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
       
       {/* Input */}
-      <div className="p-3 border-t flex gap-2">
+      <div className="p-2 sm:p-3 border-t flex gap-1 sm:gap-2">
         <input
-          className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+          className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
           placeholder={connected ? 'Type your message...' : 'Connecting...'}
           disabled={!connected}
           value={input}
@@ -320,7 +334,7 @@ export default function WidgetPage() {
           onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
         />
         <button 
-          className="text-white text-sm px-4 py-2 rounded font-medium disabled:opacity-50" 
+          className="text-white text-sm sm:text-base px-2 sm:px-4 py-1.5 sm:py-2 rounded font-medium disabled:opacity-50 whitespace-nowrap" 
           style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
           onClick={send} 
           disabled={!connected}
