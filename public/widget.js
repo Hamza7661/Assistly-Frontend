@@ -8,7 +8,7 @@
     width: 400,
     minHeight: 100,
     maxHeight: 400,
-    initialHeight: 400
+    initialHeight: 100
   };
   
   // Create iframe element

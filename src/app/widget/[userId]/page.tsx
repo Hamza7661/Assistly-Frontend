@@ -12,11 +12,19 @@ type AnyMessage = BotMessage | WarnMessage | { type: 'user'; content: string };
 export default function WidgetPage() {
   const params = useParams<{ userId: string }>();
   const userId = params?.userId;
+  
+  // Set transparent background for iframe
+  useEffect(() => {
+    document.body.style.backgroundColor = 'transparent';
+    return () => {
+      document.body.style.backgroundColor = '';
+    };
+  }, []);
   const rawWs = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<AnyMessage[]>([]);
   const [input, setInput] = useState('');
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
    const [settings, setSettings] = useState<IntegrationSettings>({
      assistantName: 'Assistly Chatbot',
