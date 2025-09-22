@@ -252,19 +252,6 @@ export default function IntegrationPage() {
               <div className="text-xs text-gray-600 mt-3">
                 This minimal script loads our optimized widget code and automatically initializes the chat widget. It handles dynamic resizing, provides better performance, and is easier to maintain.
               </div>
-              
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-sm font-medium text-blue-800 mb-2">Alternative: Manual Initialization</div>
-                <div className="text-xs text-blue-700 mb-2">
-                  For more control, you can load the script and initialize manually:
-                </div>
-                <pre className="text-xs text-blue-600 whitespace-pre-wrap break-all">
-{`<script src="${appUrl}/widget.js"></script>
-<script>
-  AssistlyWidget.init('${userId}', '${appUrl}');
-</script>`}
-                </pre>
-              </div>
             </div>
           </div>
 
