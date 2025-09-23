@@ -165,6 +165,7 @@ export default function IntegrationPage() {
       newSettings.primaryColor !== originalSettings.primaryColor ||
       Boolean(newSettings.validateEmail) !== Boolean(originalSettings.validateEmail) ||
       Boolean(newSettings.validatePhoneNumber) !== Boolean(originalSettings.validatePhoneNumber) ||
+      newSettings.chatbotImage !== originalSettings.chatbotImage ||
       selectedFile !== null
     );
   };
