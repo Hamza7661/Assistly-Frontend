@@ -21,6 +21,8 @@ export default function QuestionnarePage() {
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [itemErrors, setItemErrors] = useState<Record<number, { question?: string; answer?: string }>>({});
+  const [originalItems, setOriginalItems] = useState<FaqItem[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [plans, setPlans] = useState<PlanItem[]>([{ title: '', description: '' }]);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -28,6 +30,8 @@ export default function QuestionnarePage() {
   const [errorPlans, setErrorPlans] = useState<string>('');
   const [messagePlans, setMessagePlans] = useState<string>('');
   const [planErrors, setPlanErrors] = useState<Record<number, { title?: string; description?: string }>>({});
+  const [originalPlans, setOriginalPlans] = useState<PlanItem[]>([]);
+  const [hasUnsavedChangesPlans, setHasUnsavedChangesPlans] = useState(false);
 
   const reloadData = async () => {
     if (!user?._id) { setLoading(false); setLoadingPlans(false); return; }
@@ -39,8 +43,12 @@ export default function QuestionnarePage() {
       const onlyPlans = all.filter((f: any) => ((f?.type ?? QuestionnareType.FAQ) === QuestionnareType.TREATMENT_PLAN));
       const mappedFaqs = onlyQuestionnare.map((f: any) => ({ question: f?.question || '', answer: f?.answer || '' }));
       const mappedPlans = onlyPlans.map((p: any) => ({ title: p?.question || '', description: p?.answer || '' }));
-      setItems(mappedFaqs.length > 0 ? mappedFaqs : [{ question: '', answer: '' }]);
-      setPlans(mappedPlans.length > 0 ? mappedPlans : [{ title: '', description: '' }]);
+      const faqItems = mappedFaqs.length > 0 ? mappedFaqs : [{ question: '', answer: '' }];
+      const planItems = mappedPlans.length > 0 ? mappedPlans : [{ title: '', description: '' }];
+      setItems(faqItems);
+      setPlans(planItems);
+      setOriginalItems([...faqItems]);
+      setOriginalPlans([...planItems]);
     } catch (e: any) {
       setItems([{ question: '', answer: '' }]);
       setPlans([{ title: '', description: '' }]);
@@ -55,14 +63,54 @@ export default function QuestionnarePage() {
   }, [user?._id]);
 
   const updateItem = (index: number, key: keyof FaqItem, value: string) => {
-    setItems(prev => prev.map((it, i) => i === index ? { ...it, [key]: value } : it));
+    setItems(prev => {
+      const newItems = prev.map((it, i) => i === index ? { ...it, [key]: value } : it);
+      checkForChanges(newItems);
+      return newItems;
+    });
   };
 
-  const addRow = () => setItems(prev => [...prev, { question: '', answer: '' }]);
-  const removeRow = (index: number) => setItems(prev => prev.filter((_, i) => i !== index));
+  const checkForChanges = (newItems: FaqItem[]) => {
+    const hasChanges = JSON.stringify(newItems) !== JSON.stringify(originalItems);
+    setHasUnsavedChanges(hasChanges);
+  };
 
-  const addPlanRow = () => setPlans(prev => [...prev, { title: '', description: '' }]);
-  const removePlanRow = (index: number) => setPlans(prev => prev.filter((_, i) => i !== index));
+  const checkForChangesPlans = (newPlans: PlanItem[]) => {
+    const hasChanges = JSON.stringify(newPlans) !== JSON.stringify(originalPlans);
+    setHasUnsavedChangesPlans(hasChanges);
+  };
+
+  const addRow = () => {
+    setItems(prev => {
+      const newItems = [...prev, { question: '', answer: '' }];
+      checkForChanges(newItems);
+      return newItems;
+    });
+  };
+  
+  const removeRow = (index: number) => {
+    setItems(prev => {
+      const newItems = prev.filter((_, i) => i !== index);
+      checkForChanges(newItems);
+      return newItems;
+    });
+  };
+
+  const addPlanRow = () => {
+    setPlans(prev => {
+      const newPlans = [...prev, { title: '', description: '' }];
+      checkForChangesPlans(newPlans);
+      return newPlans;
+    });
+  };
+  
+  const removePlanRow = (index: number) => {
+    setPlans(prev => {
+      const newPlans = prev.filter((_, i) => i !== index);
+      checkForChangesPlans(newPlans);
+      return newPlans;
+    });
+  };
 
   const onSave = async () => {
     if (!user?._id) return;
@@ -94,6 +142,7 @@ export default function QuestionnarePage() {
       const res = await faqSvc.upsert(QuestionnareType.FAQ, cleaned);
       setMessage('Saved successfully');
       setItemErrors({});
+      setHasUnsavedChanges(false);
       await reloadData();
       // Saved successfully; keep current rows as-is
     } catch (e: any) {
@@ -133,6 +182,7 @@ export default function QuestionnarePage() {
       await faqSvc.upsert(QuestionnareType.TREATMENT_PLAN, cleaned);
       setMessagePlans('Saved successfully');
       setPlanErrors({});
+      setHasUnsavedChangesPlans(false);
       await reloadData();
       // Saved successfully; keep current rows as-is
     } catch (e: any) {
@@ -190,13 +240,37 @@ export default function QuestionnarePage() {
                     )}
                   </div>
                   <div className={styles.colActions}>
-                    <button onClick={() => removeRow(idx)} className="btn-secondary">Remove</button>
+                    <button onClick={() => removeRow(idx)} className="btn-secondary remove-btn">Remove</button>
                   </div>
                 </div>
               ))}
               <div className={styles.actionsRow}>
-                <button onClick={addRow} className="btn-secondary">Add Row</button>
-                <button onClick={onSave} className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                <div className="flex items-center w-full">
+                  <button onClick={addRow} className="btn-secondary">Add Row</button>
+                  <div className="flex items-center ml-auto">
+                    {hasUnsavedChanges && (
+                      <div className="text-sm text-amber-600 flex items-center gap-2">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                        You have unsaved changes
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto">
+                    {hasUnsavedChanges && (
+                      <button 
+                        onClick={() => {
+                          setItems([...originalItems]);
+                          setHasUnsavedChanges(false);
+                        }}
+                        className="btn-secondary"
+                        disabled={saving}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button onClick={onSave} className="btn-primary" disabled={saving || !hasUnsavedChanges}>{saving ? 'Saving...' : 'Save'}</button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -223,7 +297,13 @@ export default function QuestionnarePage() {
                   <div className={styles.colQ}>
                     <textarea
                       value={it.title}
-                      onChange={(e) => setPlans(prev => prev.map((p, i) => i === idx ? { ...p, title: e.target.value } : p))}
+                      onChange={(e) => {
+                        setPlans(prev => {
+                          const newPlans = prev.map((p, i) => i === idx ? { ...p, title: e.target.value } : p);
+                          checkForChangesPlans(newPlans);
+                          return newPlans;
+                        });
+                      }}
                       className={`${styles.textarea} ${planErrors[idx]?.title ? styles.textareaError : ''}`}
                       placeholder="Enter a treatment plan title"
                       rows={5}
@@ -235,7 +315,13 @@ export default function QuestionnarePage() {
                   <div className={styles.colA}>
                     <textarea
                       value={it.description}
-                      onChange={(e) => setPlans(prev => prev.map((p, i) => i === idx ? { ...p, description: e.target.value } : p))}
+                      onChange={(e) => {
+                        setPlans(prev => {
+                          const newPlans = prev.map((p, i) => i === idx ? { ...p, description: e.target.value } : p);
+                          checkForChangesPlans(newPlans);
+                          return newPlans;
+                        });
+                      }}
                       className={`${styles.textarea} ${planErrors[idx]?.description ? styles.textareaError : ''}`}
                       placeholder="Describe the treatment plan"
                       rows={5}
@@ -250,8 +336,32 @@ export default function QuestionnarePage() {
                 </div>
               ))}
               <div className={styles.actionsRow}>
-                <button onClick={addPlanRow} className="btn-secondary">Add Row</button>
-                <button onClick={onSavePlans} className="btn-primary" disabled={savingPlans}>{savingPlans ? 'Saving...' : 'Save'}</button>
+                <div className="flex items-center w-full">
+                  <button onClick={addPlanRow} className="btn-secondary">Add Row</button>
+                  <div className="flex items-center ml-auto">
+                    {hasUnsavedChangesPlans && (
+                      <div className="text-sm text-amber-600 flex items-center gap-2">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                        You have unsaved changes
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto">
+                    {hasUnsavedChangesPlans && (
+                      <button 
+                        onClick={() => {
+                          setPlans([...originalPlans]);
+                          setHasUnsavedChangesPlans(false);
+                        }}
+                        className="btn-secondary"
+                        disabled={savingPlans}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button onClick={onSavePlans} className="btn-primary" disabled={savingPlans || !hasUnsavedChangesPlans}>{savingPlans ? 'Saving...' : 'Save'}</button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

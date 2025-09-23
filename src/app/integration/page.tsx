@@ -90,22 +90,10 @@ export default function IntegrationPage() {
     };
   }, [showColorPicker]);
 
-  const snippet = useMemo(() => {
-    const src = `${appUrl}/widget/${userId}`;
-    return `<iframe src="${src}" width="400" height="400" frameborder="0" style="position:fixed;bottom:0;right:0;border:none;z-index:9999;background:transparent;" allow="clipboard-write; clipboard-read"></iframe>`;
-  }, [appUrl, userId]);
   const scriptSnippet = useMemo(() => {
     return `<script src="${appUrl}/widget.js" data-assistly-user-id="${userId}" data-assistly-base-url="${appUrl}"></script>`;
   }, [appUrl, userId]);
   
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(snippet);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {}
-  };
   const [copiedScript, setCopiedScript] = useState(false);
   const copyScript = async () => {
     try {
@@ -221,23 +209,8 @@ export default function IntegrationPage() {
           {/* Integration Code Section */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-8">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Integration Code</h2>
-            <p className="text-gray-600 mb-6">Copy and paste this code snippet into your website to embed the chatbot.</p>
+            <p className="text-gray-600 mb-6">Copy and paste this JavaScript snippet into your website to embed the chatbot.</p>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 relative mb-6">
-              <button
-                className="absolute top-2 right-2 text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50"
-                onClick={copy}
-              >
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-              <pre className="whitespace-pre-wrap break-all text-sm pr-16">
-{snippet}
-              </pre>
-            </div>
-            <p className="text-sm text-gray-600 mb-6">
-              This iframe renders a compact chat widget that appears in the bottom-right corner. When closed, it shows only a small chat button. When opened, it expands to show the full chat interface without blocking website content.
-            </p>
-            
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 relative">
               <button
                 className="absolute top-2 right-2 text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50"
@@ -245,13 +218,9 @@ export default function IntegrationPage() {
               >
                 {copiedScript ? 'Copied' : 'Copy'}
               </button>
-              <div className="text-sm font-medium text-gray-700 mb-2">Minimal JavaScript Integration</div>
               <pre className="whitespace-pre-wrap break-all text-sm pr-16">
 {scriptSnippet}
               </pre>
-              <div className="text-xs text-gray-600 mt-3">
-                This minimal script loads our optimized widget code and automatically initializes the chat widget. It handles dynamic resizing, provides better performance, and is easier to maintain.
-              </div>
             </div>
           </div>
 

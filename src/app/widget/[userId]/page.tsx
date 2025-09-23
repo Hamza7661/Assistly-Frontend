@@ -26,6 +26,31 @@ export default function WidgetPage() {
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [chatEnded, setChatEnded] = useState(false);
+  const widgetRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside to close widget
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Only respond to left mouse button clicks (button 0)
+      if (event.button === 0 && isOpen && widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        sendWidgetState(false);
+        if (wsRef.current) {
+          wsRef.current.close();
+        }
+        resizeIframe(100);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
    const [settings, setSettings] = useState<IntegrationSettings>({
      assistantName: 'Assistly Chatbot',
      greeting: '',
@@ -113,6 +138,7 @@ export default function WidgetPage() {
     };
     ws.onclose = () => {
       setConnected(false);
+      setChatEnded(true);
     };
     ws.onerror = () => {
       setMessages((prev) => [...prev, { type: 'error', content: 'WebSocket error' }]);
@@ -165,6 +191,16 @@ export default function WidgetPage() {
     }
   };
 
+  // Send widget state to parent
+  const sendWidgetState = (isOpen: boolean) => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'widget-state',
+        isOpen: isOpen
+      }, '*');
+    }
+  };
+
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
     const regex = /<button>([\s\S]*?)<\/button>/gi; // match <button>text</button> pattern
@@ -180,7 +216,7 @@ export default function WidgetPage() {
         parts.push(
           <button
             key={`b-${match.index}`}
-            className="block w-full text-left rounded-full text-white text-xs font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 active:translate-y-px transition mt-1 whitespace-normal break-words"
+            className="block w-full text-left rounded-full text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 active:translate-y-px transition mt-1 whitespace-normal break-words"
             style={{ 
               backgroundColor: settings.primaryColor || '#00bc7d',
               '--hover-color': (settings.primaryColor || '#00bc7d') + 'dd'
@@ -212,8 +248,8 @@ export default function WidgetPage() {
     return (
       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 sm:gap-3">
         {/* Chat message bubble - always visible in iframe */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-2 sm:p-3 max-w-xs relative">
-          <div className="text-xs sm:text-sm text-gray-800">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-3 sm:p-4 max-w-sm relative">
+          <div className="text-base sm:text-lg text-gray-800 font-semibold">
             Click here to chat
           </div>
           {/* Arrow pointing to the button */}
@@ -228,10 +264,11 @@ export default function WidgetPage() {
             setConnected(false);
             setIsTyping(false);
             setIsOpen(true);
+            sendWidgetState(true);
             // Resize iframe to accommodate expanded widget
-            resizeIframe(400);
+            resizeIframe(600);
           }}
-          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
+          className="w-16 h-16 sm:w-18 sm:h-18 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
           title={`Chat with ${settings.assistantName}`}
         >
@@ -239,10 +276,10 @@ export default function WidgetPage() {
             <img 
               src={imageData} 
               alt="Chat" 
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover"
             />
           ) : (
-            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
             </svg>
           )}
@@ -267,7 +304,7 @@ export default function WidgetPage() {
           background: transparent;
         }
       `}</style>
-      <div className="fixed bottom-4 right-4 z-50 w-72 sm:w-96 h-80 sm:h-96 bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl border border-gray-200 flex flex-col max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)]">
+      <div ref={widgetRef} className="fixed z-50 w-full h-full bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl border border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-3 border-b text-sm sm:text-base font-medium flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -283,6 +320,7 @@ export default function WidgetPage() {
         <button
           onClick={() => {
             setIsOpen(false);
+            sendWidgetState(false);
             // Close WebSocket connection when closing widget
             if (wsRef.current) {
               wsRef.current.close();
@@ -297,16 +335,42 @@ export default function WidgetPage() {
       </div>
       
       {/* Messages */}
-      <div className="flex-1 p-1 sm:p-2 overflow-auto custom-scrollbar space-y-4 text-sm sm:text-base">
+      <div className="flex-1 p-3 sm:p-4 overflow-auto custom-scrollbar space-y-4 text-sm sm:text-base">
         {messages.map((m, idx) => (
-          <div key={idx} className={m.type === 'user' ? 'text-right' : ''}>
+          <div key={idx} className={`flex items-start gap-3 ${m.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+            {/* Avatar */}
+            <div className={`flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden ${m.type === 'user' ? 'w-9 h-9' : 'w-8 h-8'}`}>
+              {m.type === 'user' ? (
+                <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}>
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                </div>
+              ) : (
+                imageData ? (
+                  <img 
+                    src={imageData} 
+                    alt="Chatbot" 
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                  </div>
+                )
+              )}
+            </div>
+            
+            {/* Message bubble */}
             <div 
-              className={`inline-block px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg max-w-[95%] break-words ${
+              className={`inline-block px-3 sm:px-4 py-2 sm:py-3 max-w-[85%] break-words relative ${
                 m.type === 'user' 
-                  ? 'text-white' 
+                  ? 'text-white rounded-lg' 
                   : (m.type === 'bot' 
-                    ? 'bg-gray-100 text-gray-800' 
-                    : 'bg-yellow-50 text-yellow-800')
+                    ? 'bg-gray-100 text-gray-800 rounded-lg' 
+                    : 'bg-yellow-50 text-yellow-800 rounded-lg')
               }`}
               style={m.type === 'user' ? { backgroundColor: settings.primaryColor || '#00bc7d' } : {}}
             >
@@ -315,11 +379,32 @@ export default function WidgetPage() {
                 : (m.type === 'user'
                   ? m.content
                   : `${m.type.toUpperCase()}: ${m.content}`)}
+              
+              {/* Speech bubble tail */}
+              {m.type === 'user' ? (
+                <div 
+                  className="absolute -right-2 top-2 w-0 h-0"
+                  style={{ 
+                    borderLeft: '12px solid ' + (settings.primaryColor || '#00bc7d'),
+                    borderTop: '12px solid transparent',
+                    borderBottom: '12px solid transparent'
+                  }}
+                ></div>
+              ) : (
+                <div 
+                  className="absolute -left-2 top-2 w-0 h-0"
+                  style={{ 
+                    borderRight: '12px solid ' + (m.type === 'bot' ? '#f3f4f6' : '#fef3c7'),
+                    borderTop: '12px solid transparent',
+                    borderBottom: '12px solid transparent'
+                  }}
+                ></div>
+              )}
             </div>
           </div>
         ))}
         {!messages.length && (
-          <div className="text-gray-500 text-xs sm:text-sm">Connecting to chat...</div>
+          <div className="text-gray-500 text-sm sm:text-base font-medium">Connecting to chat...</div>
         )}
         {isTyping && (
           <div className="flex items-center gap-1">
@@ -335,7 +420,7 @@ export default function WidgetPage() {
       <div className="p-2 sm:p-3 border-t flex gap-1 sm:gap-2">
         <input
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
-          placeholder={connected ? 'Type your message...' : 'Connecting...'}
+          placeholder={connected ? 'Type your message...' : (chatEnded ? 'Chat ended' : 'Connecting...')}
           disabled={!connected}
           value={input}
           onChange={(e) => setInput(e.target.value)}

@@ -36,7 +36,7 @@ export default function Navigation() {
   ];
 
   // Hide specific tabs via inline style (display: none)
-  const hiddenTabs = new Set(['Packages', 'Settings', 'Appointments']);
+  const hiddenTabs = new Set(['Packages', 'Settings', 'Appointments', 'Availability']);
 
   const handleLogout = () => {
     logout();
@@ -70,7 +70,7 @@ export default function Navigation() {
             <div className="h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center mr-4">
               <span className="text-lg font-bold text-white">A</span>
             </div>
-            <div className="hidden md:flex space-x-8">
+            <div className="hidden lg:flex space-x-8">
               {navigation.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                 return (
@@ -135,7 +135,7 @@ export default function Navigation() {
             </div>
 
             {/* Mobile menu button */}
-            <div className="md:hidden ml-4">
+            <div className="lg:hidden ml-4">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#00bc7d]"
@@ -153,7 +153,7 @@ export default function Navigation() {
 
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
             {navigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
