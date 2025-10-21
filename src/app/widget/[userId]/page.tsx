@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useWidgetService } from '@/services';
 import type { IntegrationSettings } from '@/models';
+import { getCountryCode } from '@/utils/countryDetection';
 
 type BotMessage = { type: 'bot'; content: string; step?: string };
 type WarnMessage = { type: 'warn' | 'error'; content: string };
@@ -11,7 +12,9 @@ type AnyMessage = BotMessage | WarnMessage | { type: 'user'; content: string };
 
 export default function WidgetPage() {
   const params = useParams<{ userId: string }>();
+  const searchParams = useSearchParams();
   const userId = params?.userId;
+  const countryFromUrl = searchParams.get('country');
   
   // Set transparent background for iframe
   useEffect(() => {
@@ -51,15 +54,16 @@ export default function WidgetPage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen]);
-   const [settings, setSettings] = useState<IntegrationSettings>({
-     assistantName: 'Assistly Chatbot',
-     greeting: '',
-     primaryColor: '#00bc7d',
-     chatbotImage: '',
-     validateEmail: false,
-     validatePhoneNumber: true
-   });
+  const [settings, setSettings] = useState<IntegrationSettings>({
+    assistantName: 'Assistly Chatbot',
+    greeting: '',
+    primaryColor: '#00bc7d',
+    chatbotImage: '',
+    validateEmail: false,
+    validatePhoneNumber: true
+  });
   const [imageData, setImageData] = useState<string | null>(null);
+  const [countryCode, setCountryCode] = useState<string>('US');
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -67,10 +71,11 @@ export default function WidgetPage() {
     const base = rawWs.endsWith('/ws') ? rawWs : (rawWs.endsWith('/') ? `${rawWs}ws` : `${rawWs}/ws`);
     const url = new URL(base);
     url.searchParams.set('user_id', userId || 'PUBLIC_USER_ID');
+    url.searchParams.set('country', countryCode);
     return url.toString();
-  }, [rawWs, userId]);
+  }, [rawWs, userId, countryCode]);
 
-  // Load integration settings
+  // Load integration settings and detect country
   useEffect(() => {
     const loadSettings = async () => {
       if (!userId) return;
@@ -99,9 +104,30 @@ export default function WidgetPage() {
         console.error('Failed to load integration settings:', e);
       }
     };
+
+    const detectCountry = async () => {
+      try {
+        // If country is provided in URL, use it first
+        if (countryFromUrl) {
+          setCountryCode(countryFromUrl.toUpperCase());
+          console.log('Country from URL:', countryFromUrl);
+          return;
+        }
+        
+        const countryResult = await getCountryCode();
+        setCountryCode(countryResult.countryCode);
+        console.log('Country detected:', countryResult);
+      } catch (e) {
+        console.error('Failed to detect country:', e);
+        // Fallback to default country from env
+        const defaultCountry = process.env.NEXT_PUBLIC_DEFAULT_COUNTRY || 'US';
+        setCountryCode(defaultCountry);
+      }
+    };
     
     loadSettings();
-  }, [userId]);
+    detectCountry();
+  }, [userId, countryFromUrl]);
 
   useEffect(() => {
     // Only connect when widget is opened
@@ -170,7 +196,11 @@ export default function WidgetPage() {
   const sendText = (text: string) => {
     const value = text.trim();
     if (!value || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(JSON.stringify({ type: 'user', content: value }));
+    wsRef.current.send(JSON.stringify({ 
+      type: 'user', 
+      content: value,
+      country: countryCode 
+    }));
     setMessages((prev) => [...prev, { type: 'user', content: value }]);
     setIsTyping(true);
   };

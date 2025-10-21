@@ -9,7 +9,8 @@
     minHeight: 100,
     maxHeight: 600,
     initialHeight: 100,
-    openHeight: 500
+    openHeight: 500,
+    countryCode: 'US' // Default country code
   };
 
   // Widget state tracking
@@ -20,7 +21,11 @@
   // Create iframe element
   function createIframe() {
     var iframe = document.createElement('iframe');
-    iframe.src = config.baseUrl + '/widget/' + config.userId;
+    var url = config.baseUrl + '/widget/' + config.userId;
+    if (config.countryCode) {
+      url += '?country=' + encodeURIComponent(config.countryCode);
+    }
+    iframe.src = url;
     iframe.frameBorder = '0';
     iframe.allow = 'clipboard-write; clipboard-read';
     
@@ -99,6 +104,58 @@
     }
   }
   
+  // Detect country code using multiple methods
+  function detectCountryCode() {
+    // Method 1: Try timezone-based detection
+    try {
+      var timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var timezoneToCountry = {
+        'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US',
+        'America/Toronto': 'CA', 'America/Vancouver': 'CA',
+        'Europe/London': 'GB', 'Europe/Paris': 'FR', 'Europe/Berlin': 'DE', 'Europe/Rome': 'IT',
+        'Europe/Madrid': 'ES', 'Europe/Amsterdam': 'NL', 'Europe/Stockholm': 'SE', 'Europe/Oslo': 'NO',
+        'Europe/Copenhagen': 'DK', 'Europe/Helsinki': 'FI', 'Europe/Warsaw': 'PL', 'Europe/Prague': 'CZ',
+        'Europe/Budapest': 'HU', 'Europe/Vienna': 'AT', 'Europe/Zurich': 'CH', 'Europe/Brussels': 'BE',
+        'Europe/Dublin': 'IE', 'Europe/Lisbon': 'PT', 'Europe/Athens': 'GR', 'Europe/Istanbul': 'TR',
+        'Europe/Moscow': 'RU', 'Asia/Tokyo': 'JP', 'Asia/Shanghai': 'CN', 'Asia/Hong_Kong': 'HK',
+        'Asia/Singapore': 'SG', 'Asia/Seoul': 'KR', 'Asia/Taipei': 'TW', 'Asia/Bangkok': 'TH',
+        'Asia/Jakarta': 'ID', 'Asia/Manila': 'PH', 'Asia/Kuala_Lumpur': 'MY', 'Asia/Ho_Chi_Minh': 'VN',
+        'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA', 'Asia/Tehran': 'IR', 'Asia/Karachi': 'PK',
+        'Asia/Kolkata': 'IN', 'Asia/Dhaka': 'BD', 'Asia/Colombo': 'LK', 'Asia/Kathmandu': 'NP',
+        'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Perth': 'AU',
+        'Australia/Adelaide': 'AU', 'Australia/Brisbane': 'AU', 'Pacific/Auckland': 'NZ',
+        'Africa/Cairo': 'EG', 'Africa/Johannesburg': 'ZA', 'Africa/Lagos': 'NG', 'Africa/Nairobi': 'KE',
+        'America/Sao_Paulo': 'BR', 'America/Argentina/Buenos_Aires': 'AR', 'America/Mexico_City': 'MX',
+        'America/Lima': 'PE', 'America/Santiago': 'CL', 'America/Bogota': 'CO', 'America/Caracas': 'VE'
+      };
+      
+      if (timezoneToCountry[timezone]) {
+        return timezoneToCountry[timezone];
+      }
+    } catch (e) {
+      console.warn('Timezone detection failed:', e);
+    }
+    
+    // Method 2: Try locale-based detection
+    try {
+      var locale = navigator.language || navigator.userLanguage;
+      if (locale) {
+        var parts = locale.split('-');
+        if (parts.length >= 2) {
+          var countryCode = parts[parts.length - 1].toUpperCase();
+          if (countryCode.length === 2 && /^[A-Z]{2}$/.test(countryCode)) {
+            return countryCode;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Locale detection failed:', e);
+    }
+    
+    // Method 3: Fallback to default
+    return 'US';
+  }
+
   // Initialize widget
   function init(userId, baseUrl) {
     if (!userId) {
@@ -110,6 +167,10 @@
     if (baseUrl) {
       config.baseUrl = baseUrl;
     }
+    
+    // Detect country code
+    config.countryCode = detectCountryCode();
+    console.log('Detected country code:', config.countryCode);
     
     // Create and append iframe
     iframe = createIframe();
@@ -124,7 +185,7 @@
     // Apply initial box shadow
     applyBoxShadow(iframe);
     
-    console.log('Assistly Widget initialized for user:', userId);
+    console.log('Assistly Widget initialized for user:', userId, 'country:', config.countryCode);
   }
   
   // Cleanup function
