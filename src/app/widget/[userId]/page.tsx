@@ -233,16 +233,27 @@ export default function WidgetPage() {
 
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
-    const regex = /<button>([\s\S]*?)<\/button>/gi; // match <button>text</button> pattern
+    // Updated regex to handle both formats:
+    // 1. <button>text</button> (simple format)
+    // 2. <button value="something">text</button> (with value attribute)
+    const regex = /<button(?:\s+value=["']([^"']*)["'])?>([\s\S]*?)<\/button>/gi;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
+    
     while ((match = regex.exec(text)) !== null) {
       if (match.index > lastIndex) {
         const chunk = text.slice(lastIndex, match.index).trim();
         if (chunk) parts.push(<span key={`t-${lastIndex}`}>{chunk}</span>);
       }
-      const label = (match[1] || '').trim();
-      if (label) {
+      
+      // Extract button text and value
+      const buttonValue = match[1] || ''; // value attribute
+      const buttonText = (match[2] || '').trim(); // text content
+      
+      if (buttonText) {
+        // Use button value if available, otherwise use button text
+        const clickValue = buttonValue || buttonText;
+        
         parts.push(
           <button
             key={`b-${match.index}`}
@@ -257,18 +268,20 @@ export default function WidgetPage() {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = settings.primaryColor || '#00bc7d';
             }}
-            onClick={() => sendText(label)}
+            onClick={() => sendText(clickValue)}
           >
-            {label}
+            {buttonText}
           </button>
         );
       }
       lastIndex = match.index + match[0].length;
     }
+    
     if (lastIndex < text.length) {
       const rest = text.slice(lastIndex).trim();
       if (rest) parts.push(<span key={`t-${lastIndex}`}>{rest}</span>);
     }
+    
     if (parts.length === 0) return text;
     return <div className="flex flex-wrap items-center gap-2">{parts}</div>;
   };
