@@ -81,7 +81,7 @@ function SigninContent() {
       const rawTemplate = await templateService.loadTemplate('emailVerification');
       const htmlTemplate = templateService.processTemplate(rawTemplate, {
         USER_EMAIL: email,
-        BASE_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        BASE_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000'
       });
       const response = await authService.sendVerificationEmail(email, htmlTemplate);
       

@@ -14,3 +14,4 @@ export const useAppointmentService = () => import('./appointmentService').then(m
 export const useLeadService = () => import('./leadService').then(module => module.leadService);
 export const useIntegrationService = () => import('./integrationService').then(module => module.integrationService);
 export const useWidgetService = () => import('./widgetService').then(module => module.widgetService);
+export const useChatbotWorkflowService = () => import('./chatbotWorkflowService').then(module => module.chatbotWorkflowService);

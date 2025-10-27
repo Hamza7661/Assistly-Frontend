@@ -11,7 +11,7 @@ import type { IntegrationSettings } from '@/models';
 
 export default function IntegrationPage() {
   const { user } = useAuth();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000';
   const userId = user?._id || 'PUBLIC_USER_ID';
   
   // Settings state

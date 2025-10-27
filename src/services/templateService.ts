@@ -36,10 +36,7 @@ class TemplateService {
   }
 
   async getEmailVerificationTemplate(userEmail: string, verificationToken: string): Promise<string> {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (!baseUrl) {
-      throw new Error('NEXT_PUBLIC_APP_URL environment variable is not set');
-    }
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000';
     
     const template = await this.loadTemplate('emailVerification');
     return this.processTemplate(template, {

@@ -1,6 +1,6 @@
 import { handleUnauthorized, isAuthError } from '@/utils/authUtils';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
 export class HttpService {
   protected async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

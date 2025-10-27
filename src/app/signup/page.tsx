@@ -103,7 +103,7 @@ export default function SignupPage() {
             const rawTemplate = await templateService.loadTemplate('emailVerification');
             const htmlTemplate = templateService.processTemplate(rawTemplate, {
               USER_EMAIL: formData.email,
-              BASE_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+              BASE_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000'
             });
             
             const verificationResponse = await authService.sendVerificationEmail(formData.email, htmlTemplate);

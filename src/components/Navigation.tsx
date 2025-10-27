@@ -27,6 +27,7 @@ export default function Navigation() {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Questionnare', href: '/questionnare', icon: User },
+    { name: 'Chatbot Workflows', href: '/chatbot-workflow', icon: FileText },
     { name: 'Availability', href: '/availability', icon: Settings },
     { name: 'Appointments', href: '/appointments', icon: Settings },
     { name: 'Leads', href: '/leads', icon: FileText },
