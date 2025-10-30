@@ -27,6 +27,8 @@ export default function ChatbotWorkflowPage() {
     isActive: true,
     order: 0
   });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [workflowIdToDelete, setWorkflowIdToDelete] = useState<string | null>(null);
 
   const loadWorkflows = async () => {
     if (!user?._id) return;
@@ -117,16 +119,18 @@ export default function ChatbotWorkflowPage() {
     setEditingWorkflow(workflow._id || null);
   };
 
-  const handleDeleteWorkflow = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this workflow?')) return;
-    
+  const handleDeleteWorkflow = async () => {
+    if (!workflowIdToDelete) return;
     try {
       const service = await useChatbotWorkflowService();
-      await service.delete(id);
+      await service.delete(workflowIdToDelete);
       toast.success('Workflow deleted successfully');
       await loadWorkflows();
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete workflow');
+    } finally {
+      setWorkflowIdToDelete(null);
+      setShowDeleteModal(false);
     }
   };
 
@@ -249,7 +253,14 @@ export default function ChatbotWorkflowPage() {
                       </label>
                       <select
                         value={newWorkflow.questionType || 'single_choice'}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, questionType: e.target.value as QuestionType })}
+                        onChange={(e) => {
+                          const val = e.target.value as QuestionType;
+                          setNewWorkflow(prev => ({
+                            ...prev,
+                            questionType: val,
+                            options: (val === 'single_choice' || val === 'multiple_choice') ? (prev.options ?? []) : []
+                          }));
+                        }}
                         className="input-field"
                       >
                         <option value="single_choice">Single Choice (Buttons)</option>
@@ -415,7 +426,7 @@ export default function ChatbotWorkflowPage() {
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => workflow._id && handleDeleteWorkflow(workflow._id)}
+                        onClick={() => { setWorkflowIdToDelete(workflow._id ?? null); setShowDeleteModal(true); }}
                         className="btn-secondary text-red-600 hover:text-red-700"
                         disabled={editingWorkflow !== null}
                       >
@@ -435,38 +446,40 @@ export default function ChatbotWorkflowPage() {
                             <span className="font-medium">Order:</span> {workflow.order || 0}
                           </p>
                         </div>
-                        {workflow.options && workflow.options.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-gray-700 mb-2">Answer Options:</p>
-                            <div className="space-y-2">
-                              {workflow.options.map((option, idx) => {
-                                const linkedWorkflow = getLinkedWorkflow(option.nextQuestionId);
-                                return (
-                                  <div key={idx} className="flex items-start gap-2 p-2 bg-gray-50 rounded border">
-                                    <span className="text-sm font-medium text-gray-700">• {option.text}</span>
-                                    <div className="flex gap-2 ml-auto">
-                                      {option.isTerminal && (
-                                        <span className="px-2 py-0.5 text-xs font-medium text-orange-700 bg-orange-100 rounded">
-                                          Terminal
-                                        </span>
-                                      )}
-                                      {linkedWorkflow && (
-                                        <span className="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded flex items-center gap-1">
-                                          <span>→</span> {linkedWorkflow.title}
-                                        </span>
-                                      )}
-                                      {!option.isTerminal && !linkedWorkflow && (
-                                        <span className="px-2 py-0.5 text-xs text-gray-500 bg-gray-100 rounded">
-                                          No next question
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                        {((workflow.options ?? []).some(option => getLinkedWorkflow(option.nextQuestionId))) && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="inline-flex items-center px-3 py-1 text-base font-semibold rounded bg-blue-600 text-white">
+                              {/* You can swap this out for any suitable icon if lucide-react has one */}
+                              <svg className="mr-1" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="7"/><polyline points="12 7 9 10 7 8"></polyline></svg>
+                              Linked Questions
+                            </span>
                           </div>
                         )}
+                        {(workflow.options ?? []).map((option, idx) => {
+                          const linkedWorkflow = getLinkedWorkflow(option.nextQuestionId);
+                          return (
+                            <div key={idx} className="flex items-start gap-2 p-2 bg-gray-50 rounded border">
+                              <span className="text-sm font-medium text-gray-700">• {option.text}</span>
+                              <div className="flex gap-2 ml-auto">
+                                {option.isTerminal && (
+                                  <span className="px-2 py-0.5 text-xs font-medium text-orange-700 bg-orange-100 rounded">
+                                    Terminal
+                                  </span>
+                                )}
+                                {linkedWorkflow && (
+                                  <span className="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded flex items-center gap-1">
+                                    <span>→</span> {linkedWorkflow.title}
+                                  </span>
+                                )}
+                                {!option.isTerminal && !linkedWorkflow && (
+                                  <span className="px-2 py-0.5 text-xs text-gray-500 bg-gray-100 rounded">
+                                    No next question
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -476,6 +489,28 @@ export default function ChatbotWorkflowPage() {
           )}
         </div>
       </div>
+      {showDeleteModal && (
+    <div className="fixed z-50 inset-0 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-md">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900">Confirm Deletion</h2>
+        <p className="mb-6 text-gray-700">Are you sure you want to delete this workflow? This action cannot be undone.</p>
+        <div className="flex justify-end gap-2">
+          <button
+            className="btn-secondary px-4 py-2 rounded"
+            onClick={() => { setShowDeleteModal(false); setWorkflowIdToDelete(null); }}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700"
+            onClick={handleDeleteWorkflow}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
     </ProtectedRoute>
   );
 }
