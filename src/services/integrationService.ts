@@ -10,9 +10,9 @@ class IntegrationService extends HttpService {
     const formData = new FormData();
     
     // Add text fields
-    if (settings.assistantName) formData.append('assistantName', settings.assistantName);
-    if (settings.greeting) formData.append('greeting', settings.greeting);
-    if (settings.primaryColor) formData.append('primaryColor', settings.primaryColor);
+    if (settings.assistantName !== undefined) formData.append('assistantName', settings.assistantName);
+    if (settings.greeting !== undefined) formData.append('greeting', settings.greeting);
+    if (settings.primaryColor !== undefined) formData.append('primaryColor', settings.primaryColor);
     
     // Add validation fields
     if (settings.validateEmail !== undefined) formData.append('validateEmail', settings.validateEmail.toString());
