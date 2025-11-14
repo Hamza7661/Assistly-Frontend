@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X } from 'lucide-react';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLeadService } from '@/services';
+import { useLeadService, useIntegrationService } from '@/services';
 import type { Lead } from '@/models/Lead';
 
 export default function LeadsPage() {
@@ -37,6 +37,27 @@ export default function LeadsPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [newLeadNotification, setNewLeadNotification] = useState<Lead | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  
+  // Integration settings for button colors
+  const [primaryColor, setPrimaryColor] = useState('#00bc7d');
+
+  // Load integration settings for primary color
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!user?._id) return;
+      try {
+        const svc = await useIntegrationService();
+        const res = await svc.getSettings();
+        const integration = res.data?.integration;
+        if (integration?.primaryColor) {
+          setPrimaryColor(integration.primaryColor);
+        }
+      } catch (e) {
+        console.error('Failed to load integration settings:', e);
+      }
+    };
+    loadSettings();
+  }, [user?._id]);
 
   // Load leads data
   useEffect(() => {
@@ -125,6 +146,61 @@ export default function LeadsPage() {
       }
     };
   }, [user?._id]);
+
+  const renderBotContent = (text: string) => {
+    const parts: React.ReactNode[] = [];
+    // Updated regex to handle both formats:
+    // 1. <button>text</button> (simple format)
+    // 2. <button value="something">text</button> (with value attribute)
+    const regex = /<button(?:\s+value=["']([^"']*)["'])?>([\s\S]*?)<\/button>/gi;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        const chunk = text.slice(lastIndex, match.index).trim();
+        if (chunk) parts.push(<span key={`t-${lastIndex}`}>{chunk}</span>);
+      }
+      
+      // Extract button text and value
+      const buttonValue = match[1] || ''; // value attribute
+      const buttonText = (match[2] || '').trim(); // text content
+      
+      if (buttonText) {
+        // Use button value if available, otherwise use button text
+        const clickValue = buttonValue || buttonText;
+        
+        parts.push(
+          <button
+            key={`b-${match.index}`}
+            className="block w-full text-left rounded-full text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 active:translate-y-px transition mt-1 whitespace-normal break-words"
+            style={{ 
+              backgroundColor: primaryColor,
+              '--hover-color': primaryColor + 'dd'
+            } as React.CSSProperties}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = primaryColor + 'dd';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = primaryColor;
+            }}
+            disabled
+          >
+            {buttonText}
+          </button>
+        );
+      }
+      lastIndex = match.index + match[0].length;
+    }
+    
+    if (lastIndex < text.length) {
+      const rest = text.slice(lastIndex).trim();
+      if (rest) parts.push(<span key={`t-${lastIndex}`}>{rest}</span>);
+    }
+    
+    if (parts.length === 0) return text;
+    return <div className="flex flex-wrap items-center gap-2">{parts}</div>;
+  };
 
   const openView = (lead: Lead) => { setViewItem(lead); setIsViewOpen(true); };
   const closeView = () => { setIsViewOpen(false); setViewItem(null); };
@@ -272,7 +348,7 @@ export default function LeadsPage() {
           {isViewOpen && viewItem && (
             <div className="fixed inset-0 z-50 flex items-center justify-center">
               <div className="absolute inset-0 bg-black/30" onClick={closeView}></div>
-              <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-lg border border-gray-200 p-5">
+              <div className="relative bg-white w-full max-w-3xl rounded-lg shadow-lg border border-gray-200 p-5 max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="font-semibold">Lead details</h2>
                   <button className="text-gray-500" onClick={closeView}>✕</button>
@@ -314,6 +390,37 @@ export default function LeadsPage() {
                     <div className="text-gray-700 font-medium mb-1">Lead date</div>
                     <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadDateTime ? new Date(viewItem.leadDateTime).toLocaleString() : '-'}</div>
                   </div>
+                  {viewItem.history && viewItem.history.length > 0 && (
+                    <div className="md:col-span-2 text-sm">
+                      <div className="text-gray-700 font-medium mb-2">Conversation History</div>
+                      <div className="border border-gray-200 rounded-lg bg-gray-50 p-4 max-h-96 overflow-y-auto pb-6">
+                        <div className="space-y-3">
+                          {viewItem.history.map((message, index) => (
+                            <div
+                              key={index}
+                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <div
+                                className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                                  message.role === 'user'
+                                    ? 'text-white'
+                                    : 'bg-white text-gray-800 border border-gray-200'
+                                }`}
+                                style={message.role === 'user' ? { backgroundColor: primaryColor } : {}}
+                              >
+                                <div className="text-xs font-semibold mb-1 opacity-80">
+                                  {message.role === 'user' ? 'Customer' : 'Assistant'}
+                                </div>
+                                {message.role === 'assistant'
+                                  ? renderBotContent(message.content)
+                                  : <div className="whitespace-pre-wrap text-sm">{message.content}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 flex justify-end">
                   <button className="btn-secondary" onClick={closeView}>Close</button>

@@ -1,3 +1,8 @@
+export interface ConversationMessage {
+  role: 'assistant' | 'user';
+  content: string;
+}
+
 export interface Lead {
   _id?: string;
   title: string;
@@ -9,6 +14,7 @@ export interface Lead {
   leadType?: string;
   serviceType?: string;
   leadDateTime?: string; // ISO string
+  history?: ConversationMessage[];
   createdAt?: string;
   updatedAt?: string;
 }
