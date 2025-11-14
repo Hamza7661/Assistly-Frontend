@@ -39,10 +39,8 @@ export default function PackagesPage() {
       return;
     }
     fetchPackages();
-    // Auto-detect and set region if not set
-    if (user && (!user.region || user.region === Region.US || user.region === 'us')) {
-      detectAndSetRegion();
-    }
+    // Always detect country for accurate currency display
+    detectAndSetRegion();
   }, [user, router]);
 
   const detectAndSetRegion = async () => {
@@ -56,7 +54,7 @@ export default function PackagesPage() {
       setDetectedCountry(countryInfo);
       setDetectedRegion(region);
       
-      if (user && (!user.region || user.region === Region.US || user.region === 'us') && region !== Region.US) {
+      if (user && (!user.region || user.region === Region.UK || user.region === 'uk') && region !== Region.UK) {
         try {
           const authService = await useAuthService();
           const response = await authService.updateUserProfile(user._id, {
@@ -305,20 +303,54 @@ export default function PackagesPage() {
                   </h3>
                   {(() => {
                     const basePrice = typeof pkg.price === 'object' ? pkg.price.amount : pkg.price || 0;
-                    // Get country info - use detected country or default to US
-                    const countryCode = detectedCountryCode || 'US';
-                    const countryInfo = detectedCountry || getCountryInfo(countryCode);
+                    // Priority: 1. Detected country (most accurate), 2. User's stored region, 3. Default to UK
+                    let countryCode: string | null = null;
+                    
+                    // First priority: Use detected country code (most accurate for currency)
+                    if (detectedCountryCode) {
+                      countryCode = detectedCountryCode;
+                    }
+                    // Second priority: Use user's stored region
+                    else if (user?.region) {
+                      if (user.region === Region.UK || user.region === 'uk') {
+                        countryCode = 'GB';
+                      } else if (user.region === Region.US || user.region === 'us') {
+                        countryCode = 'US';
+                      } else if (user.region === Region.EU || user.region === 'eu') {
+                        // For EU region, don't default to EUR - wait for detection or use GB
+                        countryCode = detectedCountryCode || 'GB';
+                      } else if (user.region === Region.ASIA || user.region === 'asia') {
+                        // Only use PK if explicitly detected, otherwise default to GB
+                        countryCode = (detectedCountryCode === 'PK') ? 'PK' : 'GB';
+                      } else {
+                        countryCode = 'GB';
+                      }
+                    }
+                    
+                    // Final fallback
+                    if (!countryCode) {
+                      countryCode = 'GB';
+                    }
+                    
+                    const countryInfo = getCountryInfo(countryCode);
                     const multiplier = countryInfo.pricingMultiplier;
                     const regionPrice = basePrice * multiplier;
                     
-                    // Convert to local currency if needed (PKR conversion)
                     let displayPrice = regionPrice;
                     let currencySymbol = countryInfo.currencySymbol;
                     
                     if (countryInfo.currency === 'PKR') {
-                      // Convert USD to PKR (approximate rate: 1 USD = 280 PKR)
                       displayPrice = regionPrice * 280;
                     }
+                    
+                    console.log('Package pricing:', {
+                      userRegion: user?.region,
+                      detectedCountryCode,
+                      finalCountryCode: countryCode,
+                      currency: countryInfo.currency,
+                      symbol: currencySymbol,
+                      countryName: countryInfo.name
+                    });
                     
                     return (
                       <>
@@ -516,10 +548,22 @@ export default function PackagesPage() {
                   <div className={styles.priceRow}>
                     <span className={styles.priceLabel}>Monthly Price:</span>
                     <span className={styles.priceAmount}>
-                      {customPackage.chatbotQueries === 0 && customPackage.voiceMinutes === 0 && !customPackage.leadGeneration 
-                        ? 'Select features' 
-                        : `$${Math.max(20, Math.floor((customPackage.chatbotQueries / 20000) * 20 + (customPackage.voiceMinutes / 2000) * 20))}`
-                      }
+                      {(() => {
+                        if (customPackage.chatbotQueries === 0 && customPackage.voiceMinutes === 0 && !customPackage.leadGeneration) {
+                          return 'Select features';
+                        }
+                        const usdPrice = Math.max(20, Math.floor((customPackage.chatbotQueries / 20000) * 20 + (customPackage.voiceMinutes / 2000) * 20));
+                        const countryCode = detectedCountryCode || 'GB';
+                        const countryInfo = detectedCountry || getCountryInfo(countryCode);
+                        const multiplier = countryInfo.pricingMultiplier;
+                        let displayPrice = usdPrice * multiplier;
+                        
+                        if (countryInfo.currency === 'PKR') {
+                          displayPrice = displayPrice * 280;
+                        }
+                        
+                        return `${countryInfo.currencySymbol}${displayPrice.toFixed(2)}`;
+                      })()}
                     </span>
                   </div>
                   <p className={styles.pricePeriod}>billed monthly</p>

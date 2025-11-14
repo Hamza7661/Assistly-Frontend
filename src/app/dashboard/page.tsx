@@ -57,10 +57,8 @@ export default function DashboardPage() {
       } else {
         console.log('User industry found:', user.industry);
       }
-      // Auto-detect and set region if not set or is default US
-      if (!user?.region || user.region === Region.US || user.region === 'us') {
-        detectAndSetRegion();
-      }
+      // Always detect country for accurate currency display
+      detectAndSetRegion();
     }
   }, [user?._id, user?.industry]);
 
@@ -93,8 +91,8 @@ export default function DashboardPage() {
       setDetectedCountry(countryInfo);
       setDetectedRegion(region);
       
-      // Only update if user doesn't have a region set or it's the default US, and detected region is different
-      if (user && (!user.region || user.region === Region.US || user.region === 'us') && region !== Region.US) {
+      // Only update if user doesn't have a region set (default to UK now), and detected region is different
+      if (user && (!user.region || user.region === Region.UK || user.region === 'uk') && region !== Region.UK) {
         try {
           const { useAuthService } = await import('@/services');
           const { User } = await import('@/models/User');
@@ -211,6 +209,70 @@ export default function DashboardPage() {
     });
   };
 
+  // Helper function to convert and format price in local currency
+  const formatPriceInLocalCurrency = (usdAmount: number) => {
+    // Priority: 1. Detected country (most accurate), 2. User's stored region, 3. Default to UK
+    let countryCode: string | null = null;
+    
+    // First priority: Use detected country code (most accurate for currency)
+    if (detectedCountryCode) {
+      countryCode = detectedCountryCode;
+    }
+    // Second priority: Use user's stored region to infer country
+    else if (user?.region) {
+      if (user.region === Region.UK || user.region === 'uk') {
+        countryCode = 'GB';
+      } else if (user.region === Region.US || user.region === 'us') {
+        countryCode = 'US';
+      } else if (user.region === Region.EU || user.region === 'eu') {
+        // For EU region, don't default to EUR - wait for detection or use GB
+        // Only use EUR if we have a detected EU country
+        countryCode = detectedCountryCode || 'GB';
+      } else if (user.region === Region.ASIA || user.region === 'asia') {
+        // For Asia region, only use PK if explicitly detected, otherwise default to GB
+        countryCode = (detectedCountryCode === 'PK') ? 'PK' : 'GB';
+      } else {
+        // For other regions, default to GB
+        countryCode = 'GB';
+      }
+    }
+    
+    // Final fallback to UK
+    if (!countryCode) {
+      countryCode = 'GB';
+    }
+    
+    const countryInfo = getCountryInfo(countryCode);
+    const multiplier = countryInfo.pricingMultiplier;
+    const regionPrice = usdAmount * multiplier;
+    
+    let displayPrice = regionPrice;
+    let currencySymbol = countryInfo.currencySymbol;
+    
+    if (countryInfo.currency === 'PKR') {
+      // Convert USD to PKR (approximate rate: 1 USD = 280 PKR)
+      displayPrice = regionPrice * 280;
+    }
+    
+    console.log('Currency formatting:', {
+      userRegion: user?.region,
+      detectedCountryCode,
+      finalCountryCode: countryCode,
+      currency: countryInfo.currency,
+      symbol: currencySymbol,
+      countryName: countryInfo.name,
+      usdAmount,
+      displayPrice
+    });
+    
+    return {
+      amount: displayPrice,
+      symbol: currencySymbol,
+      currency: countryInfo.currency,
+      countryName: countryInfo.name
+    };
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
       active: { color: 'bg-green-100 text-green-800', icon: CheckCircle2, label: 'Active' },
@@ -301,7 +363,11 @@ export default function DashboardPage() {
                       <div>
                         <p className="text-sm text-gray-600">Amount</p>
                         <p className="text-lg font-semibold text-gray-900">
-                          ${subscription.amount.toFixed(2)} {subscription.currency} / {subscription.billingCycle === 'yearly' ? 'year' : 'month'}
+                          {(() => {
+                            // Convert subscription amount (stored in USD) to local currency
+                            const localPrice = formatPriceInLocalCurrency(subscription.amount);
+                            return `${localPrice.symbol}${localPrice.amount.toFixed(2)} ${localPrice.currency} / ${subscription.billingCycle === 'yearly' ? 'year' : 'month'}`;
+                          })()}
                         </p>
                       </div>
                       {subscription.cancelAtPeriodEnd && (
@@ -318,7 +384,11 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-sm text-gray-600">Price</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {packageInfo.price.amount === 0 ? 'Free' : `$${packageInfo.price.amount.toFixed(2)} ${packageInfo.price.currency} / ${packageInfo.price.billingCycle}`}
+                        {(() => {
+                          if (packageInfo.price.amount === 0) return 'Free';
+                          const localPrice = formatPriceInLocalCurrency(packageInfo.price.amount);
+                          return `${localPrice.symbol}${localPrice.amount.toFixed(2)} ${localPrice.currency} / ${packageInfo.price.billingCycle}`;
+                        })()}
                       </p>
                     </div>
                   )}
@@ -468,30 +538,20 @@ export default function DashboardPage() {
                         <div className="mb-4">
                           {(() => {
                             const basePrice = pkg.price?.amount || 0;
-                            const countryCode = detectedCountryCode || 'US';
-                            const countryInfo = detectedCountry || getCountryInfo(countryCode);
-                            const multiplier = countryInfo.pricingMultiplier;
-                            const regionPrice = basePrice * multiplier;
-                            
-                            let displayPrice = regionPrice;
-                            let currencySymbol = countryInfo.currencySymbol;
-                            
-                            if (countryInfo.currency === 'PKR') {
-                              displayPrice = regionPrice * 280;
-                            }
+                            const localPrice = formatPriceInLocalCurrency(basePrice);
                             
                             return (
                               <>
                                 <span className="text-3xl font-bold text-gray-900">
-                                  {currencySymbol}
-                                  {displayPrice.toFixed(2)}
+                                  {localPrice.symbol}
+                                  {localPrice.amount.toFixed(2)}
                                 </span>
                                 <span className="text-gray-600 ml-2">
                                   /{pkg.price?.billingCycle === 'yearly' ? 'year' : 'month'}
                                 </span>
-                                {countryInfo.code !== 'US' && (
+                                {localPrice.countryName !== 'United States' && (
                                   <div className="text-xs text-gray-500 mt-1">
-                                    ({countryInfo.name} pricing)
+                                    ({localPrice.countryName} pricing)
                                   </div>
                                 )}
                               </>

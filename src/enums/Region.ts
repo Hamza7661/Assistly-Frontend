@@ -90,7 +90,7 @@ export const COUNTRY_INFO: Record<string, CountryInfo> = {
  */
 export function getCountryInfo(countryCode: string): CountryInfo {
   const code = countryCode.toUpperCase();
-  return COUNTRY_INFO[code] || COUNTRY_INFO.US; // Default to US
+  return COUNTRY_INFO[code] || COUNTRY_INFO.GB; // Default to UK
 }
 
 /**
