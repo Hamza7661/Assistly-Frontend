@@ -1,0 +1,58 @@
+.container {
+  @apply bg-white min-h-screen;
+}
+
+.pageContainer {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+}
+
+.title {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.subtitle {
+  @apply text-gray-600 mb-6;
+}
+
+.table {
+  @apply bg-white border border-gray-200 rounded-xl shadow-sm;
+}
+
+.headerRow {
+  @apply grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl items-center;
+}
+
+.dataRow {
+  @apply grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-gray-100 items-stretch;
+}
+
+.colQ {
+  @apply col-span-1 md:col-span-5;
+}
+
+.colA {
+  @apply col-span-1 md:col-span-5;
+}
+
+.colActions {
+  @apply col-span-1 md:col-span-2 flex h-full items-center justify-end;
+}
+
+.textarea {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent;
+}
+
+.textareaError {
+  @apply border-red-500 focus:ring-red-300;
+}
+
+.errorText {
+  @apply text-xs text-red-600 mt-1;
+}
+
+.actionsRow {
+  @apply flex items-center justify-between p-4 bg-gray-50 rounded-lg;
+}
+
+
+

@@ -6,7 +6,7 @@ import { User } from '@/models/User';
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string) => void;
+  login: (token: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
   isAuthenticated: boolean;
@@ -61,10 +61,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const login = (token: string) => {
+  const login = async (token: string) => {
     setToken(token);
     localStorage.setItem('token', token);
-    // Don't store user - will be fetched when needed
+    // Fetch user immediately after login
+    try {
+      const { useAuthService } = await import('@/services');
+      const authService = await useAuthService();
+      const response = await authService.getCurrentUser();
+      if (response.status === 'success') {
+        setUser(new User(response.data.user));
+      }
+    } catch (error) {
+      console.error('Failed to fetch user after login:', error);
+    }
   };
 
   const logout = () => {

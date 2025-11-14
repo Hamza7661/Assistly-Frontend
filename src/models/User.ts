@@ -7,6 +7,8 @@ export class User {
   phoneNumber: string;
   email: string;
   professionDescription: string;
+  industry?: string;
+  region?: string;
   website?: string;
   package: Package | null;
   isActive: boolean;
@@ -28,6 +30,8 @@ export class User {
     this.phoneNumber = data.phoneNumber || '';
     this.email = data.email || '';
     this.professionDescription = data.professionDescription || '';
+    this.industry = data.industry || '';
+    this.region = data.region || 'us';
     this.website = data.website || '';
     this.package = data.package ? new Package(data.package) : null;
     this.isActive = data.isActive || false;
