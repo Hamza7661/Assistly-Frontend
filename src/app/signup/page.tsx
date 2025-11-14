@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthService, useTemplateService } from '@/services';
 import { User } from '@/models/User';
-import { Mail, Lock, User as UserIcon, Phone, Briefcase, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Phone, Briefcase, Eye, EyeOff, Building2 } from 'lucide-react';
+import { INDUSTRIES_LIST } from '@/enums/Industry';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { Spinner, FullPageSpinner } from '@/components';
@@ -25,6 +26,7 @@ export default function SignupPage() {
     email: '',
     phoneNumber: '',
     professionDescription: '',
+    industry: 'dental', // Auto-select dental industry
     password: '',
     confirmPassword: ''
   });
@@ -54,6 +56,10 @@ export default function SignupPage() {
     }
     if (!formData.professionDescription.trim()) {
       setError('Profession description is required');
+      return false;
+    }
+    if (!formData.industry) {
+      setError('Industry is required');
       return false;
     }
     if (!formData.password) {
@@ -89,6 +95,7 @@ export default function SignupPage() {
           email: formData.email,
           phoneNumber: formData.phoneNumber,
           professionDescription: formData.professionDescription,
+          industry: formData.industry,
           password: formData.password
         });
 
@@ -119,13 +126,11 @@ export default function SignupPage() {
             setIsVerifying(false);
           }
         } else {
-          // Create user object from response
-          const user = new User(response.data.user);
           // Handle both token formats from the API
           const token = response.data.tokens?.accessToken || response.data.token;
           
           if (token) {
-            login(token);
+            await login(token);
             router.push('/packages'); // Redirect to packages selection
           } else {
             setError('Authentication token not received');
@@ -245,6 +250,26 @@ export default function SignupPage() {
                 placeholder="Enter phone number"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200"
               />
+            </div>
+
+            <div className={styles.fieldGroup}>
+              <label htmlFor="industry" className={styles.fieldLabel}>
+                Industry
+              </label>
+              <div className={styles.inputWrapper}>
+                <Building2 className={styles.inputIcon} />
+                <select
+                  id="industry"
+                  name="industry"
+                  required
+                  className={styles.inputFieldWithIcon}
+                  value={formData.industry}
+                  onChange={(e) => handleInputChange('industry', e.target.value)}
+                  disabled
+                >
+                  <option value="dental">Dental</option>
+                </select>
+              </div>
             </div>
 
             <div className={styles.fieldGroup}>

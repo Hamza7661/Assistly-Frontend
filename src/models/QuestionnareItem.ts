@@ -8,6 +8,10 @@ export class QuestionnareItem {
   tags: string[];
   isActive?: boolean;
   type?: QuestionnareType;
+  attachedWorkflows?: Array<{
+    workflowId?: any;
+    order?: number;
+  }>;
   createdAt?: string;
   updatedAt?: string;
 
@@ -19,6 +23,7 @@ export class QuestionnareItem {
     this.tags = data.tags || [];
     this.isActive = data.isActive;
     this.type = (data as any).type ?? QuestionnareType.FAQ;
+    this.attachedWorkflows = (data as any).attachedWorkflows || [];
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
   }
@@ -36,6 +41,7 @@ export class QuestionnareItem {
       tags: this.tags,
       isActive: this.isActive,
       type: this.type,
+      attachedWorkflows: this.attachedWorkflows,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

@@ -13,7 +13,13 @@ import {
   User,
   FileText,
   Plug,
-  ChevronDown
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Database,
+  Calendar,
+  Users,
+  Briefcase
 } from 'lucide-react';
 
 export default function Navigation() {
@@ -22,22 +28,55 @@ export default function Navigation() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const navigation = [
+  interface MenuItem {
+    name: string;
+    href?: string;
+    icon: any;
+    subItems?: MenuItem[];
+  }
+
+  const navigation: MenuItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Questionnare', href: '/questionnare', icon: User },
-    { name: 'Chatbot Workflows', href: '/chatbot-workflow', icon: FileText },
-    { name: 'Availability', href: '/availability', icon: Settings },
-    { name: 'Appointments', href: '/appointments', icon: Settings },
-    { name: 'Leads', href: '/leads', icon: FileText },
+    {
+      name: 'Content Management',
+      icon: Database,
+      subItems: [
+        { name: 'Training Data', href: '/questionnare', icon: User },
+        { name: 'Treatment Plans', href: '/treatment-plans', icon: ClipboardList },
+        { name: 'Treatment Flows', href: '/chatbot-workflow', icon: FileText },
+      ]
+    },
+    {
+      name: 'Business Operations',
+      icon: Briefcase,
+      subItems: [
+        { name: 'Leads', href: '/leads', icon: Users },
+      ]
+    },
     { name: 'Integration', href: '/integration', icon: Plug },
     { name: 'Packages', href: '/packages', icon: Package },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
   // Hide specific tabs via inline style (display: none)
-  const hiddenTabs = new Set(['Packages', 'Settings', 'Appointments', 'Availability']);
+  const hiddenTabs = new Set(['Packages', 'Settings']);
+
+  const toggleMenu = (menuName: string) => {
+    setExpandedMenus(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(menuName)) {
+        newSet.delete(menuName);
+      } else {
+        newSet.add(menuName);
+      }
+      return newSet;
+    });
+  };
+
+  const isMenuExpanded = (menuName: string) => expandedMenus.has(menuName);
 
   const handleLogout = () => {
     logout();
@@ -62,6 +101,19 @@ export default function Navigation() {
     return () => document.removeEventListener('mousedown', handler);
   }, [isUserMenuOpen]);
 
+  // Close dropdown menus on outside click
+  useEffect(() => {
+    if (expandedMenus.size === 0) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setExpandedMenus(new Set());
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [expandedMenus]);
+
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,21 +123,64 @@ export default function Navigation() {
             <div className="h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center mr-4">
               <span className="text-lg font-bold text-white">A</span>
             </div>
-            <div className="hidden lg:flex space-x-8">
+            <div className="hidden lg:flex space-x-1">
               {navigation.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                return (
-                  <button
-                    key={item.name}
-                    onClick={() => handleNavigation(item.href)}
-                    className={`${isActive ? 'text-[#00bc7d]' : 'text-gray-600 hover:text-[#00bc7d]'} px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center`}
-                    style={hiddenTabs.has(item.name) ? { display: 'none' } : undefined}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    <item.icon className="h-4 w-4 mr-2" />
-                    {item.name}
-                  </button>
-                );
+                if (hiddenTabs.has(item.name)) return null;
+                
+                if (item.subItems && item.subItems.length > 0) {
+                  const isExpanded = isMenuExpanded(item.name);
+                  const hasActiveSubItem = item.subItems.some(
+                    subItem => pathname === subItem.href || (subItem.href && pathname.startsWith(subItem.href + '/'))
+                  );
+                  
+                  return (
+                    <div key={item.name} className="relative">
+                      <button
+                        onClick={() => toggleMenu(item.name)}
+                        className={`${hasActiveSubItem ? 'text-[#00bc7d]' : 'text-gray-600 hover:text-[#00bc7d]'} px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center`}
+                      >
+                        <item.icon className="h-4 w-4 mr-2" />
+                        {item.name}
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 ml-1" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        )}
+                      </button>
+                      
+                      {isExpanded && (
+                        <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                          {item.subItems.map((subItem) => {
+                            const isSubActive = pathname === subItem.href || (subItem.href && pathname.startsWith(subItem.href + '/'));
+                            return (
+                              <button
+                                key={subItem.name}
+                                onClick={() => handleNavigation(subItem.href!)}
+                                className={`${isSubActive ? 'bg-green-50 text-[#00bc7d]' : 'text-gray-700 hover:bg-gray-50'} w-full text-left px-4 py-2 text-sm flex items-center`}
+                              >
+                                <subItem.icon className="h-4 w-4 mr-2" />
+                                {subItem.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } else {
+                  const isActive = pathname === item.href || (item.href && pathname.startsWith(item.href + '/'));
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => item.href && handleNavigation(item.href)}
+                      className={`${isActive ? 'text-[#00bc7d]' : 'text-gray-600 hover:text-[#00bc7d]'} px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center`}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <item.icon className="h-4 w-4 mr-2" />
+                      {item.name}
+                    </button>
+                  );
+                }
               })}
             </div>
           </div>
@@ -157,19 +252,59 @@ export default function Navigation() {
         <div className="lg:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
             {navigation.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => handleNavigation(item.href)}
-                  className={`${isActive ? 'text-[#00bc7d] bg-gray-50' : 'text-gray-600 hover:text-[#00bc7d] hover:bg-gray-50'} block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center w-full text-left`}
-                  style={hiddenTabs.has(item.name) ? { display: 'none' } : undefined}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <item.icon className="h-5 w-5 mr-3" />
-                  {item.name}
-                </button>
-              );
+              if (hiddenTabs.has(item.name)) return null;
+              
+              if (item.subItems && item.subItems.length > 0) {
+                const isExpanded = isMenuExpanded(item.name);
+                return (
+                  <div key={item.name}>
+                    <button
+                      onClick={() => toggleMenu(item.name)}
+                      className="text-gray-600 hover:text-[#00bc7d] hover:bg-gray-50 block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center justify-between w-full text-left"
+                    >
+                      <div className="flex items-center">
+                        <item.icon className="h-5 w-5 mr-3" />
+                        {item.name}
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="ml-4 mt-1 space-y-1">
+                        {item.subItems.map((subItem) => {
+                          const isSubActive = pathname === subItem.href || (subItem.href && pathname.startsWith(subItem.href + '/'));
+                          return (
+                            <button
+                              key={subItem.name}
+                              onClick={() => handleNavigation(subItem.href!)}
+                              className={`${isSubActive ? 'text-[#00bc7d] bg-gray-50' : 'text-gray-600 hover:text-[#00bc7d] hover:bg-gray-50'} block px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center w-full text-left`}
+                            >
+                              <subItem.icon className="h-4 w-4 mr-3" />
+                              {subItem.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              } else {
+                const isActive = pathname === item.href || (item.href && pathname.startsWith(item.href + '/'));
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => item.href && handleNavigation(item.href)}
+                    className={`${isActive ? 'text-[#00bc7d] bg-gray-50' : 'text-gray-600 hover:text-[#00bc7d] hover:bg-gray-50'} block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center w-full text-left`}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <item.icon className="h-5 w-5 mr-3" />
+                    {item.name}
+                  </button>
+                );
+              }
             })}
             <div className="border-t border-gray-200 pt-4">
               <button

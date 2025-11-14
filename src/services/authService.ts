@@ -18,6 +18,8 @@ interface UpdateProfileRequest {
   firstName?: string;
   lastName?: string;
   professionDescription?: string;
+  industry?: string;
+  region?: string;
   package?: string;
   preferences?: {
     notifications?: {

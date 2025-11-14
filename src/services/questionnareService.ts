@@ -10,8 +10,15 @@ class QuestionnareService extends HttpService {
     return new FaqListResponse(res);
   }
 
-  async upsert(type: QuestionnareType, items: Array<Pick<Faq, 'question' | 'answer'>>): Promise<FaqMutationResponse | FaqListResponse> {
-    const payload = { type, items: items.map(it => ({ question: it.question, answer: it.answer })) } as any;
+  async upsert(type: QuestionnareType, items: Array<Pick<Faq, 'question' | 'answer'> & { attachedWorkflows?: any[] }>): Promise<FaqMutationResponse | FaqListResponse> {
+    const payload = { 
+      type, 
+      items: items.map(it => ({ 
+        question: it.question, 
+        answer: it.answer,
+        attachedWorkflows: (it as any).attachedWorkflows || []
+      })) 
+    } as any;
     const res = await this.request<any>(`/questionnaire`, {
       method: 'PUT',
       body: JSON.stringify(payload),

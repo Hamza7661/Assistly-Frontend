@@ -1,4 +1,4 @@
-export type QuestionType = 'single_choice' | 'multiple_choice' | 'text_input' | 'number_input' | 'email_input' | 'phone_input';
+export type QuestionType = 'single_choice' | 'multiple_choice' | 'text_response';
 
 export interface WorkflowOption {
   _id?: string;
@@ -25,6 +25,7 @@ export interface ChatbotWorkflowItem {
 export class ChatbotWorkflow {
   _id?: string;
   owner?: string;
+  workflowGroupId?: string | null;
   title: string;
   question: string;
   questionType: QuestionType;
@@ -38,6 +39,7 @@ export class ChatbotWorkflow {
   constructor(data: Partial<ChatbotWorkflow> = {}) {
     this._id = data._id;
     this.owner = data.owner;
+    this.workflowGroupId = data.workflowGroupId;
     this.title = data.title || '';
     this.question = data.question || '';
     this.questionType = data.questionType || 'single_choice';
@@ -57,6 +59,7 @@ export class ChatbotWorkflow {
     return {
       _id: this._id,
       owner: this.owner,
+      workflowGroupId: this.workflowGroupId,
       title: this.title,
       question: this.question,
       questionType: this.questionType,
@@ -92,5 +95,21 @@ export interface WorkflowMutationResponse {
     workflow?: ChatbotWorkflow;
     count?: number;
     workflows?: ChatbotWorkflow[];
+  };
+}
+
+export interface WorkflowGroup {
+  _id: string;
+  title: string;
+  isActive: boolean;
+  rootQuestion: ChatbotWorkflow;
+  questions: ChatbotWorkflow[];
+}
+
+export interface WorkflowGroupListResponse {
+  status: 'success' | 'fail';
+  data: {
+    workflows: WorkflowGroup[];
+    count: number;
   };
 }
