@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuestionnareService } from '@/services';
 import { QuestionnareType } from '@/enums/QuestionnareType';
 import { useChatbotWorkflowService } from '@/services';
-import { ChatbotWorkflow, WorkflowOption, formatQuestionType } from '@/models/ChatbotWorkflow';
+import { ChatbotWorkflow, formatQuestionType } from '@/models/ChatbotWorkflow';
 import { useQuestionTypeService } from '@/services';
 import type { QuestionTypeItem } from '@/models/QuestionType';
 import { ChevronUp, ChevronDown, X, Plus, Save, Trash2, GripVertical, Edit2, ExternalLink } from 'lucide-react';
@@ -66,7 +66,6 @@ export default function TreatmentPlansPage() {
     title: '',
     question: '',
     questionTypeId: 0,
-    options: [],
     isRoot: false,
     isActive: true,
     order: 0
@@ -267,7 +266,6 @@ export default function TreatmentPlansPage() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
-      options: [{ text: '', isTerminal: false, order: 0 }],
       isRoot: false,
       isActive: true,
       order: workflows.length
@@ -318,7 +316,6 @@ export default function TreatmentPlansPage() {
         title: workflow.title,
         question: workflow.question,
         questionTypeId: workflow.questionTypeId,
-        options: workflow.options || [],
         isRoot: workflow.isRoot,
         isActive: workflow.isActive,
         order: workflow.order
@@ -337,7 +334,6 @@ export default function TreatmentPlansPage() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
-      options: [],
       isRoot: false,
       isActive: true,
       order: 0
@@ -426,27 +422,6 @@ export default function TreatmentPlansPage() {
     } finally {
       setSavingWorkflow(false);
     }
-  };
-
-  const handleAddWorkflowOption = () => {
-    setNewWorkflow(prev => ({
-      ...prev,
-      options: [...(prev.options || []), { text: '', isTerminal: false, order: (prev.options?.length || 0) }]
-    }));
-  };
-
-  const handleRemoveWorkflowOption = (index: number) => {
-    setNewWorkflow(prev => ({
-      ...prev,
-      options: prev.options?.filter((_, i) => i !== index) || []
-    }));
-  };
-
-  const handleUpdateWorkflowOption = (index: number, field: keyof WorkflowOption, value: any) => {
-    setNewWorkflow(prev => ({
-      ...prev,
-      options: prev.options?.map((opt, i) => i === index ? { ...opt, [field]: value } : opt) || []
-    }));
   };
 
   const toggleWorkflowExpansion = (workflowId: string) => {
@@ -576,44 +551,6 @@ export default function TreatmentPlansPage() {
                   <span className="font-medium">Order in Plan:</span> {attachedWorkflow.order + 1}
                 </p>
               </div>
-              {((workflow.options ?? []).some(option => getLinkedWorkflow(option.nextQuestionId))) && (
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="inline-flex items-center px-3 py-1 text-base font-semibold rounded bg-blue-600 text-white">
-                    <svg className="mr-1" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="7"/><polyline points="12 7 9 10 7 8"></polyline></svg>
-                    Linked Questions
-                  </span>
-                </div>
-              )}
-              {(workflow.options ?? []).length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Options:</p>
-                  {(workflow.options ?? []).map((option, idx) => {
-                    const linkedWorkflow = getLinkedWorkflow(option.nextQuestionId);
-                    return (
-                      <div key={idx} className="flex items-start gap-2 p-2 bg-gray-50 rounded border">
-                        <span className="text-sm font-medium text-gray-700">• {option.text}</span>
-                        <div className="flex gap-2 ml-auto">
-                          {option.isTerminal && (
-                            <span className="px-2 py-0.5 text-xs font-medium text-orange-700 bg-orange-100 rounded">
-                              Terminal
-                            </span>
-                          )}
-                          {linkedWorkflow && (
-                            <span className="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded flex items-center gap-1">
-                              <span>→</span> {linkedWorkflow.title}
-                            </span>
-                          )}
-                          {!option.isTerminal && !linkedWorkflow && (
-                            <span className="px-2 py-0.5 text-xs text-gray-500 bg-gray-100 rounded">
-                              No next question
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => {
@@ -797,15 +734,9 @@ export default function TreatmentPlansPage() {
                                   value={newWorkflow.questionTypeId || (questionTypes.length > 0 ? questionTypes[0].id : '')}
                                   onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
-                                    const selectedType = questionTypes.find(qt => qt.id === val);
                                     setNewWorkflow(prev => ({
                                       ...prev,
-                                      questionTypeId: val,
-                                      options: (selectedType && (selectedType.code === 'single_choice' || selectedType.code === 'multiple_choice'))
-                                        ? (prev.options && prev.options.length > 0 
-                                            ? prev.options 
-                                            : [{ text: '', isTerminal: false, order: 0 }])
-                                        : []
+                                      questionTypeId: val
                                     }));
                                   }}
                                   className="input-field"
@@ -818,85 +749,6 @@ export default function TreatmentPlansPage() {
                                   ))}
                                 </select>
                               </div>
-
-                              {/* Options for choice-based questions */}
-                              {(() => {
-                                const selectedType = questionTypes.find(qt => qt.id === newWorkflow.questionTypeId);
-                                return selectedType && (selectedType.code === 'single_choice' || selectedType.code === 'multiple_choice');
-                              })() && (
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-sm font-medium text-gray-700">
-                                      Options
-                                    </label>
-                                    <button
-                                      onClick={handleAddWorkflowOption}
-                                      className="btn-secondary flex items-center gap-1 text-sm"
-                                      disabled={savingWorkflow}
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                      Add Option
-                                    </button>
-                                  </div>
-                                  <div className="space-y-3">
-                                    {newWorkflow.options?.map((option, index) => (
-                                      <div key={index} className="border border-gray-200 rounded-lg p-3">
-                                        <div className="flex gap-2 mb-2">
-                                          <input
-                                            type="text"
-                                            value={option.text}
-                                            onChange={(e) => handleUpdateWorkflowOption(index, 'text', e.target.value)}
-                                            className="input-field flex-1"
-                                            placeholder="Option text"
-                                            disabled={savingWorkflow}
-                                          />
-                                          <button
-                                            onClick={() => handleRemoveWorkflowOption(index)}
-                                            className="btn-secondary text-red-600 hover:text-red-700"
-                                            disabled={savingWorkflow}
-                                          >
-                                            <Trash2 className="h-5 w-5" />
-                                          </button>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                          <label className="flex items-center text-sm">
-                                            <input
-                                              type="checkbox"
-                                              checked={option.isTerminal || false}
-                                              onChange={(e) => handleUpdateWorkflowOption(index, 'isTerminal', e.target.checked)}
-                                              className="mr-2"
-                                              disabled={savingWorkflow}
-                                            />
-                                            Terminal (ends conversation)
-                                          </label>
-                                          {!option.isTerminal && (
-                                            <div className="flex-1">
-                                              <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                Link to Next Question:
-                                              </label>
-                                              <select
-                                                value={option.nextQuestionId || ''}
-                                                onChange={(e) => handleUpdateWorkflowOption(index, 'nextQuestionId', e.target.value || null)}
-                                                className="input-field text-sm"
-                                                disabled={savingWorkflow}
-                                              >
-                                                <option value="">-- Select next question --</option>
-                                                {workflows
-                                                  .filter(w => w.isActive)
-                                                  .map(workflow => (
-                                                    <option key={workflow._id} value={workflow._id}>
-                                                      {workflow.title}
-                                                    </option>
-                                                  ))}
-                                              </select>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
 
                               <div className="flex items-center justify-between">
                                 <label className="flex items-center">

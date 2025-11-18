@@ -6,7 +6,7 @@ import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChatbotWorkflowService } from '@/services';
-import { ChatbotWorkflow, WorkflowOption, WorkflowGroup, formatQuestionType } from '@/models/ChatbotWorkflow';
+import { ChatbotWorkflow, WorkflowGroup, formatQuestionType } from '@/models/ChatbotWorkflow';
 import { useQuestionTypeService } from '@/services';
 import type { QuestionTypeItem } from '@/models/QuestionType';
 import { toast } from 'react-toastify';
@@ -45,7 +45,6 @@ export default function ChatbotWorkflowPage() {
     title: '',
     question: '',
     questionTypeId: 0,
-    options: [],
     isRoot: false,
     isActive: true,
     order: 0
@@ -140,7 +139,6 @@ export default function ChatbotWorkflowPage() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
-      options: [],
       isRoot: true,
       isActive: true,
       order: 0,
@@ -157,7 +155,6 @@ export default function ChatbotWorkflowPage() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
-      options: [],
       isRoot: false,
       isActive: true,
       order: nextOrder,
@@ -226,7 +223,6 @@ export default function ChatbotWorkflowPage() {
         title: '',
         question: '',
         questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
-        options: [],
         isRoot: false,
         isActive: true,
         order: 0
@@ -246,7 +242,6 @@ export default function ChatbotWorkflowPage() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
-      options: [],
       isRoot: false,
       isActive: true,
       order: 0
@@ -256,8 +251,7 @@ export default function ChatbotWorkflowPage() {
   const handleEditQuestion = (question: ChatbotWorkflow) => {
     setNewQuestion({
       ...question,
-      questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0, // Force text_response type
-      options: [] // Clear options
+      questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0
     });
     setEditingQuestion(question._id || null);
     setEditingWorkflowGroupId(question.workflowGroupId || null);
@@ -308,27 +302,6 @@ export default function ChatbotWorkflowPage() {
       setQuestionIdToDelete(null);
       setShowDeleteModal(false);
     }
-  };
-
-  const handleAddOption = () => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: [...(prev.options || []), { text: '', order: (prev.options?.length || 0) }]
-    }));
-  };
-
-  const handleRemoveOption = (index: number) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: prev.options?.filter((_, i) => i !== index) || []
-    }));
-  };
-
-  const handleUpdateOption = (index: number, field: keyof WorkflowOption, value: any) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: prev.options?.map((opt, i) => i === index ? { ...opt, [field]: value } : opt) || []
-    }));
   };
 
   const toggleExpanded = (id: string) => {
