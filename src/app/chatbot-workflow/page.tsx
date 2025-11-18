@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChatbotWorkflowService } from '@/services';
-import { ChatbotWorkflow, WorkflowOption, QuestionType, WorkflowGroup } from '@/models/ChatbotWorkflow';
+import { ChatbotWorkflow, WorkflowGroup, formatQuestionType } from '@/models/ChatbotWorkflow';
+import { useQuestionTypeService } from '@/services';
+import type { QuestionTypeItem } from '@/models/QuestionType';
 import { toast } from 'react-toastify';
 import { Trash2, Plus, Save, Edit2, X, ChevronDown, ChevronUp, Folder, MessageSquare, GripVertical } from 'lucide-react';
 import {
@@ -30,6 +32,7 @@ import { CSS } from '@dnd-kit/utilities';
 export default function ChatbotWorkflowPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [workflowGroups, setWorkflowGroups] = useState<WorkflowGroup[]>([]);
   const [allQuestions, setAllQuestions] = useState<ChatbotWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,11 +40,11 @@ export default function ChatbotWorkflowPage() {
   const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
   const [editingWorkflowGroupId, setEditingWorkflowGroupId] = useState<string | null>(null);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Set<string>>(new Set());
+  const [questionTypes, setQuestionTypes] = useState<QuestionTypeItem[]>([]);
   const [newQuestion, setNewQuestion] = useState<Partial<ChatbotWorkflow>>({
     title: '',
     question: '',
-    questionType: 'text_response',
-    options: [],
+    questionTypeId: 0,
     isRoot: false,
     isActive: true,
     order: 0
@@ -63,8 +66,8 @@ export default function ChatbotWorkflowPage() {
     })
   );
 
-  const loadWorkflows = async () => {
-    if (!user?._id) return;
+  const loadWorkflows = async (): Promise<WorkflowGroup[]> => {
+    if (!user?._id) return [];
     setLoading(true);
     try {
       const service = await useChatbotWorkflowService();
@@ -77,8 +80,30 @@ export default function ChatbotWorkflowPage() {
       
       // Clear reordering state on reload
       setReorderingQuestions({});
+      
+      // Check for workflowId query parameter and expand that workflow
+      const workflowId = searchParams.get('workflowId');
+      if (workflowId) {
+        // Find the workflow group where the root question matches the workflowId
+        const targetGroup = groupedResponse.data.workflows.find(
+          group => group.rootQuestion._id === workflowId
+        );
+        if (targetGroup) {
+          setExpandedWorkflows(new Set([targetGroup._id]));
+          // Scroll to the workflow after a short delay to ensure it's rendered
+          setTimeout(() => {
+            const element = document.querySelector(`[data-workflow-id="${targetGroup._id}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+      }
+      
+      return groupedResponse.data.workflows;
     } catch (error: any) {
       toast.error(error.message || 'Failed to load workflows');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -86,14 +111,34 @@ export default function ChatbotWorkflowPage() {
 
   useEffect(() => {
     loadWorkflows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
+
+  // Fetch question types from API
+  useEffect(() => {
+    const loadQuestionTypes = async () => {
+      try {
+        const service = await useQuestionTypeService();
+        const response = await service.getQuestionTypes();
+        if (response.status === 'success' && response.data?.questionTypes) {
+          setQuestionTypes(response.data.questionTypes);
+          // Set default question type if not set
+          if ((!newQuestion.questionTypeId || newQuestion.questionTypeId === 0) && response.data.questionTypes.length > 0) {
+            setNewQuestion(prev => ({ ...prev, questionTypeId: response.data.questionTypes[0].id }));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load question types:', error);
+      }
+    };
+    loadQuestionTypes();
+  }, []);
 
   const handleCreateNewWorkflow = () => {
     setNewQuestion({
       title: '',
       question: '',
-      questionType: 'text_response',
-      options: [],
+      questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
       isRoot: true,
       isActive: true,
       order: 0,
@@ -109,8 +154,7 @@ export default function ChatbotWorkflowPage() {
     setNewQuestion({
       title: '',
       question: '',
-      questionType: 'text_response',
-      options: [],
+      questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
       isRoot: false,
       isActive: true,
       order: nextOrder,
@@ -139,27 +183,46 @@ export default function ChatbotWorkflowPage() {
       const questionData = {
         ...newQuestion,
         title: newQuestion.title?.trim() || newQuestion.question.trim().substring(0, 100),
-        questionType: 'text_response',
-        options: []
+        questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0
       };
 
+      let createdWorkflowId: string | null = null;
       if (editingQuestion === 'new-workflow' || editingQuestion === 'new-question') {
-        await service.create(questionData);
+        const createResponse = await service.create(questionData);
+        createdWorkflowId = createResponse.data?.workflow?._id || null;
         toast.success(creatingNewWorkflow ? 'Workflow created successfully' : 'Question added successfully');
       } else {
         await service.update(editingQuestion, questionData);
         toast.success('Question updated successfully');
       }
       
-      await loadWorkflows();
+      const loadedWorkflowGroups = await loadWorkflows();
+      
+      // If a new workflow was created, expand its accordion
+      if (creatingNewWorkflow && createdWorkflowId) {
+        // Find the workflow group that contains this root question
+        const newWorkflowGroup = loadedWorkflowGroups.find(
+          group => group.rootQuestion._id === createdWorkflowId
+        );
+        if (newWorkflowGroup) {
+          setExpandedWorkflows(prev => new Set([...prev, newWorkflowGroup._id]));
+          // Scroll to the workflow after a short delay to ensure it's rendered
+          setTimeout(() => {
+            const element = document.querySelector(`[data-workflow-id="${newWorkflowGroup._id}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+      }
+      
       setEditingQuestion(null);
       setEditingWorkflowGroupId(null);
       setCreatingNewWorkflow(false);
       setNewQuestion({
         title: '',
         question: '',
-        questionType: 'text_response',
-        options: [],
+        questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
         isRoot: false,
         isActive: true,
         order: 0
@@ -178,8 +241,7 @@ export default function ChatbotWorkflowPage() {
     setNewQuestion({
       title: '',
       question: '',
-      questionType: 'text_response',
-      options: [],
+      questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
       isRoot: false,
       isActive: true,
       order: 0
@@ -189,8 +251,7 @@ export default function ChatbotWorkflowPage() {
   const handleEditQuestion = (question: ChatbotWorkflow) => {
     setNewQuestion({
       ...question,
-      questionType: 'text_response', // Force text_response type
-      options: [] // Clear options
+      questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0
     });
     setEditingQuestion(question._id || null);
     setEditingWorkflowGroupId(question.workflowGroupId || null);
@@ -241,27 +302,6 @@ export default function ChatbotWorkflowPage() {
       setQuestionIdToDelete(null);
       setShowDeleteModal(false);
     }
-  };
-
-  const handleAddOption = () => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: [...(prev.options || []), { text: '', order: (prev.options?.length || 0) }]
-    }));
-  };
-
-  const handleRemoveOption = (index: number) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: prev.options?.filter((_, i) => i !== index) || []
-    }));
-  };
-
-  const handleUpdateOption = (index: number, field: keyof WorkflowOption, value: any) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: prev.options?.map((opt, i) => i === index ? { ...opt, [field]: value } : opt) || []
-    }));
   };
 
   const toggleExpanded = (id: string) => {
@@ -407,9 +447,11 @@ export default function ChatbotWorkflowPage() {
                 <h4 className="font-medium text-gray-900">{question.question}</h4>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span className="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">
-                  Text/Voice Response
-                </span>
+                {question.questionTypeId && (
+                  <span className="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">
+                    {formatQuestionType(question.questionTypeId, questionTypes)}
+                  </span>
+                )}
                 {question.isActive ? (
                   <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded">
                     Active
@@ -495,7 +537,11 @@ export default function ChatbotWorkflowPage() {
                 const isExpanded = expandedWorkflows.has(group._id);
                 
                 return (
-                  <div key={group._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <div 
+                    key={group._id} 
+                    data-workflow-id={group._id}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                  >
                     {/* Workflow Header */}
                     <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-[#00bc7d]/5 to-transparent">
                       <div className="flex justify-between items-start">
@@ -514,7 +560,7 @@ export default function ChatbotWorkflowPage() {
                           </div>
                           <p className="text-gray-600 ml-9">{group.rootQuestion.question}</p>
                           <div className="flex items-center gap-4 mt-3 ml-9 text-sm text-gray-500">
-                            <span>Type: {group.rootQuestion.questionType}</span>
+                            <span>Type: {formatQuestionType(group.rootQuestion.questionTypeId, questionTypes)}</span>
                             <span>•</span>
                             <span>{activeQuestionsInWorkflow.length} active question{activeQuestionsInWorkflow.length !== 1 ? 's' : ''}</span>
                             {questionsInWorkflow.length > activeQuestionsInWorkflow.length && (
