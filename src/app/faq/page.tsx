@@ -160,7 +160,7 @@ export default function QuestionnarePage() {
                     )}
                   </div>
                   <div className={styles.colActions}>
-                    <button onClick={() => removeRow(idx)} className="btn-secondary remove-btn">Remove</button>
+                    <button onClick={() => removeRow(idx)} className="btn-secondary border-red-300 text-red-700 hover:bg-red-100">Remove</button>
                   </div>
                 </div>
               ))}

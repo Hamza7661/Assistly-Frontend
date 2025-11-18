@@ -12,7 +12,7 @@ import { useChatbotWorkflowService } from '@/services';
 import { ChatbotWorkflow, formatQuestionType } from '@/models/ChatbotWorkflow';
 import { useQuestionTypeService } from '@/services';
 import type { QuestionTypeItem } from '@/models/QuestionType';
-import { ChevronUp, ChevronDown, X, Plus, Save, Trash2, GripVertical, Edit2, ExternalLink } from 'lucide-react';
+import { ChevronUp, ChevronDown, X, Plus, Save, Trash2, GripVertical, Edit2, ExternalLink, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   DndContext,
@@ -354,16 +354,17 @@ export default function TreatmentPlansPage() {
         return;
       }
 
-      let savedWorkflow;
+      let savedWorkflow: ChatbotWorkflow | undefined;
       if (editingWorkflowId) {
         // Update existing workflow
         const response = await service.update(editingWorkflowId, newWorkflow);
         savedWorkflow = response.data.workflow;
         if (savedWorkflow?._id) {
+          const workflow = savedWorkflow; // Type guard
           toast.success('Workflow updated successfully');
           
           // Update the workflow in the workflows list
-          setWorkflows(prev => prev.map(w => w._id === savedWorkflow._id ? savedWorkflow : w));
+          setWorkflows(prev => prev.map(w => w._id === workflow._id ? workflow : w));
         }
       } else {
         // Create new workflow
@@ -371,15 +372,16 @@ export default function TreatmentPlansPage() {
         savedWorkflow = response.data.workflow;
         
         if (savedWorkflow?._id) {
+          const workflow = savedWorkflow; // Type guard
           toast.success('Workflow created successfully');
           
           // Add the new workflow to the workflows list
           setWorkflows(prev => {
-            const exists = prev.some(w => w._id === savedWorkflow._id);
+            const exists = prev.some(w => w._id === workflow._id);
             if (exists) {
-              return prev.map(w => w._id === savedWorkflow._id ? savedWorkflow : w);
+              return prev.map(w => w._id === workflow._id ? workflow : w);
             }
-            return [...prev, savedWorkflow];
+            return [...prev, workflow];
           });
           
           // Automatically attach the new workflow to the plan
@@ -388,7 +390,7 @@ export default function TreatmentPlansPage() {
             const newPlans = prev.map((p, i) => {
               if (i === planIndex) {
                 // Check if workflow is already attached to avoid duplicates
-                const alreadyAttached = p.attachedWorkflows.some(aw => aw.workflowId === savedWorkflow._id);
+                const alreadyAttached = p.attachedWorkflows.some(aw => aw.workflowId === workflow._id);
                 if (alreadyAttached) {
                   return p;
                 }
@@ -399,7 +401,7 @@ export default function TreatmentPlansPage() {
                 return {
                   ...p,
                   attachedWorkflows: [...p.attachedWorkflows, { 
-                    workflowId: savedWorkflow._id!, 
+                    workflowId: workflow._id!, 
                     order: maxOrder + 1 
                   }]
                 };
@@ -414,7 +416,7 @@ export default function TreatmentPlansPage() {
       
       if (savedWorkflow?._id) {
         // Automatically expand the workflow
-        setExpandedWorkflows(prev => new Set([...prev, savedWorkflow._id!]));
+        setExpandedWorkflows(prev => new Set([...prev, savedWorkflow!._id!]));
         handleCancelWorkflowCreation();
       }
     } catch (error: any) {
@@ -667,7 +669,7 @@ export default function TreatmentPlansPage() {
                       )}
                     </div>
                     <div className={styles.colActions}>
-                      <button onClick={() => removePlanRow(planIdx)} className="btn-secondary">Remove</button>
+                      <button onClick={() => removePlanRow(planIdx)} className="btn-secondary border-red-300 text-red-700 hover:bg-red-100">Remove</button>
                     </div>
                   </div>
                   
@@ -896,13 +898,22 @@ export default function TreatmentPlansPage() {
                         
                         {/* Attach Existing Workflow button - only show when not showing selector */}
                         {showingWorkflowSelector !== planIdx && (
-                          <button
-                            onClick={() => setShowingWorkflowSelector(planIdx)}
-                            className="btn-primary text-sm flex items-center gap-1 mt-4"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Attach Existing Workflow
-                          </button>
+                          <div className="mt-4 flex items-center gap-3">
+                            <button
+                              onClick={() => setShowingWorkflowSelector(planIdx)}
+                              disabled={!plan.title.trim() || !plan.description.trim()}
+                              className="btn-primary text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Attach Existing Workflow
+                            </button>
+                            {(!plan.title.trim() || !plan.description.trim()) && (
+                              <span className="text-sm text-amber-600 flex items-center gap-1">
+                                <Info className="h-4 w-4" />
+                                Please add a treatment plan title and description before attaching workflows
+                              </span>
+                            )}
+                          </div>
                         )}
                     </div>
                   </div>

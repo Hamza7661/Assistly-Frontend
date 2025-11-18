@@ -124,7 +124,13 @@ export default function PackagesPage() {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to process package selection. Please try again.');
+      // Check if it's a Stripe configuration error
+      const errorMessage = err.message || '';
+      if (errorMessage.includes('Stripe is not configured') || errorMessage.includes('STRIPE_SECRET_KEY')) {
+        setError('⏰ Coming Soon! We\'re working on payment processing. Please check back later.');
+      } else {
+        setError(errorMessage || 'Failed to process package selection. Please try again.');
+      }
       setSelectingPackageId(null);
     }
   };

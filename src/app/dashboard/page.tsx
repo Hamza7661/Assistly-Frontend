@@ -152,7 +152,13 @@ export default function DashboardPage() {
         window.location.href = response.data.url;
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to open subscription management');
+      // Check if it's a Stripe configuration error
+      const errorMessage = error.message || '';
+      if (errorMessage.includes('Stripe is not configured') || errorMessage.includes('STRIPE_SECRET_KEY')) {
+        toast.info('⏰ Coming Soon! We\'re working on bringing you subscription management. Please check back later.');
+      } else {
+        toast.error(errorMessage || 'Failed to open subscription management');
+      }
     } finally {
       setProcessing(false);
     }
@@ -194,7 +200,13 @@ export default function DashboardPage() {
         }
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to upgrade package. Please try again.');
+      // Check if it's a Stripe configuration error
+      const errorMessage = error.message || '';
+      if (errorMessage.includes('Stripe is not configured') || errorMessage.includes('STRIPE_SECRET_KEY')) {
+        toast.info('⏰ Coming Soon! We\'re working on payment processing. Please check back later.');
+      } else {
+        toast.error(errorMessage || 'Failed to upgrade package. Please try again.');
+      }
     } finally {
       setProcessing(false);
     }

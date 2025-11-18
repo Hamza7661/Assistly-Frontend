@@ -16,7 +16,7 @@ import {
   Edit3,
   Building2
 } from 'lucide-react';
-import { INDUSTRIES_LIST } from '@/enums/Industry';
+import { INDUSTRIES_LIST, Industry } from '@/enums/Industry';
 
 export default function SettingsPage() {
   const { user, logout, updateUser } = useAuth();
@@ -39,13 +39,17 @@ export default function SettingsPage() {
     if (!user) {
       router.push('/signin');
     } else {
+      // Debug: Log user object to check for twilioPhoneNumber
+      console.log('User object:', user);
+      console.log('Twilio Phone Number:', user.twilioPhoneNumber);
+      
       setFormData({
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
         phoneNumber: user.phoneNumber,
         professionDescription: user.professionDescription || '',
-        industry: user.industry || '',
+        industry: user.industry || Industry.DENTAL,
       });
       setIsLoading(false);
     }
@@ -274,6 +278,15 @@ export default function SettingsPage() {
               )}
             </div>
 
+            {user?.twilioPhoneNumber && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assigned Business Phone Number
+                </label>
+                <p className="text-gray-900">{user.twilioPhoneNumber}</p>
+              </div>
+            )}
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Profession Description
@@ -308,11 +321,13 @@ export default function SettingsPage() {
                       title={formData.industry ? 'Industry cannot be changed once set' : ''}
                     >
                       <option value="">Select your industry</option>
-                      {INDUSTRIES_LIST.map((industry) => (
-                        <option key={industry.value} value={industry.value}>
-                          {industry.label}
-                        </option>
-                      ))}
+                      {INDUSTRIES_LIST
+                        .filter((industry) => industry.value === Industry.DENTAL)
+                        .map((industry) => (
+                          <option key={industry.value} value={industry.value}>
+                            {industry.label}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   {formData.industry && (
