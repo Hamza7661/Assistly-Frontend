@@ -35,7 +35,7 @@ import { toast } from 'react-toastify';
 import styles from './styles.module.css';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [subscription, setSubscription] = useState<any>(null);
   const [packageInfo, setPackageInfo] = useState<any>(null);
   const [packages, setPackages] = useState<any[]>([]);
@@ -69,7 +69,6 @@ export default function DashboardPage() {
       const authService = await useAuthService();
       const response = await authService.getCurrentUser();
       if (response.status === 'success') {
-        const { updateUser } = useAuth();
         updateUser(new User(response.data.user));
       }
     } catch (error) {
@@ -102,7 +101,6 @@ export default function DashboardPage() {
           });
           
           if (response.status === 'success') {
-            const { updateUser } = useAuth();
             updateUser(new User(response.data.user));
             console.log('Region updated successfully:', region);
           }
@@ -180,7 +178,6 @@ export default function DashboardPage() {
         });
         
         if (response.status === 'success') {
-          const { updateUser } = useAuth();
           updateUser(new User(response.data.user));
           toast.success('Package upgraded successfully!');
           // Reload subscription and packages
