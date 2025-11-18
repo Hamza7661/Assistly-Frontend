@@ -1,5 +1,5 @@
 import { HttpService } from './httpService';
-import { ChatbotWorkflow, WorkflowListResponse, WorkflowResponse, WorkflowMutationResponse, QuestionType, WorkflowOption, WorkflowGroup, WorkflowGroupListResponse } from '@/models/ChatbotWorkflow';
+import { ChatbotWorkflow, WorkflowListResponse, WorkflowResponse, WorkflowMutationResponse, WorkflowOption, WorkflowGroup, WorkflowGroupListResponse } from '@/models/ChatbotWorkflow';
 
 class ChatbotWorkflowService extends HttpService {
   async list(includeInactive?: boolean): Promise<WorkflowListResponse> {
@@ -111,9 +111,7 @@ class ChatbotWorkflowService extends HttpService {
 
   // Public endpoint to get workflows (no auth)
   async getPublicWorkflows(ownerId: string): Promise<WorkflowListResponse> {
-    const res = await this.request<any>(`/chatbot-workflows/public/${ownerId}`, {
-      useAuth: false
-    });
+    const res = await this.request<any>(`/chatbot-workflows/public/${ownerId}`);
     return {
       status: res.status,
       data: {
@@ -128,8 +126,7 @@ class ChatbotWorkflowService extends HttpService {
     
     if (workflow.title !== undefined) clean.title = workflow.title;
     if (workflow.question !== undefined) clean.question = workflow.question;
-    if (workflow.questionType !== undefined) clean.questionType = workflow.questionType;
-    if (workflow.options !== undefined) clean.options = workflow.options;
+    if (workflow.questionTypeId !== undefined) clean.questionTypeId = workflow.questionTypeId;
     if (workflow.workflowGroupId !== undefined) clean.workflowGroupId = workflow.workflowGroupId;
     if (workflow.isRoot !== undefined) clean.isRoot = workflow.isRoot;
     if (workflow.isActive !== undefined) clean.isActive = workflow.isActive;
