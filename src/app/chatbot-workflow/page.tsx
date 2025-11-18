@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
@@ -29,7 +29,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export default function ChatbotWorkflowPage() {
+function ChatbotWorkflowPageContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -811,4 +811,23 @@ export default function ChatbotWorkflowPage() {
       </div>
     );
   }
+}
+
+export default function ChatbotWorkflowPage() {
+  return (
+    <Suspense fallback={
+      <ProtectedRoute>
+        <div className="min-h-screen bg-gray-50">
+          <Navigation />
+          <div className="container mx-auto px-4 py-8">
+            <div className="min-h-[200px] flex items-center justify-center">
+              <div className="loading-spinner"></div>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    }>
+      <ChatbotWorkflowPageContent />
+    </Suspense>
+  );
 }
