@@ -15,3 +15,5 @@ export const useLeadService = () => import('./leadService').then(module => modul
 export const useIntegrationService = () => import('./integrationService').then(module => module.integrationService);
 export const useWidgetService = () => import('./widgetService').then(module => module.widgetService);
 export const useChatbotWorkflowService = () => import('./chatbotWorkflowService').then(module => module.chatbotWorkflowService);
+export const useSubscriptionService = () => import('./subscriptionService').then(module => module.subscriptionService);
+export const useQuestionTypeService = () => import('./questionTypeService').then(module => module.questionTypeService);

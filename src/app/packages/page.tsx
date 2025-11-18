@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePackageService, useAuthService } from '@/services';
+import { usePackageService, useAuthService, useSubscriptionService } from '@/services';
 import { Package } from '@/models/Package';
 import { PackageType } from '@/enums/PackageType';
 import { ArrowLeft, Plus, Check, X } from 'lucide-react';
 import styles from './styles.module.css';
 import { User } from '@/models/User';
 import { ProtectedRoute, Spinner } from '@/components';
+import { REGION_PRICING_MULTIPLIERS, REGIONS_LIST, Region, countryCodeToRegion, getCountryInfo, CountryInfo } from '@/enums/Region';
+import { detectCountryCode } from '@/utils/countryDetection';
 
 export default function PackagesPage() {
   const router = useRouter();
@@ -20,6 +22,9 @@ export default function PackagesPage() {
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [selectingPackageId, setSelectingPackageId] = useState<string | null>(null);
+  const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
+  const [detectedCountry, setDetectedCountry] = useState<CountryInfo | null>(null);
+  const [detectedCountryCode, setDetectedCountryCode] = useState<string | null>(null);
 
   const [customPackage, setCustomPackage] = useState({
     chatbotQueries: 0,
@@ -28,8 +33,46 @@ export default function PackagesPage() {
   });
 
   useEffect(() => {
+    // If user already has a package, redirect to dashboard
+    if (user && user.hasPackage()) {
+      router.push('/dashboard');
+      return;
+    }
     fetchPackages();
-  }, []);
+    // Always detect country for accurate currency display
+    detectAndSetRegion();
+  }, [user, router]);
+
+  const detectAndSetRegion = async () => {
+    try {
+      const countryResult = await detectCountryCode();
+      const countryInfo = getCountryInfo(countryResult.countryCode);
+      const region = countryInfo.region;
+      
+      // Store detected country code, country info, and region for immediate use
+      setDetectedCountryCode(countryResult.countryCode);
+      setDetectedCountry(countryInfo);
+      setDetectedRegion(region);
+      
+      if (user && (!user.region || user.region === Region.UK || user.region === 'uk') && region !== Region.UK) {
+        try {
+          const authService = await useAuthService();
+          const response = await authService.updateUserProfile(user._id, {
+            region: region
+          });
+          
+          if (response.status === 'success') {
+            const updatedUser = new User(response.data.user);
+            updateUser(updatedUser);
+          }
+        } catch (error) {
+          console.error('Failed to update region:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to detect region:', error);
+    }
+  };
 
   const fetchPackages = async () => {
     try {
@@ -49,23 +92,45 @@ export default function PackagesPage() {
     
     setSelectingPackageId(pkg._id);
     try {
-      const authService = await useAuthService();
-      const response = await authService.updateUserProfile(user._id, {
-        package: pkg._id
-      });
+      // Check if package is free
+      const isFree = pkg.price.amount === 0 || pkg.type === PackageType.FREE_TRIAL;
       
-            if (response.status === 'success') {
-        // Update the user context with the new package
-        const updatedUser = new User({ ...user, package: pkg });
-        updateUser(updatedUser);
-        setSelectedPackage(pkg);
-        setSelectingPackageId(null); // Stop loader immediately after package selection
+      if (isFree) {
+        // Directly assign free package
+        const authService = await useAuthService();
+        const response = await authService.updateUserProfile(user._id, {
+          package: pkg._id
+        });
         
-        // Redirect to dashboard
-        router.push('/dashboard');
+        if (response.status === 'success') {
+          const updatedUser = new User({ ...user, package: pkg });
+          updateUser(updatedUser);
+          setSelectedPackage(pkg);
+          setSelectingPackageId(null);
+          router.push('/dashboard');
+        }
+      } else {
+        // Create Stripe checkout session for paid packages
+        const subscriptionService = await useSubscriptionService();
+        const checkoutResponse = await subscriptionService.createCheckoutSession(
+          pkg._id,
+          `${window.location.origin}/dashboard?subscription=success`,
+          `${window.location.origin}/packages?subscription=canceled`
+        );
+        
+        if (checkoutResponse.data.url) {
+          // Redirect to Stripe checkout
+          window.location.href = checkoutResponse.data.url;
+        }
       }
     } catch (err: any) {
-      setError('Failed to select package. Please try again.');
+      // Check if it's a Stripe configuration error
+      const errorMessage = err.message || '';
+      if (errorMessage.includes('Stripe is not configured') || errorMessage.includes('STRIPE_SECRET_KEY')) {
+        setError('⏰ Coming Soon! We\'re working on payment processing. Please check back later.');
+      } else {
+        setError(errorMessage || 'Failed to process package selection. Please try again.');
+      }
       setSelectingPackageId(null);
     }
   };
@@ -130,6 +195,19 @@ export default function PackagesPage() {
   };
 
 
+
+  // If user has a package, show loading while redirecting
+  if (user && user.hasPackage()) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.pageContainer}>
+          <div className="flex justify-center items-center h-64">
+            <div className="loading-spinner"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -229,8 +307,72 @@ export default function PackagesPage() {
                   <h3 className={styles.packageName}>
                     {pkg.type === PackageType.CUSTOM ? 'Custom Package' : pkg.name}
                   </h3>
-                  <div className={styles.packagePrice}>${typeof pkg.price === 'object' ? pkg.price.amount : pkg.price}</div>
-                  <p className={styles.packageBilling}>per month</p>
+                  {(() => {
+                    const basePrice = typeof pkg.price === 'object' ? pkg.price.amount : pkg.price || 0;
+                    // Priority: 1. Detected country (most accurate), 2. User's stored region, 3. Default to UK
+                    let countryCode: string | null = null;
+                    
+                    // First priority: Use detected country code (most accurate for currency)
+                    if (detectedCountryCode) {
+                      countryCode = detectedCountryCode;
+                    }
+                    // Second priority: Use user's stored region
+                    else if (user?.region) {
+                      if (user.region === Region.UK || user.region === 'uk') {
+                        countryCode = 'GB';
+                      } else if (user.region === Region.US || user.region === 'us') {
+                        countryCode = 'US';
+                      } else if (user.region === Region.EU || user.region === 'eu') {
+                        // For EU region, don't default to EUR - wait for detection or use GB
+                        countryCode = detectedCountryCode || 'GB';
+                      } else if (user.region === Region.ASIA || user.region === 'asia') {
+                        // Only use PK if explicitly detected, otherwise default to GB
+                        countryCode = (detectedCountryCode === 'PK') ? 'PK' : 'GB';
+                      } else {
+                        countryCode = 'GB';
+                      }
+                    }
+                    
+                    // Final fallback
+                    if (!countryCode) {
+                      countryCode = 'GB';
+                    }
+                    
+                    const countryInfo = getCountryInfo(countryCode);
+                    const multiplier = countryInfo.pricingMultiplier;
+                    const regionPrice = basePrice * multiplier;
+                    
+                    let displayPrice = regionPrice;
+                    let currencySymbol = countryInfo.currencySymbol;
+                    
+                    if (countryInfo.currency === 'PKR') {
+                      displayPrice = regionPrice * 280;
+                    }
+                    
+                    console.log('Package pricing:', {
+                      userRegion: user?.region,
+                      detectedCountryCode,
+                      finalCountryCode: countryCode,
+                      currency: countryInfo.currency,
+                      symbol: currencySymbol,
+                      countryName: countryInfo.name
+                    });
+                    
+                    return (
+                      <>
+                        <div className={styles.packagePrice}>
+                          {currencySymbol}
+                          {displayPrice.toFixed(2)}
+                        </div>
+                        <p className={styles.packageBilling}>per month</p>
+                        {countryInfo.code !== 'US' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            ({countryInfo.name} pricing)
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className={styles.packageSection}>
@@ -412,10 +554,22 @@ export default function PackagesPage() {
                   <div className={styles.priceRow}>
                     <span className={styles.priceLabel}>Monthly Price:</span>
                     <span className={styles.priceAmount}>
-                      {customPackage.chatbotQueries === 0 && customPackage.voiceMinutes === 0 && !customPackage.leadGeneration 
-                        ? 'Select features' 
-                        : `$${Math.max(20, Math.floor((customPackage.chatbotQueries / 20000) * 20 + (customPackage.voiceMinutes / 2000) * 20))}`
-                      }
+                      {(() => {
+                        if (customPackage.chatbotQueries === 0 && customPackage.voiceMinutes === 0 && !customPackage.leadGeneration) {
+                          return 'Select features';
+                        }
+                        const usdPrice = Math.max(20, Math.floor((customPackage.chatbotQueries / 20000) * 20 + (customPackage.voiceMinutes / 2000) * 20));
+                        const countryCode = detectedCountryCode || 'GB';
+                        const countryInfo = detectedCountry || getCountryInfo(countryCode);
+                        const multiplier = countryInfo.pricingMultiplier;
+                        let displayPrice = usdPrice * multiplier;
+                        
+                        if (countryInfo.currency === 'PKR') {
+                          displayPrice = displayPrice * 280;
+                        }
+                        
+                        return `${countryInfo.currencySymbol}${displayPrice.toFixed(2)}`;
+                      })()}
                     </span>
                   </div>
                   <p className={styles.pricePeriod}>billed monthly</p>

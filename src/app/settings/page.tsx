@@ -13,32 +13,43 @@ import {
   Globe,
   LogOut,
   Save,
-  Edit3
+  Edit3,
+  Building2
 } from 'lucide-react';
+import { INDUSTRIES_LIST, Industry } from '@/enums/Industry';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phoneNumber: '',
-    profession: '',
+    professionDescription: '',
+    industry: '',
   });
 
   useEffect(() => {
     if (!user) {
       router.push('/signin');
     } else {
+      // Debug: Log user object to check for twilioPhoneNumber
+      console.log('User object:', user);
+      console.log('Twilio Phone Number:', user.twilioPhoneNumber);
+      
       setFormData({
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
         phoneNumber: user.phoneNumber,
-        profession: user.profession,
+        professionDescription: user.professionDescription || '',
+        industry: user.industry || Industry.DENTAL,
       });
       setIsLoading(false);
     }
@@ -49,8 +60,77 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
-    // TODO: Implement update user profile API call
-    setIsEditing(false);
+    if (!user?._id) {
+      setError('User not found');
+      return;
+    }
+
+    // Validate required fields - only require industry if it's not already set
+    if (!formData.industry || formData.industry.trim() === '') {
+      // Check if user already has an industry set
+      if (!user?.industry) {
+        setError('Industry is required. Please select an industry.');
+        return;
+      }
+      // If user has industry but formData is empty, keep the existing one
+      formData.industry = user.industry;
+    }
+
+    setIsSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { useAuthService } = await import('@/services');
+      const authService = await useAuthService();
+      
+      // Prepare update data - only include industry if it has a value
+      const updateData: any = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        professionDescription: formData.professionDescription,
+      };
+
+      // Only include industry if it's not empty AND user doesn't already have one set
+      // Once industry is set, it cannot be changed
+      if (!user.industry && formData.industry && formData.industry.trim() !== '') {
+        updateData.industry = formData.industry.trim();
+      } else if (user.industry && formData.industry !== user.industry) {
+        // Prevent changing industry if already set
+        setError('Industry cannot be changed once set. Please contact support if you need to update it.');
+        setIsSaving(false);
+        return;
+      }
+
+      console.log('Updating user profile:', { userId: user._id, updateData });
+      
+      const response = await authService.updateUserProfile(user._id, updateData);
+
+      if (response.status === 'success') {
+        const { User } = await import('@/models/User');
+        const updatedUser = new User(response.data.user);
+        console.log('User updated successfully:', { 
+          userId: updatedUser._id, 
+          industry: updatedUser.industry,
+          userData: updatedUser 
+        });
+        updateUser(updatedUser);
+        setSuccess('Profile updated successfully!');
+        setIsEditing(false);
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        console.error('Update failed:', response);
+        setError(response.message || 'Failed to update profile');
+      }
+    } catch (err: any) {
+      console.error('Error updating profile:', err);
+      setError(err.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLogout = () => {
@@ -114,10 +194,20 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="btn-primary flex items-center"
+                  disabled={isSaving}
+                  className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </button>
               </div>
             )}
@@ -188,22 +278,85 @@ export default function SettingsPage() {
               )}
             </div>
 
+            {user?.twilioPhoneNumber && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assigned Business Phone Number
+                </label>
+                <p className="text-gray-900">{user.twilioPhoneNumber}</p>
+              </div>
+            )}
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Profession
+                Profession Description
               </label>
               {isEditing ? (
-                <input
-                  type="text"
+                <textarea
                   className="input-field"
-                  value={formData.profession}
-                  onChange={(e) => handleInputChange('profession', e.target.value)}
+                  rows={3}
+                  value={formData.professionDescription}
+                  onChange={(e) => handleInputChange('professionDescription', e.target.value)}
+                  placeholder="Describe your profession or business"
                 />
               ) : (
-                <p className="text-gray-900">{formData.profession}</p>
+                <p className="text-gray-900">{formData.professionDescription || 'Not provided'}</p>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Industry {!formData.industry && <span className="text-red-500">*</span>}
+              </label>
+              {isEditing ? (
+                <div>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                    <select
+                      className={`w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 ${formData.industry ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      value={formData.industry}
+                      onChange={(e) => handleInputChange('industry', e.target.value)}
+                      required={!formData.industry}
+                      disabled={!!formData.industry}
+                      title={formData.industry ? 'Industry cannot be changed once set' : ''}
+                    >
+                      <option value="">Select your industry</option>
+                      {INDUSTRIES_LIST
+                        .filter((industry) => industry.value === Industry.DENTAL)
+                        .map((industry) => (
+                          <option key={industry.value} value={industry.value}>
+                            {industry.label}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  {formData.industry && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Industry cannot be changed once set. Contact support if you need to update it.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-900">
+                  {formData.industry 
+                    ? INDUSTRIES_LIST.find(i => i.value === formData.industry)?.label || formData.industry
+                    : 'Not set'}
+                </p>
               )}
             </div>
           </div>
+
+          {/* Success/Error Messages */}
+          {success && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800">{success}</p>
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
         </div>
 
         {/* Account Settings */}

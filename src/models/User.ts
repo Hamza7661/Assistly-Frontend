@@ -5,8 +5,11 @@ export class User {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  twilioPhoneNumber?: string;
   email: string;
   professionDescription: string;
+  industry?: string;
+  region?: string;
   website?: string;
   package: Package | null;
   isActive: boolean;
@@ -26,8 +29,11 @@ export class User {
     this.firstName = data.firstName || '';
     this.lastName = data.lastName || '';
     this.phoneNumber = data.phoneNumber || '';
+    this.twilioPhoneNumber = data.twilioPhoneNumber || undefined;
     this.email = data.email || '';
     this.professionDescription = data.professionDescription || '';
+    this.industry = data.industry || '';
+    this.region = data.region || 'us';
     this.website = data.website || '';
     this.package = data.package ? new Package(data.package) : null;
     this.isActive = data.isActive || false;
@@ -73,6 +79,7 @@ export class User {
       firstName: this.firstName,
       lastName: this.lastName,
       phoneNumber: this.phoneNumber,
+      twilioPhoneNumber: this.twilioPhoneNumber,
       email: this.email,
       professionDescription: this.professionDescription,
       website: this.website,

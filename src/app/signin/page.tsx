@@ -142,7 +142,7 @@ function SigninContent() {
           }
           
           // Only authenticate if email is verified
-          login(token);
+          await login(token);
           
           // Check if user has a package, if not redirect to packages page
           if (!user.hasPackage()) {
