@@ -83,8 +83,7 @@ export default function DashboardPage() {
       const countryInfo = getCountryInfo(countryResult.countryCode);
       const region = countryInfo.region;
       
-      console.log('Detected country:', { countryCode: countryResult.countryCode, country: countryInfo.name, region, method: countryResult.method });
-      
+     
       // Store detected country code, country info, and region for immediate use
       setDetectedCountryCode(countryResult.countryCode);
       setDetectedCountry(countryInfo);

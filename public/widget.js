@@ -170,7 +170,6 @@
     
     // Detect country code
     config.countryCode = detectCountryCode();
-    console.log('Detected country code:', config.countryCode);
     
     // Create and append iframe
     iframe = createIframe();
@@ -185,7 +184,6 @@
     // Apply initial box shadow
     applyBoxShadow(iframe);
     
-    console.log('Assistly Widget initialized for user:', userId, 'country:', config.countryCode);
   }
   
   // Cleanup function
