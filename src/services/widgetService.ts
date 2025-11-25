@@ -29,7 +29,6 @@ class WidgetService extends HttpService {
       const hashArray = Array.from(new Uint8Array(signature));
       const hexSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
       
-      console.log('Generated signature:', hexSignature);
       return hexSignature;
     } catch (error) {
       console.error('HMAC generation error:', error);
