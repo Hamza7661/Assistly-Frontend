@@ -8,16 +8,6 @@ class WidgetService extends HttpService {
     const path = `/api/v1/integration/public/${userId}/me`;
     const stringToSign = `${method}\n${path}\nuserId=${userId}\n${ts}\n${nonce}`;
     
-    console.log('HMAC Debug:', { 
-      method, 
-      path, 
-      userId, 
-      ts, 
-      nonce, 
-      stringToSign, 
-      secret 
-    });
-    
     const encoder = new TextEncoder();
     const keyData = encoder.encode(secret);
     const messageData = encoder.encode(stringToSign);
