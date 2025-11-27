@@ -1,6 +1,7 @@
 export interface IntegrationSettings {
   chatbotImage?: string;
   assistantName?: string;
+  companyName?: string;
   greeting?: string;
   primaryColor?: string;
   validateEmail?: boolean;

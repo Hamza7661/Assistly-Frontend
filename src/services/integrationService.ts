@@ -11,6 +11,7 @@ class IntegrationService extends HttpService {
     
     // Add text fields
     if (settings.assistantName !== undefined) formData.append('assistantName', settings.assistantName);
+    if (settings.companyName !== undefined) formData.append('companyName', settings.companyName);
     if (settings.greeting !== undefined) formData.append('greeting', settings.greeting);
     if (settings.primaryColor !== undefined) formData.append('primaryColor', settings.primaryColor);
     
