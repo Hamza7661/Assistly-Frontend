@@ -18,6 +18,7 @@ export default function IntegrationPage() {
   const [settings, setSettings] = useState<IntegrationSettings>({
     chatbotImage: '',
     assistantName: '',
+    companyName: '',
     greeting: '',
     primaryColor: '#00bc7d',
     validateEmail: false,
@@ -32,8 +33,72 @@ export default function IntegrationPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [originalSettings, setOriginalSettings] = useState<IntegrationSettings | null>(null);
+  const [selectedTemplateIndex, setSelectedTemplateIndex] = useState<number | null>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Generate greeting preview
+  const getGreetingPreview = () => {
+    if (!settings.greeting) return '';
+    const assistantName = settings.assistantName?.trim() || '{Your Assistant Name}';
+    const companyName = settings.companyName?.trim() || '';
+    
+    let preview = settings.greeting.replace(/{assistantName}/g, assistantName);
+    
+    // If company name is provided, replace it
+    if (companyName) {
+      preview = preview.replace(/{companyName}/g, companyName);
+    } else {
+      // Remove company name phrases gracefully when company name is not provided
+      preview = preview
+        .replace(/\s+from\s+\{companyName\}/gi, '')
+        .replace(/\s+at\s+\{companyName\}/gi, '')
+        .replace(/\s+of\s+\{companyName\}/gi, '')
+        .replace(/\s+with\s+\{companyName\}/gi, '')
+        .replace(/\{companyName\}\s+/g, '')
+        .replace(/\s+\{companyName\}/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s+([.,!?])/g, '$1')
+        .replace(/([.,!?])\s+([.,!?])/g, '$1$2');
+    }
+    
+    return preview;
+  };
+  
+  
+  const greetingTemplates = [
+    {
+      name: 'Professional',
+      text: 'Hi this is {assistantName} your virtual ai assistant from {companyName}. How can I help you today?'
+    },
+    {
+      name: 'Friendly',
+      text: 'Hello! I\'m {assistantName} from {companyName}. How can I assist you today?'
+    },
+    {
+      name: 'Casual',
+      text: 'Hey there! I\'m {assistantName}, your AI assistant at {companyName}. What can I do for you?'
+    },
+    {
+      name: 'Simple',
+      text: 'Hello! I\'m {assistantName}. How can I help you today?'
+    }
+  ];
+  
+  const applyTemplate = (template: string, index: number) => {
+    updateSettings({ ...settings, greeting: template });
+    setSelectedTemplateIndex(index);
+  };
+  
+  // Check if current greeting matches any template
+  useEffect(() => {
+    const currentGreeting = settings.greeting?.trim() || '';
+    const matchingIndex = greetingTemplates.findIndex(
+      template => template.text.trim() === currentGreeting
+    );
+    setSelectedTemplateIndex(matchingIndex !== -1 ? matchingIndex : null);
+  }, [settings.greeting]);
   
   // Load settings on mount
   useEffect(() => {
@@ -52,10 +117,21 @@ export default function IntegrationPage() {
           setImagePreview(imageData);
         }
         
+        // Use Professional template as default if no greeting exists or if it's the old default
+        const defaultGreeting = greetingTemplates[0].text; // Professional template
+        const existingGreeting = integration?.greeting?.trim() || '';
+        const oldDefaultGreeting = 'Hello! How can I help you today?';
+        
+        // Replace old default greeting with Professional template, or use Professional if empty
+        const greeting = (existingGreeting === oldDefaultGreeting || !existingGreeting) 
+          ? defaultGreeting 
+          : existingGreeting;
+        
         const loadedSettings = {
           chatbotImage: integration?.chatbotImage?.filename || '',
           assistantName: integration?.assistantName || '',
-          greeting: integration?.greeting || '',
+          companyName: integration?.companyName || '',
+          greeting: greeting,
           primaryColor: integration?.primaryColor || '#00bc7d',
           validateEmail: integration?.validateEmail || false,
           validatePhoneNumber: integration?.validatePhoneNumber || false
@@ -64,6 +140,12 @@ export default function IntegrationPage() {
         setSettings(loadedSettings);
         setOriginalSettings(loadedSettings);
         setHasUnsavedChanges(false);
+        
+        // Check if loaded greeting matches any template
+        const matchingIndex = greetingTemplates.findIndex(
+          template => template.text.trim() === greeting.trim()
+        );
+        setSelectedTemplateIndex(matchingIndex !== -1 ? matchingIndex : null);
       } catch (e: any) {
         setError(e?.message || 'Failed to load settings');
       } finally {
@@ -161,6 +243,7 @@ export default function IntegrationPage() {
     
     return (
       newSettings.assistantName !== originalSettings.assistantName ||
+      newSettings.companyName !== originalSettings.companyName ||
       newSettings.greeting !== originalSettings.greeting ||
       newSettings.primaryColor !== originalSettings.primaryColor ||
       Boolean(newSettings.validateEmail) !== Boolean(originalSettings.validateEmail) ||
@@ -304,6 +387,17 @@ export default function IntegrationPage() {
                   />
                 </div>
                 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Enter your company name"
+                    value={settings.companyName || ''}
+                    onChange={(e) => updateSettings({ ...settings, companyName: e.target.value })}
+                  />
+                </div>
+                
                 <div className="relative" ref={colorPickerRef}>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
                   <div className="flex items-center gap-2">
@@ -335,13 +429,77 @@ export default function IntegrationPage() {
                 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Greeting Message</label>
+                  
+                  {/* Example Templates */}
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-600 mb-2">Quick templates:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {greetingTemplates.map((template, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => applyTemplate(template.text, idx)}
+                          className={`px-3 py-1.5 text-xs border rounded-md transition-colors ${
+                            selectedTemplateIndex === idx
+                              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                              : 'border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                          }`}
+                        >
+                          {template.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
                   <textarea
                     className="input-field"
-                    rows={3}
-                    placeholder="Your greeting message here"
+                    rows={4}
+                    placeholder="Type your greeting message here, or use a template above..."
                     value={settings.greeting || ''}
                     onChange={(e) => updateSettings({ ...settings, greeting: e.target.value })}
                   />
+                  
+                  {/* Live Preview */}
+                  {settings.greeting && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs font-medium text-blue-900 mb-1">Preview (how it will appear to users):</p>
+                      <p className="text-sm text-blue-800 italic">"{getGreetingPreview()}"</p>
+                    </div>
+                  )}
+                  
+                  {/* Helpful explanation */}
+                  <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-xs font-medium text-gray-700 mb-2">💡 How it works:</p>
+                    <div className="space-y-1.5 text-xs text-gray-600">
+                      {settings.assistantName ? (
+                        <p>
+                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{assistantName}'}</span> will show as: 
+                          <span className="font-semibold ml-1">"{settings.assistantName}"</span>
+                        </p>
+                      ) : (
+                        <p>
+                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{assistantName}'}</span> will show as: 
+                          <span className="font-semibold ml-1">&quot;{'{'}Your Assistant Name{'}'}&quot;</span> (fill in Assistant Name above)
+                        </p>
+                      )}
+                      {settings.companyName ? (
+                        <p>
+                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{companyName}'}</span> will show as: 
+                          <span className="font-semibold ml-1">"{settings.companyName}"</span>
+                        </p>
+                      ) : (
+                        <>
+                          <p>
+                            • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{companyName}'}</span> will show as: 
+                            <span className="font-semibold ml-1">&quot;{'{'}Your Company Name{'}'}&quot;</span> (fill in Company Name above)
+                          </p>
+                          <p className="mt-1.5">
+                            • If Company Name is left empty, phrases like &quot;from {'{'}companyName{'}'}&quot; or &quot;at {'{'}companyName{'}'}&quot; will be automatically removed from the greeting.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Validation Settings */}
