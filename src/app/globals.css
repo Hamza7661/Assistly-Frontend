@@ -96,4 +96,13 @@ a {
   input[type="tel"]:focus {
     outline: none;
   }
+
+  /* Logo Image Styles - Prevent unwanted backgrounds/borders */
+  .logo-image {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
 }

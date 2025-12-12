@@ -3,3 +3,4 @@ export { default as ProtectedRoute } from './ProtectedRoute';
 export { default as Spinner } from './Spinner';
 export { default as FullPageSpinner } from './FullPageSpinner';
 export { default as Toaster } from './Toaster';
+export { default as Logo } from './Logo';

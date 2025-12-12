@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import Logo from './Logo';
 import { 
   Menu, 
   X, 
@@ -117,11 +118,14 @@ export default function Navigation() {
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-20">
           {/* Logo and Desktop Navigation */}
           <div className="flex items-center">
-            <div className="h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center mr-4">
-              <span className="text-lg font-bold text-white">A</span>
+            <div 
+              onClick={() => handleNavigation('/dashboard')}
+              className="mr-6 cursor-pointer hover:opacity-80 transition-opacity flex items-center"
+            >
+              <Logo width={140} height={42} />
             </div>
             <div className="hidden lg:flex space-x-1">
               {navigation.map((item) => {
