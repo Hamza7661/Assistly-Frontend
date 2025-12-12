@@ -9,7 +9,7 @@ import { PackageType } from '@/enums/PackageType';
 import { ArrowLeft, Plus, Check, X } from 'lucide-react';
 import styles from './styles.module.css';
 import { User } from '@/models/User';
-import { ProtectedRoute, Spinner } from '@/components';
+import { ProtectedRoute, Spinner, Logo } from '@/components';
 import { REGION_PRICING_MULTIPLIERS, REGIONS_LIST, Region, countryCodeToRegion, getCountryInfo, CountryInfo } from '@/enums/Region';
 import { detectCountryCode } from '@/utils/countryDetection';
 
@@ -230,10 +230,8 @@ export default function PackagesPage() {
             <button onClick={() => router.back()} className={styles.backButton}>
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div className="flex items-center">
-              <div className={styles.logoIcon}>
-                <span className="text-white font-bold text-sm">A</span>
-              </div>
+            <div className="flex items-center gap-4">
+              <Logo width={140} height={42} />
               <h1 className={styles.pageTitle}>Choose Your Package</h1>
             </div>
           </div>

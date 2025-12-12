@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthService } from '@/services';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import Logo from '@/components/Logo';
 import styles from './styles.module.css';
 
 export default function VerifyPage() {
@@ -126,10 +127,7 @@ function VerifyContent() {
     <div className={styles.container}>
       <div className={styles.verificationCard}>
         <div className={styles.logoSection}>
-          <div className={styles.logoIcon}>
-            <span className={styles.logoText}>A</span>
-          </div>
-          <h1 className={styles.brandName}>Assistly</h1>
+          <Logo width={140} height={42} />
         </div>
         
         {renderContent()}

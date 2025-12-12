@@ -25,23 +25,6 @@
   gap: 1rem;
 }
 
-.logoIcon {
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, #00bc7d 0%, #00a870 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 15px -3px rgba(0, 188, 125, 0.3);
-}
-
-.logoText {
-  color: white;
-  font-weight: bold;
-  font-size: 1.5rem;
-}
-
 .brandName {
   color: #1f2937;
   font-size: 2rem;

@@ -9,7 +9,7 @@ import { Mail, Lock, User as UserIcon, Phone, Briefcase, Eye, EyeOff, Building2 
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
-import { Spinner, FullPageSpinner } from '@/components';
+import { Spinner, FullPageSpinner, Logo } from '@/components';
 
 import styles from './styles.module.css';
 
@@ -165,8 +165,8 @@ export default function SignupPage() {
     <div className={styles.container}>
       <div className={styles.formContainer}>
         <div className={styles.header}>
-          <div className={styles.logo}>
-            <span className={styles.logoText}>A</span>
+          <div className={styles.logoContainer}>
+            <Logo width={140} height={42} />
           </div>
           <h1 className={styles.title}>Create your account</h1>
           <p className={styles.subtitle}>Join Assistly and get started with your virtual assistant journey</p>

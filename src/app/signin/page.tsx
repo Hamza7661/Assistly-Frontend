@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAuthService, useTemplateService } from '@/services';
 import { User } from '@/models/User';
 import { Mail, Lock, User as UserIcon, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import Logo from '@/components/Logo';
 import styles from './styles.module.css';
 
 export default function SigninPage() {
@@ -177,8 +178,8 @@ function SigninContent() {
     <div className={styles.container}>
       <div className={styles.formContainer}>
         <div className={styles.header}>
-          <div className={styles.logo}>
-            <span className={styles.logoText}>A</span>
+          <div className={styles.logoContainer}>
+            <Logo width={140} height={42} />
           </div>
           <h1 className={styles.title}>Welcome back</h1>
           <p className={styles.subtitle}>Sign in to your Assistly account</p>
