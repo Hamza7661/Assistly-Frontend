@@ -14,7 +14,7 @@
   };
 
   // Mobile layout tuning
-  var mobileCollapsedHeight = 140;
+  var mobileCollapsedHeight = 100;
 
   // Widget state tracking
   var widgetState = {
