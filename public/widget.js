@@ -13,6 +13,9 @@
     countryCode: 'US' // Default country code
   };
 
+  // Mobile layout tuning
+  var mobileCollapsedHeight = 140;
+
   // Widget state tracking
   var widgetState = {
     isOpen: false
@@ -46,11 +49,25 @@
   // Apply mobile styles to iframe
   function applyMobileStyles(iframe) {
     if (window.innerWidth <= 768) {
-      // Mobile: 100% width and height
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.left = '0';
-      iframe.style.top = '0';
+      if (widgetState.isOpen) {
+        // Expanded state should take the full viewport
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.left = '0';
+        iframe.style.right = '0';
+        iframe.style.top = '0';
+        iframe.style.bottom = '0';
+        iframe.style.maxWidth = '100%';
+      } else {
+        // Collapsed state stays in the corner and does not block the page
+        iframe.style.width = '320px';
+        iframe.style.maxWidth = 'calc(100% - 1.6rem)';
+        iframe.style.height = Math.max(config.initialHeight, mobileCollapsedHeight) + 'px';
+        iframe.style.left = 'auto';
+        iframe.style.right = '0.8rem';
+        iframe.style.top = 'auto';
+        iframe.style.bottom = '0.8rem';
+      }
     } else {
       // Desktop: fixed width and height based on widget state
       iframe.style.width = config.width + 'px';
@@ -78,8 +95,14 @@
     if (event.data && event.data.type === 'resize-iframe') {
       if (iframe) {
         if (window.innerWidth <= 768) {
-          // Mobile: keep 100% height
-          iframe.style.height = '100%';
+          // Mobile: use full height only when open, otherwise honor collapsed size
+          if (widgetState.isOpen) {
+            iframe.style.height = '100%';
+          } else {
+            var requestedHeight = typeof event.data.height === 'number' ? event.data.height : config.initialHeight;
+            var clamped = Math.min(Math.max(requestedHeight, config.minHeight), config.maxHeight);
+            iframe.style.height = Math.max(clamped, mobileCollapsedHeight) + 'px';
+          }
         } else {
           // Desktop: use dynamic height
           //var newHeight = Math.min(Math.max(event.data.height, config.minHeight), config.maxHeight);
@@ -93,6 +116,7 @@
       widgetState.isOpen = event.data.isOpen;
       if (iframe) {
         applyBoxShadow(iframe);
+        applyMobileStyles(iframe);
       }
     }
   }
