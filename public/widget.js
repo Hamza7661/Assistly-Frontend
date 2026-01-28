@@ -4,6 +4,8 @@
   // Configuration
   var config = {
     userId: null,
+    appId: null,
+    useAppId: false,
     baseUrl: 'https://assistly-nohi.onrender.com', // This will be replaced with actual URL
     width: 400,
     minHeight: 100,
@@ -24,9 +26,17 @@
   // Create iframe element
   function createIframe() {
     var iframe = document.createElement('iframe');
-    var url = config.baseUrl + '/widget/' + config.userId;
+    var pathId = config.useAppId ? config.appId : config.userId;
+    var url = config.baseUrl + '/widget/' + encodeURIComponent(pathId);
+    var params = [];
+    if (config.useAppId && config.appId) {
+      params.push('appId=' + encodeURIComponent(config.appId));
+    }
     if (config.countryCode) {
-      url += '?country=' + encodeURIComponent(config.countryCode);
+      params.push('country=' + encodeURIComponent(config.countryCode));
+    }
+    if (params.length) {
+      url += '?' + params.join('&');
     }
     iframe.src = url;
     iframe.frameBorder = '0';
@@ -181,13 +191,21 @@
   }
 
   // Initialize widget
-  function init(userId, baseUrl) {
-    if (!userId) {
-      console.error('Assistly Widget: userId is required');
+  // identifier: userId or appId; baseUrl: optional; useAppId: true when embedding by app (data-assistly-app-id)
+  function init(identifier, baseUrl, useAppId) {
+    if (!identifier) {
+      console.error('Assistly Widget: app id or user id is required (data-assistly-app-id or data-assistly-user-id)');
       return;
     }
     
-    config.userId = userId;
+    config.useAppId = !!useAppId;
+    if (config.useAppId) {
+      config.appId = identifier;
+      config.userId = null;
+    } else {
+      config.userId = identifier;
+      config.appId = null;
+    }
     if (baseUrl) {
       config.baseUrl = baseUrl;
     }
@@ -230,13 +248,18 @@
     config: config
   };
   
-  // Auto-initialize if data attributes are present
+  // Auto-initialize if data attributes are present (app-id from Integration page, or legacy user-id)
   document.addEventListener('DOMContentLoaded', function() {
-    var script = document.querySelector('script[data-assistly-user-id]');
+    var script = document.querySelector('script[data-assistly-app-id], script[data-assistly-user-id]');
     if (script) {
+      var appId = script.getAttribute('data-assistly-app-id');
       var userId = script.getAttribute('data-assistly-user-id');
       var baseUrl = script.getAttribute('data-assistly-base-url');
-      init(userId, baseUrl);
+      if (appId) {
+        init(appId, baseUrl, true);
+      } else if (userId) {
+        init(userId, baseUrl, false);
+      }
     }
   });
   
