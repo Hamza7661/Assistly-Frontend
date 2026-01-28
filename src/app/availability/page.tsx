@@ -8,6 +8,7 @@ import { useAvailabilityService } from '@/services';
 import type { AvailabilityDayUTC, AvailabilitySlotUTC, DayOfWeek } from '@/models/Availability';
 import styles from './styles.module.css';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 
 const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
