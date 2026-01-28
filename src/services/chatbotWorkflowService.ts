@@ -2,9 +2,9 @@ import { HttpService } from './httpService';
 import { ChatbotWorkflow, WorkflowListResponse, WorkflowResponse, WorkflowMutationResponse, WorkflowOption, WorkflowGroup, WorkflowGroupListResponse } from '@/models/ChatbotWorkflow';
 
 class ChatbotWorkflowService extends HttpService {
-  async list(includeInactive?: boolean): Promise<WorkflowListResponse> {
+  async list(appId: string, includeInactive?: boolean): Promise<WorkflowListResponse> {
     const query = includeInactive ? '?includeInactive=true' : '';
-    const res = await this.request<any>(`/chatbot-workflows${query}`);
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}${query}`);
     return {
       status: res.status,
       data: {
@@ -14,8 +14,8 @@ class ChatbotWorkflowService extends HttpService {
     };
   }
 
-  async get(id: string): Promise<WorkflowResponse> {
-    const res = await this.request<any>(`/chatbot-workflows/${id}`);
+  async get(appId: string, id: string): Promise<WorkflowResponse> {
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}/${id}`);
     return {
       status: res.status,
       data: {
@@ -24,9 +24,9 @@ class ChatbotWorkflowService extends HttpService {
     };
   }
 
-  async create(workflow: Partial<ChatbotWorkflow>): Promise<WorkflowMutationResponse> {
+  async create(appId: string, workflow: Partial<ChatbotWorkflow>): Promise<WorkflowMutationResponse> {
     const payload = this.sanitizeWorkflow(workflow);
-    const res = await this.request<any>(`/chatbot-workflows`, {
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}`, {
       method: 'POST',
       body: JSON.stringify(payload)
     });
@@ -39,9 +39,9 @@ class ChatbotWorkflowService extends HttpService {
     };
   }
 
-  async update(id: string, workflow: Partial<ChatbotWorkflow>): Promise<WorkflowMutationResponse> {
+  async update(appId: string, id: string, workflow: Partial<ChatbotWorkflow>): Promise<WorkflowMutationResponse> {
     const payload = this.sanitizeWorkflow(workflow);
-    const res = await this.request<any>(`/chatbot-workflows/${id}`, {
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(payload)
     });
@@ -54,8 +54,8 @@ class ChatbotWorkflowService extends HttpService {
     };
   }
 
-  async delete(id: string): Promise<WorkflowMutationResponse> {
-    const res = await this.request<any>(`/chatbot-workflows/${id}`, {
+  async delete(appId: string, id: string): Promise<WorkflowMutationResponse> {
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}/${id}`, {
       method: 'DELETE'
     });
     return {
@@ -84,9 +84,9 @@ class ChatbotWorkflowService extends HttpService {
   }
 
   // Get workflows grouped by workflow group
-  async listGrouped(includeInactive?: boolean): Promise<WorkflowGroupListResponse> {
+  async listGrouped(appId: string, includeInactive?: boolean): Promise<WorkflowGroupListResponse> {
     const query = includeInactive ? '?includeInactive=true' : '';
-    const res = await this.request<any>(`/chatbot-workflows/grouped${query}`);
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}/grouped${query}`);
     return {
       status: res.status,
       data: {

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Navigation from '@/components/Navigation';
-import { ProtectedRoute } from '@/components';
+import { ProtectedRoute, NoAppEmptyState } from '@/components';
 import styles from './styles.module.css';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useQuestionnareService } from '@/services';
 import { QuestionnareType } from '@/enums/QuestionnareType';
 
@@ -12,6 +14,8 @@ type FaqItem = { question: string; answer: string };
 
 export default function QuestionnarePage() {
   const { user } = useAuth();
+  const { currentApp } = useApp();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const [items, setItems] = useState<FaqItem[]>([{ question: '', answer: '' }]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,10 +26,10 @@ export default function QuestionnarePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const reloadData = async () => {
-    if (!user?._id) { setLoading(false); return; }
+    if (!currentApp?.id) { setLoading(false); return; }
     try {
       const faqSvc = await useQuestionnareService();
-      const res = await faqSvc.list(QuestionnareType.FAQ);
+      const res = await faqSvc.list(currentApp.id, QuestionnareType.FAQ);
       const all = Array.isArray(res.data?.faqs) ? res.data.faqs : [];
       const onlyQuestionnare = all.filter((f: any) => ((f?.type ?? QuestionnareType.FAQ) === QuestionnareType.FAQ));
       const mappedFaqs = onlyQuestionnare.map((f: any) => ({ question: f?.question || '', answer: f?.answer || '' }));
@@ -41,7 +45,7 @@ export default function QuestionnarePage() {
 
   useEffect(() => {
     reloadData();
-  }, [user?._id]);
+  }, [currentApp?.id]);
 
   const updateItem = (index: number, key: keyof FaqItem, value: string) => {
     setItems(prev => {
@@ -73,7 +77,7 @@ export default function QuestionnarePage() {
   };
 
   const onSave = async () => {
-    if (!user?._id) return;
+    if (!currentApp?.id) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -99,7 +103,7 @@ export default function QuestionnarePage() {
 
       // Allow zero valid rows and still save (backend will receive empty items)
       const faqSvc = await useQuestionnareService();
-      const res = await faqSvc.upsert(QuestionnareType.FAQ, cleaned);
+      const res = await faqSvc.upsert(currentApp.id, QuestionnareType.FAQ, cleaned);
       setMessage('Saved successfully');
       setItemErrors({});
       setHasUnsavedChanges(false);
@@ -113,11 +117,31 @@ export default function QuestionnarePage() {
     }
   };
 
+  // Show empty state if no app is selected
+  if (!currentApp || !currentApp.id) {
+    return (
+      <ProtectedRoute>
+        <div className={styles.container}>
+          <Navigation />
+          <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <div className={styles.pageContainer}>
+              <NoAppEmptyState
+                title="Set Up Your Training Data"
+                description="Create an app first to start adding FAQs and training data for your chatbot. Each app comes with industry-specific default FAQs that you can customize and expand."
+              />
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className={styles.container}>
         <Navigation />
-        <div className={styles.pageContainer}>
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className={styles.pageContainer}>
           <h1 className={styles.title}>Training Data</h1>
           <p className={styles.subtitle}>Add questions and answers to train your AI chatbot. This data helps the model understand and respond to common queries.</p>
 
@@ -194,6 +218,7 @@ export default function QuestionnarePage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </ProtectedRoute>

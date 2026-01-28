@@ -4,13 +4,13 @@ import { QuestionnareType } from '@/enums/QuestionnareType';
 import { Faq } from '@/models/Faq';
 
 class QuestionnareService extends HttpService {
-  async list(type?: QuestionnareType): Promise<FaqListResponse> {
+  async list(appId: string, type?: QuestionnareType): Promise<FaqListResponse> {
     const query = typeof type === 'number' ? `?type=${type}` : '';
-    const res = await this.request<any>(`/questionnaire${query}`);
+    const res = await this.request<any>(`/questionnaire/apps/${appId}${query}`);
     return new FaqListResponse(res);
   }
 
-  async upsert(type: QuestionnareType, items: Array<Pick<Faq, 'question' | 'answer'> & { attachedWorkflows?: any[] }>): Promise<FaqMutationResponse | FaqListResponse> {
+  async upsert(appId: string, type: QuestionnareType, items: Array<Pick<Faq, 'question' | 'answer'> & { attachedWorkflows?: any[] }>): Promise<FaqMutationResponse | FaqListResponse> {
     const payload = { 
       type, 
       items: items.map(it => ({ 
@@ -19,7 +19,7 @@ class QuestionnareService extends HttpService {
         attachedWorkflows: (it as any).attachedWorkflows || []
       })) 
     } as any;
-    const res = await this.request<any>(`/questionnaire`, {
+    const res = await this.request<any>(`/questionnaire/apps/${appId}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     });

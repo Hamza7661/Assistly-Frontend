@@ -17,3 +17,4 @@ export const useWidgetService = () => import('./widgetService').then(module => m
 export const useChatbotWorkflowService = () => import('./chatbotWorkflowService').then(module => module.chatbotWorkflowService);
 export const useSubscriptionService = () => import('./subscriptionService').then(module => module.subscriptionService);
 export const useQuestionTypeService = () => import('./questionTypeService').then(module => module.questionTypeService);
+export const useAppService = () => import('./appService').then(module => module.appService);

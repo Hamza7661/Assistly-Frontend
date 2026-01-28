@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useSubscriptionService, usePackageService } from '@/services';
 import { getIndustryFeatures } from '@/data/industryFeatures';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
@@ -36,6 +37,7 @@ import styles from './styles.module.css';
 
 export default function DashboardPage() {
   const { user, updateUser } = useAuth();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const [subscription, setSubscription] = useState<any>(null);
   const [packageInfo, setPackageInfo] = useState<any>(null);
   const [packages, setPackages] = useState<any[]>([]);
@@ -54,8 +56,6 @@ export default function DashboardPage() {
       if (!user?.industry) {
         console.log('Industry missing, reloading user...', { userId: user._id, userData: user });
         reloadUser();
-      } else {
-        console.log('User industry found:', user.industry);
       }
       // Always detect country for accurate currency display
       detectAndSetRegion();
@@ -309,9 +309,11 @@ export default function DashboardPage() {
       <ProtectedRoute requirePackage={true}>
         <div className={styles.container}>
           <Navigation />
-          <div className={styles.pageContainer}>
-            <div className="flex items-center justify-center min-h-[60vh]">
-              <div className="loading-spinner"></div>
+          <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <div className={styles.pageContainer}>
+              <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="loading-spinner"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -323,8 +325,9 @@ export default function DashboardPage() {
     <ProtectedRoute requirePackage={true}>
       <div className={styles.container}>
         <Navigation />
-        <div className={styles.pageContainer}>
-          <div className="mb-6">
+        <div className={`pt-16 transition-all duration-300 ${isSidebarOpen ? 'lg:pl-64' : 'lg:pl-0'}`}>
+          <div className={styles.pageContainer}>
+            <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-600 mt-2">Manage your subscription</p>
           </div>
@@ -609,6 +612,7 @@ export default function DashboardPage() {
                 </div>
               );
             })()}
+          </div>
           </div>
         </div>
       </div>

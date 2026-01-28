@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
-import { ProtectedRoute } from '@/components';
+import { ProtectedRoute, NoAppEmptyState } from '@/components';
 import styles from './styles.module.css';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useQuestionnareService } from '@/services';
 import { QuestionnareType } from '@/enums/QuestionnareType';
 import { useChatbotWorkflowService } from '@/services';
@@ -45,6 +47,8 @@ type PlanItem = {
 
 export default function TreatmentPlansPage() {
   const { user } = useAuth();
+  const { currentApp } = useApp();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const router = useRouter();
   const [plans, setPlans] = useState<PlanItem[]>([{ title: '', description: '', attachedWorkflows: [] }]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +90,7 @@ export default function TreatmentPlansPage() {
   );
 
   const reloadData = async () => {
-    if (!user?._id) { setLoading(false); setLoadingWorkflows(false); return; }
+    if (!currentApp?.id) { setLoading(false); setLoadingWorkflows(false); return; }
     try {
       const [faqSvc, workflowSvc] = await Promise.all([
         useQuestionnareService(),
@@ -94,8 +98,8 @@ export default function TreatmentPlansPage() {
       ]);
       
       const [res, workflowRes] = await Promise.all([
-        faqSvc.list(QuestionnareType.TREATMENT_PLAN),
-        workflowSvc.list(true)
+        faqSvc.list(currentApp.id, QuestionnareType.TREATMENT_PLAN),
+        workflowSvc.list(currentApp.id, true)
       ]);
       
       const all = Array.isArray(res.data?.faqs) ? res.data.faqs : [];
@@ -144,7 +148,7 @@ export default function TreatmentPlansPage() {
 
   useEffect(() => {
     reloadData();
-  }, [user?._id]);
+  }, [currentApp?.id]);
 
   // Fetch question types from API
   useEffect(() => {
@@ -341,7 +345,7 @@ export default function TreatmentPlansPage() {
   };
 
   const handleSaveWorkflow = async () => {
-    if (!user?._id || creatingWorkflowForPlan === null) return;
+    if (!currentApp?.id || creatingWorkflowForPlan === null) return;
     
     setSavingWorkflow(true);
     try {
@@ -357,7 +361,7 @@ export default function TreatmentPlansPage() {
       let savedWorkflow: ChatbotWorkflow | undefined;
       if (editingWorkflowId) {
         // Update existing workflow
-        const response = await service.update(editingWorkflowId, newWorkflow);
+        const response = await service.update(currentApp.id, editingWorkflowId, newWorkflow);
         savedWorkflow = response.data.workflow;
         if (savedWorkflow?._id) {
           const workflow = savedWorkflow; // Type guard
@@ -368,7 +372,7 @@ export default function TreatmentPlansPage() {
         }
       } else {
         // Create new workflow
-        const response = await service.create(newWorkflow);
+        const response = await service.create(currentApp.id, newWorkflow);
         savedWorkflow = response.data.workflow;
         
         if (savedWorkflow?._id) {
@@ -575,7 +579,7 @@ export default function TreatmentPlansPage() {
   };
 
   const onSave = async () => {
-    if (!user?._id) return;
+    if (!currentApp?.id) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -608,7 +612,7 @@ export default function TreatmentPlansPage() {
         .filter(it => it.question.length > 0 && it.answer.length > 0);
 
       const faqSvc = await useQuestionnareService();
-      await faqSvc.upsert(QuestionnareType.TREATMENT_PLAN, cleaned as any);
+      await faqSvc.upsert(currentApp.id, QuestionnareType.TREATMENT_PLAN, cleaned as any);
       setMessage('Saved successfully');
       setPlanErrors({});
       setHasUnsavedChanges(false);
@@ -621,13 +625,33 @@ export default function TreatmentPlansPage() {
     }
   };
 
+  // Show empty state if no app is selected
+  if (!currentApp || !currentApp.id) {
+    return (
+      <ProtectedRoute>
+        <div className={styles.container}>
+          <Navigation />
+          <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <div className={styles.pageContainer}>
+              <NoAppEmptyState
+                title="Create Your Service Plans"
+                description="Create an app first to start building service plans and packages. Each app comes with industry-specific default service plans that you can customize and expand."
+              />
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className={styles.container}>
         <Navigation />
-        <div className={styles.pageContainer}>
-          <h1 className={styles.title}>Treatment Plans</h1>
-          <p className={styles.subtitle}>List the treatment plans you offer with brief descriptions. You can attach chatbot workflows to each treatment plan and order them.</p>
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className={styles.pageContainer}>
+          <h1 className={styles.title}>Service Plans</h1>
+          <p className={styles.subtitle}>List the service plans you offer with brief descriptions. You can attach chatbot workflows to each service plan and order them.</p>
 
           {error && <div className="error-message mb-4">{error}</div>}
           {message && <div className="success-message mb-4">{message}</div>}
@@ -639,7 +663,7 @@ export default function TreatmentPlansPage() {
               {plans.map((plan, planIdx) => (
                 <div key={planIdx} className={styles.table}>
                   <div className={styles.headerRow}>
-                    <div className={styles.colQ}>Treatment Plan Title</div>
+                    <div className={styles.colQ}>Service Plan Title</div>
                     <div className={styles.colA}>Description</div>
                     <div className={styles.colActions}></div>
                   </div>
@@ -649,7 +673,7 @@ export default function TreatmentPlansPage() {
                         value={plan.title}
                         onChange={(e) => updatePlan(planIdx, 'title', e.target.value)}
                         className={`${styles.textarea} ${planErrors[planIdx]?.title ? styles.textareaError : ''}`}
-                        placeholder="Enter a treatment plan title"
+                        placeholder="Enter a service plan title"
                         rows={3}
                       />
                       {planErrors[planIdx]?.title && (
@@ -910,7 +934,7 @@ export default function TreatmentPlansPage() {
                             {(!plan.title.trim() || !plan.description.trim()) && (
                               <span className="text-sm text-amber-600 flex items-center gap-1">
                                 <Info className="h-4 w-4" />
-                                Please add a treatment plan title and description before attaching workflows
+                                Please add a service plan title and description before attaching workflows
                               </span>
                             )}
                           </div>
@@ -922,7 +946,7 @@ export default function TreatmentPlansPage() {
               
               <div className={styles.actionsRow}>
                 <div className="flex items-center w-full">
-                  <button onClick={addPlanRow} className="btn-secondary">Add Treatment Plan</button>
+                  <button onClick={addPlanRow} className="btn-secondary">Add Service Plan</button>
                   <div className="flex items-center ml-auto">
                     {hasUnsavedChanges && (
                       <div className="text-sm text-amber-600 flex items-center gap-2">
@@ -952,6 +976,7 @@ export default function TreatmentPlansPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </ProtectedRoute>

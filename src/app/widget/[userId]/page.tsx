@@ -11,9 +11,12 @@ type WarnMessage = { type: 'warn' | 'error'; content: string };
 type AnyMessage = BotMessage | WarnMessage | { type: 'user'; content: string };
 
 export default function WidgetPage() {
-  const params = useParams<{ userId: string }>();
+  const params = useParams<{ userId?: string; appId?: string }>();
   const searchParams = useSearchParams();
-  const userId = params?.userId;
+  // Support both appId (new) and userId (legacy)
+  const appId = params?.appId || searchParams.get('appId');
+  const userId = params?.userId || searchParams.get('userId');
+  const identifier = appId || userId; // Prefer appId, fallback to userId for backward compatibility
   const countryFromUrl = searchParams.get('country');
   
   // Set transparent background for iframe
@@ -70,7 +73,14 @@ export default function WidgetPage() {
   const fullWsUrl = useMemo(() => {
     const base = rawWs.endsWith('/ws') ? rawWs : (rawWs.endsWith('/') ? `${rawWs}ws` : `${rawWs}/ws`);
     const url = new URL(base);
-    url.searchParams.set('user_id', userId || 'PUBLIC_USER_ID');
+    // Support both appId and userId for backward compatibility
+    if (appId) {
+      url.searchParams.set('app_id', appId);
+    } else if (userId) {
+      url.searchParams.set('user_id', userId);
+    } else {
+      url.searchParams.set('user_id', 'PUBLIC_USER_ID');
+    }
     url.searchParams.set('country', countryCode);
     return url.toString();
   }, [rawWs, userId, countryCode]);
@@ -78,10 +88,11 @@ export default function WidgetPage() {
   // Load integration settings and detect country
   useEffect(() => {
     const loadSettings = async () => {
-      if (!userId) return;
+      if (!identifier) return;
       try {
         const svc = await useWidgetService();
-        const res = await svc.getIntegrationSettings(userId);
+        // Use appId if available, otherwise use userId for backward compatibility
+        const res = appId ? await svc.getIntegrationSettingsByApp(appId) : await svc.getIntegrationSettings(userId!);
         const integration = res.data?.integration;
         
          if (integration) {
@@ -91,7 +102,8 @@ export default function WidgetPage() {
              primaryColor: integration.primaryColor || '#00bc7d',
              chatbotImage: integration.chatbotImage?.filename || '',
              validateEmail: integration.validateEmail || false,
-             validatePhoneNumber: integration.validatePhoneNumber || true
+             validatePhoneNumber: integration.validatePhoneNumber || true,
+             leadTypeMessages: integration.leadTypeMessages || []
            });
           
           // Set image data if available
@@ -127,7 +139,7 @@ export default function WidgetPage() {
     
     loadSettings();
     detectCountry();
-  }, [userId, countryFromUrl]);
+  }, [identifier, countryFromUrl]);
 
   useEffect(() => {
     // Only connect when widget is opened

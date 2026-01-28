@@ -14,9 +14,7 @@ import {
   LogOut,
   Save,
   Edit3,
-  Building2
 } from 'lucide-react';
-import { INDUSTRIES_LIST, Industry } from '@/enums/Industry';
 
 export default function SettingsPage() {
   const { user, logout, updateUser } = useAuth();
@@ -31,8 +29,6 @@ export default function SettingsPage() {
     lastName: '',
     email: '',
     phoneNumber: '',
-    professionDescription: '',
-    industry: '',
   });
 
   useEffect(() => {
@@ -48,8 +44,6 @@ export default function SettingsPage() {
         lastName: user.lastName,
         email: user.email,
         phoneNumber: user.phoneNumber,
-        professionDescription: user.professionDescription || '',
-        industry: user.industry || Industry.DENTAL,
       });
       setIsLoading(false);
     }
@@ -65,17 +59,6 @@ export default function SettingsPage() {
       return;
     }
 
-    // Validate required fields - only require industry if it's not already set
-    if (!formData.industry || formData.industry.trim() === '') {
-      // Check if user already has an industry set
-      if (!user?.industry) {
-        setError('Industry is required. Please select an industry.');
-        return;
-      }
-      // If user has industry but formData is empty, keep the existing one
-      formData.industry = user.industry;
-    }
-
     setIsSaving(true);
     setError('');
     setSuccess('');
@@ -84,25 +67,13 @@ export default function SettingsPage() {
       const { useAuthService } = await import('@/services');
       const authService = await useAuthService();
       
-      // Prepare update data - only include industry if it has a value
+      // Prepare update data
       const updateData: any = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
-        professionDescription: formData.professionDescription,
       };
-
-      // Only include industry if it's not empty AND user doesn't already have one set
-      // Once industry is set, it cannot be changed
-      if (!user.industry && formData.industry && formData.industry.trim() !== '') {
-        updateData.industry = formData.industry.trim();
-      } else if (user.industry && formData.industry !== user.industry) {
-        // Prevent changing industry if already set
-        setError('Industry cannot be changed once set. Please contact support if you need to update it.');
-        setIsSaving(false);
-        return;
-      }
 
       console.log('Updating user profile:', { userId: user._id, updateData });
       
@@ -112,8 +83,7 @@ export default function SettingsPage() {
         const { User } = await import('@/models/User');
         const updatedUser = new User(response.data.user);
         console.log('User updated successfully:', { 
-          userId: updatedUser._id, 
-          industry: updatedUser.industry,
+          userId: updatedUser._id,
           userData: updatedUser 
         });
         updateUser(updatedUser);
@@ -286,64 +256,6 @@ export default function SettingsPage() {
                 <p className="text-gray-900">{user.twilioPhoneNumber}</p>
               </div>
             )}
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Profession Description
-              </label>
-              {isEditing ? (
-                <textarea
-                  className="input-field"
-                  rows={3}
-                  value={formData.professionDescription}
-                  onChange={(e) => handleInputChange('professionDescription', e.target.value)}
-                  placeholder="Describe your profession or business"
-                />
-              ) : (
-                <p className="text-gray-900">{formData.professionDescription || 'Not provided'}</p>
-              )}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Industry {!formData.industry && <span className="text-red-500">*</span>}
-              </label>
-              {isEditing ? (
-                <div>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-                    <select
-                      className={`w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 ${formData.industry ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                      value={formData.industry}
-                      onChange={(e) => handleInputChange('industry', e.target.value)}
-                      required={!formData.industry}
-                      disabled={!!formData.industry}
-                      title={formData.industry ? 'Industry cannot be changed once set' : ''}
-                    >
-                      <option value="">Select your industry</option>
-                      {INDUSTRIES_LIST
-                        .filter((industry) => industry.value === Industry.DENTAL)
-                        .map((industry) => (
-                          <option key={industry.value} value={industry.value}>
-                            {industry.label}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  {formData.industry && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Industry cannot be changed once set. Contact support if you need to update it.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-gray-900">
-                  {formData.industry 
-                    ? INDUSTRIES_LIST.find(i => i.value === formData.industry)?.label || formData.industry
-                    : 'Not set'}
-                </p>
-              )}
-            </div>
           </div>
 
           {/* Success/Error Messages */}

@@ -80,6 +80,7 @@ function hhmmToMinutes(hhmm: string): number {
 
 export default function AvailabilityPage() {
   const { user } = useAuth();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const [days, setDays] = useState<AvailabilityDayUTC[]>([]);
   const [originalDays, setOriginalDays] = useState<AvailabilityDayUTC[]>([]);
   const [loading, setLoading] = useState(true);
@@ -222,7 +223,8 @@ export default function AvailabilityPage() {
     <ProtectedRoute>
       <div className={styles.container}>
         <Navigation />
-        <div className={styles.pageContainer}>
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className={styles.pageContainer}>
           <h1 className={styles.title}>Availability</h1>
           <p className={styles.subtitle}>Set your weekly available appointments</p>
 
@@ -276,6 +278,7 @@ export default function AvailabilityPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </ProtectedRoute>
