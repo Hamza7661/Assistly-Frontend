@@ -1,3 +1,11 @@
+export interface LeadTypeMessage {
+  id: number;
+  value: string;
+  text: string;
+  isActive: boolean;
+  order: number;
+}
+
 export interface IntegrationSettings {
   chatbotImage?: string;
   assistantName?: string;
@@ -6,6 +14,7 @@ export interface IntegrationSettings {
   primaryColor?: string;
   validateEmail?: boolean;
   validatePhoneNumber?: boolean;
+  leadTypeMessages?: LeadTypeMessage[];
 }
 
 export interface IntegrationSettingsResponse {

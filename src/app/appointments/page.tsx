@@ -6,11 +6,13 @@ import { toast } from 'react-toastify';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useAppointmentService } from '@/services';
 import type { Appointment } from '@/models/Appointment';
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const [items, setItems] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,7 +155,7 @@ export default function AppointmentsPage() {
     <ProtectedRoute>
       <div className="bg-white min-h-screen">
         <Navigation />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'} max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8`}>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>

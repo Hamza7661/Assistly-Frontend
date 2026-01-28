@@ -2,9 +2,11 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ProtectedRoute } from '@/components';
+import { ProtectedRoute, NoAppEmptyState } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useChatbotWorkflowService } from '@/services';
 import { ChatbotWorkflow, WorkflowGroup, formatQuestionType } from '@/models/ChatbotWorkflow';
 import { useQuestionTypeService } from '@/services';
@@ -31,6 +33,8 @@ import { CSS } from '@dnd-kit/utilities';
 
 function ChatbotWorkflowPageContent() {
   const { user } = useAuth();
+  const { currentApp } = useApp();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [workflowGroups, setWorkflowGroups] = useState<WorkflowGroup[]>([]);
@@ -67,15 +71,15 @@ function ChatbotWorkflowPageContent() {
   );
 
   const loadWorkflows = async (): Promise<WorkflowGroup[]> => {
-    if (!user?._id) return [];
+    if (!currentApp?.id) return [];
     setLoading(true);
     try {
       const service = await useChatbotWorkflowService();
-      const groupedResponse = await service.listGrouped(true);
+      const groupedResponse = await service.listGrouped(currentApp.id, true);
       setWorkflowGroups(groupedResponse.data.workflows);
       
       // Also load all questions for linking
-      const allResponse = await service.list(true);
+      const allResponse = await service.list(currentApp.id, true);
       setAllQuestions(allResponse.data.workflows);
       
       // Clear reordering state on reload
@@ -165,7 +169,7 @@ function ChatbotWorkflowPageContent() {
   };
 
   const handleSaveQuestion = async () => {
-    if (!user?._id || !editingQuestion) return;
+    if (!currentApp?.id || !editingQuestion) return;
     
     setSaving(true);
     try {
@@ -188,7 +192,7 @@ function ChatbotWorkflowPageContent() {
 
       let createdWorkflowId: string | null = null;
       if (editingQuestion === 'new-workflow' || editingQuestion === 'new-question') {
-        const createResponse = await service.create(questionData);
+        const createResponse = await service.create(currentApp.id, questionData);
         createdWorkflowId = createResponse.data?.workflow?._id || null;
         toast.success(creatingNewWorkflow ? 'Workflow created successfully' : 'Question added successfully');
       } else {
@@ -268,7 +272,7 @@ function ChatbotWorkflowPageContent() {
       const deletedOrder = questionToDelete?.order ?? 0;
       
       // Delete the question
-      await service.delete(questionIdToDelete);
+      await service.delete(currentApp.id, questionIdToDelete);
       
       // If it was part of a workflow, reorder remaining questions
       if (workflowGroupId) {
@@ -281,9 +285,9 @@ function ChatbotWorkflowPageContent() {
           .map((q, index) => {
             const newOrder = index;
             if (q.order !== newOrder && (q.order || 0) > deletedOrder) {
-              return service.update(q._id!, { order: newOrder });
+              return service.update(currentApp.id, q._id!, { order: newOrder });
             } else if (q.order !== newOrder) {
-              return service.update(q._id!, { order: newOrder });
+              return service.update(currentApp.id, q._id!, { order: newOrder });
             }
             return null;
           })
@@ -358,7 +362,7 @@ function ChatbotWorkflowPageContent() {
             .map((question, index) => {
               // Only update if order actually changed
               if (question.order !== index) {
-                return service.update(question._id!, { order: index });
+                return service.update(currentApp.id, question._id!, { order: index });
               }
               return null;
             })
@@ -487,12 +491,32 @@ function ChatbotWorkflowPageContent() {
     );
   };
 
+  // Show empty state if no app is selected
+  if (!currentApp || !currentApp.id) {
+    return (
+      <ProtectedRoute>
+        <div className="bg-gray-50 min-h-screen">
+          <Navigation />
+          <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <NoAppEmptyState
+                title="Build Your Conversation Flows"
+                description="Create an app first to start building interactive conversation flows and chatbot workflows. Each app comes with industry-specific default flows that you can customize."
+              />
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className="bg-gray-50 min-h-screen">
         <Navigation />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex justify-between items-center mb-6">
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Conversations</h1>
               <p className="text-gray-600 mt-2">Create conversation flows and add questions to build interactive dialogues</p>
@@ -660,6 +684,7 @@ function ChatbotWorkflowPageContent() {
               })}
             </div>
           )}
+          </div>
         </div>
 
         {/* Create New Flow Modal */}
@@ -813,20 +838,25 @@ function ChatbotWorkflowPageContent() {
   }
 }
 
-export default function ChatbotWorkflowPage() {
+function ChatbotWorkflowPageFallback() {
+  const { isOpen: isSidebarOpen } = useSidebar();
   return (
-    <Suspense fallback={
-      <ProtectedRoute>
-        <div className="min-h-screen bg-gray-50">
-          <Navigation />
-          <div className="container mx-auto px-4 py-8">
-            <div className="min-h-[200px] flex items-center justify-center">
-              <div className="loading-spinner"></div>
-            </div>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'} container mx-auto px-4 py-8`}>
+          <div className="min-h-[200px] flex items-center justify-center">
+            <div className="loading-spinner"></div>
           </div>
         </div>
-      </ProtectedRoute>
-    }>
+      </div>
+    </ProtectedRoute>
+  );
+}
+
+export default function ChatbotWorkflowPage() {
+  return (
+    <Suspense fallback={<ChatbotWorkflowPageFallback />}>
       <ChatbotWorkflowPageContent />
     </Suspense>
   );

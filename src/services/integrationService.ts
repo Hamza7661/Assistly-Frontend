@@ -2,11 +2,11 @@ import { HttpService } from './httpService';
 import type { IntegrationSettings, IntegrationSettingsResponse } from '@/models/IntegrationSettings';
 
 class IntegrationService extends HttpService {
-  async getSettings() {
-    return this.request<IntegrationSettingsResponse>('/integration/me', { method: 'GET' });
+  async getSettings(appId: string) {
+    return this.request<IntegrationSettingsResponse>(`/integration/apps/${appId}`, { method: 'GET' });
   }
 
-  async updateSettings(settings: Partial<IntegrationSettings>, imageFile?: File) {
+  async updateSettings(appId: string, settings: Partial<IntegrationSettings>, imageFile?: File) {
     const formData = new FormData();
     
     // Add text fields
@@ -19,12 +19,17 @@ class IntegrationService extends HttpService {
     if (settings.validateEmail !== undefined) formData.append('validateEmail', settings.validateEmail.toString());
     if (settings.validatePhoneNumber !== undefined) formData.append('validatePhoneNumber', settings.validatePhoneNumber.toString());
     
+    // Add leadTypeMessages if provided
+    if (settings.leadTypeMessages !== undefined) {
+      formData.append('leadTypeMessages', JSON.stringify(settings.leadTypeMessages));
+    }
+    
     // Add image file if provided
     if (imageFile) {
       formData.append('chatbotImage', imageFile);
     }
     
-    return this.request<IntegrationSettingsResponse>('/integration/me', {
+    return this.request<IntegrationSettingsResponse>(`/integration/apps/${appId}`, {
       method: 'PUT',
       body: formData,
       // Don't pass headers, let HttpService handle Authorization

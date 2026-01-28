@@ -3,16 +3,22 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { ChromePicker } from 'react-color';
 import { toast } from 'react-toastify';
-import { ProtectedRoute } from '@/components';
+import { ProtectedRoute, NoAppEmptyState } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useIntegrationService } from '@/services';
-import type { IntegrationSettings } from '@/models';
+import type { IntegrationSettings, LeadTypeMessage } from '@/models';
+import { LEAD_TYPES_LIST } from '@/enums/leadTypes';
+import { GripVertical, MoveUp, MoveDown, Trash2, Plus } from 'lucide-react';
 
 export default function IntegrationPage() {
   const { user } = useAuth();
+  const { currentApp } = useApp();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000';
-  const userId = user?._id || 'PUBLIC_USER_ID';
+  const appId = currentApp?.id || '';
   
   // Settings state
   const [settings, setSettings] = useState<IntegrationSettings>({
@@ -22,7 +28,8 @@ export default function IntegrationPage() {
     greeting: '',
     primaryColor: '#00bc7d',
     validateEmail: false,
-    validatePhoneNumber: false
+    validatePhoneNumber: false,
+    leadTypeMessages: []
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,12 +110,12 @@ export default function IntegrationPage() {
   // Load settings on mount
   useEffect(() => {
     const loadSettings = async () => {
-      if (!user?._id) return;
+      if (!appId) return;
       setLoading(true);
       setError('');
       try {
         const svc = await useIntegrationService();
-        const res = await svc.getSettings();
+        const res = await svc.getSettings(appId);
         const integration = res.data?.integration;
         
         // Set image preview if there's an existing image
@@ -127,6 +134,15 @@ export default function IntegrationPage() {
           ? defaultGreeting 
           : existingGreeting;
         
+        // Load leadTypeMessages or use defaults
+        const defaultLeadTypes: LeadTypeMessage[] = LEAD_TYPES_LIST.map((lt: any, index: number) => ({
+          id: lt.id,
+          value: lt.value,
+          text: lt.text,
+          isActive: true,
+          order: index
+        }));
+        
         const loadedSettings = {
           chatbotImage: integration?.chatbotImage?.filename || '',
           assistantName: integration?.assistantName || '',
@@ -134,7 +150,8 @@ export default function IntegrationPage() {
           greeting: greeting,
           primaryColor: integration?.primaryColor || '#00bc7d',
           validateEmail: integration?.validateEmail || false,
-          validatePhoneNumber: integration?.validatePhoneNumber || false
+          validatePhoneNumber: integration?.validatePhoneNumber || false,
+          leadTypeMessages: integration?.leadTypeMessages || defaultLeadTypes
         };
         
         setSettings(loadedSettings);
@@ -153,7 +170,7 @@ export default function IntegrationPage() {
       }
     };
     loadSettings();
-  }, [user?._id]);
+  }, [appId]);
 
   // Handle outside click to close color picker
   useEffect(() => {
@@ -173,8 +190,8 @@ export default function IntegrationPage() {
   }, [showColorPicker]);
 
   const scriptSnippet = useMemo(() => {
-    return `<script src="${appUrl}/widget.js" data-assistly-user-id="${userId}" data-assistly-base-url="${appUrl}"></script>`;
-  }, [appUrl, userId]);
+    return `<script src="${appUrl}/widget.js" data-assistly-app-id="${appId}" data-assistly-base-url="${appUrl}"></script>`;
+  }, [appUrl, appId]);
   
   const [copiedScript, setCopiedScript] = useState(false);
   const copyScript = async () => {
@@ -249,7 +266,8 @@ export default function IntegrationPage() {
       Boolean(newSettings.validateEmail) !== Boolean(originalSettings.validateEmail) ||
       Boolean(newSettings.validatePhoneNumber) !== Boolean(originalSettings.validatePhoneNumber) ||
       newSettings.chatbotImage !== originalSettings.chatbotImage ||
-      selectedFile !== null
+      selectedFile !== null ||
+      JSON.stringify(newSettings.leadTypeMessages || []) !== JSON.stringify(originalSettings.leadTypeMessages || [])
     );
   };
 
@@ -260,12 +278,12 @@ export default function IntegrationPage() {
   };
 
   const handleSaveSettings = async () => {
-    if (!user?._id) return;
+    if (!appId) return;
     setSaving(true);
     setError('');
     try {
       const svc = await useIntegrationService();
-      await svc.updateSettings(settings, selectedFile || undefined);
+      await svc.updateSettings(appId, settings, selectedFile || undefined);
       
       // Update original settings and clear unsaved changes
       setOriginalSettings(settings);
@@ -282,12 +300,32 @@ export default function IntegrationPage() {
     }
   };
 
+  // Show empty state if no app is selected
+  if (!currentApp || !appId) {
+    return (
+      <ProtectedRoute>
+        <div className="bg-white min-h-screen">
+          <Navigation />
+          <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <NoAppEmptyState
+                title="Configure Your Chatbot Integration"
+                description="Create an app first to set up your chatbot integration settings, customize the widget appearance, and configure lead type messages. Each app has its own integration settings."
+              />
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className="bg-white min-h-screen">
         <Navigation />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Integration</h1>
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Integration</h1>
           <p className="text-gray-600 mb-8">Copy the integration code and configure your chatbot settings.</p>
 
           {/* Integration Code Section */}
@@ -539,6 +577,232 @@ export default function IntegrationPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Lead Type Messages Configuration */}
+                <div className="md:col-span-2">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">Lead Type Messages</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Customize the initial buttons shown to users. You can edit the text, reorder, and enable/disable lead types.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentMessages = settings.leadTypeMessages || [];
+                        const maxId = currentMessages.length > 0 
+                          ? Math.max(...currentMessages.map(lt => lt.id))
+                          : 0;
+                        const maxOrder = currentMessages.length > 0
+                          ? Math.max(...currentMessages.map(lt => lt.order))
+                          : -1;
+                        const newMessage: LeadTypeMessage = {
+                          id: maxId + 1,
+                          value: `custom-${maxId + 1}`,
+                          text: 'New lead type message',
+                          isActive: true,
+                          order: maxOrder + 1
+                        };
+                        updateSettings({ 
+                          ...settings, 
+                          leadTypeMessages: [...currentMessages, newMessage] 
+                        });
+                      }}
+                      className="btn-secondary flex items-center gap-2 text-sm"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add New
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {settings.leadTypeMessages && settings.leadTypeMessages.length > 0 ? (
+                      [...settings.leadTypeMessages]
+                        .sort((a, b) => a.order - b.order)
+                        .map((leadType, index) => {
+                          const sortedMessages = [...settings.leadTypeMessages!].sort((a, b) => a.order - b.order);
+                          const activeCount = sortedMessages.filter(lt => lt.isActive).length;
+                          const isLastActive = activeCount === 1 && leadType.isActive;
+                          
+                          return (
+                            <div key={leadType.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg bg-white">
+                              <div className="flex-shrink-0 text-gray-400 cursor-move">
+                                <GripVertical className="h-5 w-5" />
+                              </div>
+                              
+                              <div className="flex-1">
+                                <input
+                                  type="text"
+                                  value={leadType.text}
+                                  onChange={(e) => {
+                                    const updated = [...settings.leadTypeMessages!];
+                                    const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
+                                    if (itemIndex !== -1) {
+                                      updated[itemIndex] = { ...updated[itemIndex], text: e.target.value };
+                                      updateSettings({ ...settings, leadTypeMessages: updated });
+                                    }
+                                  }}
+                                  className="input-field text-sm"
+                                  placeholder="Lead type message"
+                                />
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...settings.leadTypeMessages!];
+                                    const sorted = [...updated].sort((a, b) => a.order - b.order);
+                                    const itemIndex = sorted.findIndex(lt => lt.id === leadType.id);
+                                    if (itemIndex > 0) {
+                                      const prevItem = sorted[itemIndex - 1];
+                                      const currentOrder = leadType.order;
+                                      const prevOrder = prevItem.order;
+                                      const currentItem = updated.find(lt => lt.id === leadType.id)!;
+                                      const prevItemInUpdated = updated.find(lt => lt.id === prevItem.id)!;
+                                      currentItem.order = prevOrder;
+                                      prevItemInUpdated.order = currentOrder;
+                                      updateSettings({ ...settings, leadTypeMessages: updated });
+                                    }
+                                  }}
+                                  disabled={index === 0}
+                                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Move up"
+                                >
+                                  <MoveUp className="h-4 w-4" />
+                                </button>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...settings.leadTypeMessages!];
+                                    const sorted = [...updated].sort((a, b) => a.order - b.order);
+                                    const itemIndex = sorted.findIndex(lt => lt.id === leadType.id);
+                                    if (itemIndex < sorted.length - 1) {
+                                      const nextItem = sorted[itemIndex + 1];
+                                      const currentOrder = leadType.order;
+                                      const nextOrder = nextItem.order;
+                                      const currentItem = updated.find(lt => lt.id === leadType.id)!;
+                                      const nextItemInUpdated = updated.find(lt => lt.id === nextItem.id)!;
+                                      currentItem.order = nextOrder;
+                                      nextItemInUpdated.order = currentOrder;
+                                      updateSettings({ ...settings, leadTypeMessages: updated });
+                                    }
+                                  }}
+                                  disabled={index === settings.leadTypeMessages!.length - 1}
+                                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Move down"
+                                >
+                                  <MoveDown className="h-4 w-4" />
+                                </button>
+                                
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={leadType.isActive}
+                                    onChange={(e) => {
+                                      const updated = [...settings.leadTypeMessages!];
+                                      const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
+                                      if (itemIndex !== -1) {
+                                        updated[itemIndex] = { ...updated[itemIndex], isActive: e.target.checked };
+                                        // Ensure at least one is active
+                                        const activeCount = updated.filter(lt => lt.isActive).length;
+                                        if (activeCount === 0) {
+                                          toast.warning('At least one lead type must be active');
+                                          return;
+                                        }
+                                        updateSettings({ ...settings, leadTypeMessages: updated });
+                                      }
+                                    }}
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...settings.leadTypeMessages!];
+                                    const sorted = [...updated].sort((a, b) => a.order - b.order);
+                                    const activeCount = sorted.filter(lt => lt.isActive).length;
+                                    
+                                    // Prevent deletion if it's the last active item
+                                    if (leadType.isActive && activeCount === 1) {
+                                      toast.warning('Cannot delete the last active lead type. Disable it instead or enable another one first.');
+                                      return;
+                                    }
+                                    
+                                    // Remove the item
+                                    const filtered = updated.filter(lt => lt.id !== leadType.id);
+                                    
+                                    // Reorder remaining items
+                                    const reordered = filtered
+                                      .sort((a, b) => a.order - b.order)
+                                      .map((lt, idx) => ({ ...lt, order: idx }));
+                                    
+                                    updateSettings({ ...settings, leadTypeMessages: reordered });
+                                  }}
+                                  className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Remove lead type"
+                                  disabled={isLastActive}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                    ) : (
+                      <div className="text-center py-8 border border-gray-200 rounded-lg bg-gray-50">
+                        <p className="text-sm text-gray-500 mb-4">No lead types configured</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newMessage: LeadTypeMessage = {
+                              id: 1,
+                              value: 'custom-1',
+                              text: 'New lead type message',
+                              isActive: true,
+                              order: 0
+                            };
+                            updateSettings({ 
+                              ...settings, 
+                              leadTypeMessages: [newMessage] 
+                            });
+                          }}
+                          className="btn-secondary flex items-center gap-2 text-sm mx-auto"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Your First Lead Type
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Preview */}
+                  {settings.leadTypeMessages && settings.leadTypeMessages.filter(lt => lt.isActive).length > 0 && (
+                    <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <p className="text-xs font-medium text-gray-700 mb-3">Preview (how buttons will appear):</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[...settings.leadTypeMessages]
+                          .filter(lt => lt.isActive)
+                          .sort((a, b) => a.order - b.order)
+                          .map((leadType) => (
+                            <button
+                              key={leadType.id}
+                              type="button"
+                              disabled
+                              className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+                              style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
+                            >
+                              {leadType.text}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             
@@ -557,7 +821,8 @@ export default function IntegrationPage() {
                       setSettings(originalSettings!);
                       setHasUnsavedChanges(false);
                       setSelectedFile(null);
-                      if (fileInputRef.current) {
+                      // Reload image preview if original had one
+                      if (originalSettings?.chatbotImage && fileInputRef.current) {
                         fileInputRef.current.value = '';
                       }
                     }}
@@ -575,6 +840,7 @@ export default function IntegrationPage() {
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>

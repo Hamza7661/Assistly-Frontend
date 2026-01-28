@@ -2,14 +2,18 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X } from 'lucide-react';
-import { ProtectedRoute } from '@/components';
+import { ProtectedRoute, NoAppEmptyState } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useLeadService, useIntegrationService } from '@/services';
 import type { Lead } from '@/models/Lead';
 
 export default function LeadsPage() {
   const { user } = useAuth();
+  const { currentApp } = useApp();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const [items, setItems] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,10 +48,10 @@ export default function LeadsPage() {
   // Load integration settings for primary color
   useEffect(() => {
     const loadSettings = async () => {
-      if (!user?._id) return;
+      if (!currentApp?.id) return;
       try {
         const svc = await useIntegrationService();
-        const res = await svc.getSettings();
+        const res = await svc.getSettings(currentApp.id);
         const integration = res.data?.integration;
         if (integration?.primaryColor) {
           setPrimaryColor(integration.primaryColor);
@@ -57,17 +61,17 @@ export default function LeadsPage() {
       }
     };
     loadSettings();
-  }, [user?._id]);
+  }, [currentApp?.id]);
 
   // Load leads data
   useEffect(() => {
     const load = async () => {
-      if (!user?._id) return;
+      if (!currentApp?.id) return;
       setLoading(true);
       setError('');
       try {
         const svc = await useLeadService();
-        const res = await svc.listByUser(user._id, {
+        const res = await svc.listByApp(currentApp.id, {
           page, limit,
           q: q || undefined,
           leadType: leadType || undefined,
@@ -84,11 +88,11 @@ export default function LeadsPage() {
       }
     };
     load();
-  }, [user?._id, page, limit, q, leadType, serviceType, sortBy, sortOrder]);
+  }, [currentApp?.id, page, limit, q, leadType, serviceType, sortBy, sortOrder]);
 
   // Socket.IO connection for real-time lead updates
   useEffect(() => {
-    if (!user?._id) return;
+    if (!currentApp?.id) return;
 
     // Connect to same port as API
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -229,7 +233,7 @@ export default function LeadsPage() {
       };
       await svc.update(editItem._id, payload);
       // reload current page
-      const res = await svc.listByUser(user!._id, { page, limit, q: q || undefined, leadType: leadType || undefined, serviceType: serviceType || undefined, sortBy: sortBy || undefined, sortOrder });
+      const res = await svc.listByApp(currentApp!.id, { page, limit, q: q || undefined, leadType: leadType || undefined, serviceType: serviceType || undefined, sortBy: sortBy || undefined, sortOrder });
       setItems(res.data?.leads || []);
       setTotal(typeof res.data?.count === 'number' ? res.data.count : total);
       setIsEditOpen(false);
@@ -262,12 +266,32 @@ export default function LeadsPage() {
     }
   };
 
+  // Show empty state if no app is selected
+  if (!currentApp || !currentApp.id) {
+    return (
+      <ProtectedRoute>
+        <div className="bg-white min-h-screen">
+          <Navigation />
+          <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <NoAppEmptyState
+                title="View and Manage Your Leads"
+                description="Create an app first to start capturing and managing leads from your chatbot. Each app tracks leads independently with industry-specific lead types and categorization."
+              />
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className="bg-white min-h-screen">
         <Navigation />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-6">
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
             <p className="text-gray-600">Browse, filter, view, edit or delete your captured leads.</p>
           </div>
@@ -511,6 +535,7 @@ export default function LeadsPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </ProtectedRoute>

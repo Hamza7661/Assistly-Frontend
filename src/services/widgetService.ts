@@ -57,6 +57,47 @@ class WidgetService extends HttpService {
       method: 'GET' 
     });
   }
+
+  async getIntegrationSettingsByApp(appId: string) {
+    const ts = Date.now().toString();
+    const nonce = crypto.randomUUID();
+    const secret = process.env.NEXT_PUBLIC_WIDGET_HMAC_SECRET || '';
+    
+    if (!secret) {
+      throw new Error('Widget HMAC secret not configured');
+    }
+    
+    // Generate HMAC signature for app-based endpoint
+    const method = "GET";
+    const path = `/api/v1/integration/public/apps/${appId}`;
+    const stringToSign = `${method}\n${path}\nappId=${appId}\n${ts}\n${nonce}`;
+    
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(stringToSign);
+    
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign('HMAC', key, messageData);
+    const hashArray = Array.from(new Uint8Array(signature));
+    const sign = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
+    
+    const params = new URLSearchParams({
+      ts,
+      nonce,
+      sign
+    });
+    
+    return this.request<IntegrationSettingsResponse>(`/integration/public/apps/${appId}?${params.toString()}`, { 
+      method: 'GET' 
+    });
+  }
 }
 
 export const widgetService = new WidgetService();
