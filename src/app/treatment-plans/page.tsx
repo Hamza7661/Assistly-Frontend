@@ -98,12 +98,12 @@ export default function TreatmentPlansPage() {
       ]);
       
       const [res, workflowRes] = await Promise.all([
-        faqSvc.list(currentApp.id, QuestionnareType.TREATMENT_PLAN),
+        faqSvc.list(currentApp.id, QuestionnareType.SERVICE_PLAN),
         workflowSvc.list(currentApp.id, true)
       ]);
       
       const all = Array.isArray(res.data?.faqs) ? res.data.faqs : [];
-      const onlyPlans = all.filter((f: any) => ((f?.type ?? QuestionnareType.FAQ) === QuestionnareType.TREATMENT_PLAN));
+      const onlyPlans = all.filter((f: any) => ((f?.type ?? QuestionnareType.FAQ) === QuestionnareType.SERVICE_PLAN));
       
       const mappedPlans = onlyPlans.map((p: any) => {
         // Get attachedWorkflows from the item (now preserved in QuestionnareItem model)
@@ -565,10 +565,10 @@ export default function TreatmentPlansPage() {
                     }
                   }}
                   className="btn-secondary flex items-center gap-2 text-sm"
-                  title="View workflow in Treatment Flows page"
+                  title="View workflow in Conversation Flows page"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  View in Treatment Flows
+                  View in Conversation Flows
                 </button>
               </div>
             </div>
@@ -612,7 +612,7 @@ export default function TreatmentPlansPage() {
         .filter(it => it.question.length > 0 && it.answer.length > 0);
 
       const faqSvc = await useQuestionnareService();
-      await faqSvc.upsert(currentApp.id, QuestionnareType.TREATMENT_PLAN, cleaned as any);
+      await faqSvc.upsert(currentApp.id, QuestionnareType.SERVICE_PLAN, cleaned as any);
       setMessage('Saved successfully');
       setPlanErrors({});
       setHasUnsavedChanges(false);

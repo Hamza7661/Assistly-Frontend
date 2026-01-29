@@ -166,7 +166,7 @@ export default function IntegrationPage() {
         // Load available service plans for mapping
         try {
           const qSvc = await useQuestionnareService();
-          const servicePlansRes = await qSvc.list(appId, QuestionnareType.TREATMENT_PLAN);
+          const servicePlansRes = await qSvc.list(appId, QuestionnareType.SERVICE_PLAN);
           const plans = servicePlansRes.data?.faqs || [];
           setAvailableServicePlans(plans.map((p: any) => p.question).filter(Boolean));
         } catch (err) {
