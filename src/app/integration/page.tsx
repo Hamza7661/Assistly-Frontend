@@ -112,7 +112,10 @@ export default function IntegrationPage() {
   // Load settings on mount
   useEffect(() => {
     const loadSettings = async () => {
-      if (!appId) return;
+      if (!appId) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError('');
       try {

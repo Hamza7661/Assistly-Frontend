@@ -71,7 +71,10 @@ function ChatbotWorkflowPageContent() {
   );
 
   const loadWorkflows = async (): Promise<WorkflowGroup[]> => {
-    if (!currentApp?.id) return [];
+    if (!currentApp?.id) {
+      setLoading(false);
+      return [];
+    }
     setLoading(true);
     try {
       const service = await useChatbotWorkflowService();
@@ -114,9 +117,13 @@ function ChatbotWorkflowPageContent() {
   };
 
   useEffect(() => {
-    loadWorkflows();
+    if (currentApp?.id) {
+      loadWorkflows();
+    } else {
+      setLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?._id]);
+  }, [user?._id, currentApp?.id]);
 
   // Fetch question types from API
   useEffect(() => {
