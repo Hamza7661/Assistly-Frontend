@@ -8,10 +8,11 @@ import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { useIntegrationService } from '@/services';
+import { useIntegrationService, useQuestionnareService } from '@/services';
 import type { IntegrationSettings, LeadTypeMessage } from '@/models';
 import { LEAD_TYPES_LIST } from '@/enums/leadTypes';
 import { GripVertical, MoveUp, MoveDown, Trash2, Plus } from 'lucide-react';
+import { QuestionnareType } from '@/enums/QuestionnareType';
 
 export default function IntegrationPage() {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ export default function IntegrationPage() {
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState<number | null>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [availableServicePlans, setAvailableServicePlans] = useState<string[]>([]);
   
   // Generate greeting preview
   const getGreetingPreview = () => {
@@ -157,6 +159,16 @@ export default function IntegrationPage() {
         setSettings(loadedSettings);
         setOriginalSettings(loadedSettings);
         setHasUnsavedChanges(false);
+        
+        // Load available service plans for mapping
+        try {
+          const qSvc = await useQuestionnareService();
+          const servicePlansRes = await qSvc.list(appId, QuestionnareType.TREATMENT_PLAN);
+          const plans = servicePlansRes.data?.faqs || [];
+          setAvailableServicePlans(plans.map((p: any) => p.question).filter(Boolean));
+        } catch (err) {
+          console.error('Failed to load service plans:', err);
+        }
         
         // Check if loaded greeting matches any template
         const matchingIndex = greetingTemplates.findIndex(
@@ -602,7 +614,8 @@ export default function IntegrationPage() {
                           value: `custom-${maxId + 1}`,
                           text: 'New lead type message',
                           isActive: true,
-                          order: maxOrder + 1
+                          order: maxOrder + 1,
+                          relevantServicePlans: []
                         };
                         updateSettings({ 
                           ...settings, 
@@ -631,7 +644,7 @@ export default function IntegrationPage() {
                                 <GripVertical className="h-5 w-5" />
                               </div>
                               
-                              <div className="flex-1">
+                              <div className="flex-1 space-y-2">
                                 <input
                                   type="text"
                                   value={leadType.text}
@@ -646,6 +659,51 @@ export default function IntegrationPage() {
                                   className="input-field text-sm"
                                   placeholder="Lead type message"
                                 />
+                                
+                                {/* Service Plans Mapping */}
+                                {availableServicePlans.length > 0 && (
+                                  <div className="text-xs">
+                                    <label className="block text-gray-600 mb-1">
+                                      Show these services (leave empty for all):
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                      {availableServicePlans.map((servicePlan) => {
+                                        const isSelected = (leadType.relevantServicePlans || []).includes(servicePlan);
+                                        return (
+                                          <button
+                                            key={servicePlan}
+                                            type="button"
+                                            onClick={() => {
+                                              const updated = [...settings.leadTypeMessages!];
+                                              const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
+                                              if (itemIndex !== -1) {
+                                                const current = updated[itemIndex].relevantServicePlans || [];
+                                                const newPlans = isSelected
+                                                  ? current.filter(p => p !== servicePlan)
+                                                  : [...current, servicePlan];
+                                                updated[itemIndex] = { 
+                                                  ...updated[itemIndex], 
+                                                  relevantServicePlans: newPlans.length > 0 ? newPlans : undefined 
+                                                };
+                                                updateSettings({ ...settings, leadTypeMessages: updated });
+                                              }
+                                            }}
+                                            className={`px-2 py-1 rounded text-xs transition ${
+                                              isSelected
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                          >
+                                            {servicePlan}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    {(leadType.relevantServicePlans || []).length === 0 && (
+                                      <p className="text-gray-500 italic mt-1">No filter - shows all services</p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                               
                               <div className="flex items-center gap-2">
@@ -764,7 +822,8 @@ export default function IntegrationPage() {
                               value: 'custom-1',
                               text: 'New lead type message',
                               isActive: true,
-                              order: 0
+                              order: 0,
+                              relevantServicePlans: []
                             };
                             updateSettings({ 
                               ...settings, 

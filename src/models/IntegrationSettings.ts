@@ -4,6 +4,7 @@ export interface LeadTypeMessage {
   text: string;
   isActive: boolean;
   order: number;
+  relevantServicePlans?: string[];  // Optional: service plan names to show for this lead type
 }
 
 export interface IntegrationSettings {
