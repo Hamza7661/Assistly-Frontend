@@ -12,7 +12,7 @@ import type { Lead } from '@/models/Lead';
 
 export default function LeadsPage() {
   const { user } = useAuth();
-  const { currentApp } = useApp();
+  const { currentApp, isLoading: isLoadingApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [items, setItems] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,7 +266,26 @@ export default function LeadsPage() {
     }
   };
 
-  // Show empty state if no app is selected
+  // Show loading spinner while apps are loading
+  if (isLoadingApp) {
+    return (
+      <ProtectedRoute>
+        <div className="bg-white min-h-screen">
+          <Navigation />
+          <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+                <p className="mt-4 text-gray-600">Loading...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  // Show empty state if no app is selected (after loading completes)
   if (!currentApp || !currentApp.id) {
     return (
       <ProtectedRoute>
