@@ -33,7 +33,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 function ChatbotWorkflowPageContent() {
   const { user } = useAuth();
-  const { currentApp } = useApp();
+  const { currentApp, isLoading: isLoadingApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const router = useRouter();
   const searchParams = useSearchParams();
