@@ -83,7 +83,7 @@ export default function WidgetPage() {
     }
     url.searchParams.set('country', countryCode);
     return url.toString();
-  }, [rawWs, userId, countryCode]);
+  }, [rawWs, appId, userId, countryCode]);
 
   // Load integration settings and detect country
   useEffect(() => {
