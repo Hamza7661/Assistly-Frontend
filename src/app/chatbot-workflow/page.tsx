@@ -203,7 +203,7 @@ function ChatbotWorkflowPageContent() {
         createdWorkflowId = createResponse.data?.workflow?._id || null;
         toast.success(creatingNewWorkflow ? 'Workflow created successfully' : 'Question added successfully');
       } else {
-        await service.update(editingQuestion, questionData);
+        await service.update(currentApp.id, editingQuestion, questionData);
         toast.success('Question updated successfully');
       }
       
