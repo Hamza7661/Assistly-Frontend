@@ -125,7 +125,7 @@ export default function Navigation() {
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                     >
                       <User className="h-4 w-4 mr-2" />
-                      Profile Settings
+                      Account Settings
                     </button>
                     <button
                       onClick={() => {

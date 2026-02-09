@@ -2,13 +2,14 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X } from 'lucide-react';
-import { ProtectedRoute, NoAppEmptyState } from '@/components';
+import { ProtectedRoute, NoAppEmptyState, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useLeadService, useIntegrationService } from '@/services';
 import type { Lead } from '@/models/Lead';
+import { toast } from 'react-toastify';
 
 export default function LeadsPage() {
   const { user } = useAuth();
@@ -253,14 +254,18 @@ export default function LeadsPage() {
       await svc.remove(id);
       let targetPage = page;
       if (items.length === 1 && page > 1) targetPage = page - 1;
-      const res = await svc.listByUser(user!._id, { page: targetPage, limit, q: q || undefined, leadType: leadType || undefined, serviceType: serviceType || undefined, sortBy: sortBy || undefined, sortOrder });
+      const res = currentApp?.id
+        ? await svc.listByApp(currentApp.id, { page: targetPage, limit, q: q || undefined, leadType: leadType || undefined, serviceType: serviceType || undefined, sortBy: sortBy || undefined, sortOrder })
+        : await svc.listByUser(user!._id, { page: targetPage, limit, q: q || undefined, leadType: leadType || undefined, serviceType: serviceType || undefined, sortBy: sortBy || undefined, sortOrder });
       setItems(res.data?.leads || []);
       setPage(targetPage);
       setTotal(typeof res.data?.count === 'number' ? res.data.count : total);
       setIsConfirmOpen(false);
       setDeleteId(null);
+      toast.success('Lead deleted successfully');
     } catch (e: any) {
       setError(e?.message || 'Failed to delete lead');
+      toast.error(e?.message || 'Failed to delete lead');
     } finally {
       setSaving(false);
     }
@@ -498,19 +503,21 @@ export default function LeadsPage() {
             </div>
           )}
 
-          {isConfirmOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-              <div className="absolute inset-0 bg-black/30" onClick={closeConfirm}></div>
-              <div className="relative bg-white w-full max-w-md rounded-lg shadow-lg border border-gray-200 p-5">
-                <h3 className="font-semibold mb-2">Delete lead?</h3>
-                <p className="text-sm text-gray-600 mb-4">This action cannot be undone.</p>
-                <div className="flex justify-end gap-2">
-                  <button className="btn-secondary" onClick={closeConfirm}>Cancel</button>
-                  <button className="btn-primary" onClick={() => deleteId && remove(deleteId)} disabled={saving}>{saving ? 'Deleting...' : 'Delete'}</button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ConfirmModal
+            isOpen={isConfirmOpen}
+            onClose={closeConfirm}
+            onConfirm={() => deleteId && remove(deleteId)}
+            title="Delete Lead"
+            message={(() => {
+              const lead = deleteId ? items.find(l => l._id === deleteId) : null;
+              const label = lead ? [lead.title, lead.leadName].filter(Boolean).join(' – ').trim() || 'Lead' : 'this lead';
+              return `Are you sure you want to delete ${label ? `"${label}"` : 'this lead'}? This action cannot be undone.`;
+            })()}
+            confirmText="Delete Lead"
+            cancelText="Cancel"
+            confirmButtonClass="btn-danger"
+            isLoading={saving}
+          />
 
           {/* New Lead Notification */}
           {newLeadNotification && (
