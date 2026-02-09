@@ -591,7 +591,7 @@ export default function TreatmentPlansPage() {
       });
       if (Object.keys(errors).length > 0) {
         setPlanErrors(errors);
-        setError('Please complete both treatment title and description for highlighted rows.');
+        setError('Please complete both service plan title and description for highlighted rows.');
         setSaving(false);
         return;
       }
