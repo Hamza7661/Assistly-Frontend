@@ -54,7 +54,6 @@ export default function TreatmentPlansPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
-  const [message, setMessage] = useState<string>('');
   const [planErrors, setPlanErrors] = useState<Record<number, { title?: string; description?: string }>>({});
   const [originalPlans, setOriginalPlans] = useState<PlanItem[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -582,7 +581,6 @@ export default function TreatmentPlansPage() {
     if (!currentApp?.id) return;
     setSaving(true);
     setError('');
-    setMessage('');
     try {
       const errors: Record<number, { title?: string; description?: string }> = {};
       plans.forEach((it, idx) => {
@@ -613,15 +611,16 @@ export default function TreatmentPlansPage() {
 
       const faqSvc = await useQuestionnareService();
       await faqSvc.upsert(currentApp.id, QuestionnareType.SERVICE_PLAN, cleaned as any);
-      setMessage('Saved successfully');
+      toast.success('Service plans saved successfully!');
       setPlanErrors({});
       setHasUnsavedChanges(false);
       await reloadData();
     } catch (e: any) {
-      setError(e?.message || 'Failed to save plans');
+      const errMsg = e?.message || 'Failed to save plans';
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setSaving(false);
-      setTimeout(() => setMessage(''), 2000);
     }
   };
 
@@ -673,7 +672,6 @@ export default function TreatmentPlansPage() {
           <p className={styles.subtitle}>List the service plans you offer with brief descriptions. You can attach chatbot workflows to each service plan and order them.</p>
 
           {error && <div className="error-message mb-4">{error}</div>}
-          {message && <div className="success-message mb-4">{message}</div>}
 
           {loading ? (
             <div className="min-h-[200px] flex items-center justify-center"><div className="loading-spinner"></div></div>

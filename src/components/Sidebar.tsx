@@ -10,9 +10,13 @@ import {
   ClipboardList,
   Database,
   Users,
+  User,
   Briefcase,
+  DollarSign,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Settings,
+  MessageCircle
 } from 'lucide-react';
 
 interface MenuItem {
@@ -40,10 +44,19 @@ const navigation: MenuItem[] = [
       { name: 'Leads', href: '/leads', icon: Users },
     ]
   },
+  {
+    name: 'Settings',
+    icon: Settings,
+    subItems: [
+      { name: 'Chat Settings', href: '/settings/chatbot', icon: MessageCircle },
+      { name: 'Account Settings', href: '/settings', icon: User },
+    ]
+  },
   { name: 'Integration', href: '/integration', icon: Plug },
+  { name: 'Pricing', href: '/pricing', icon: DollarSign },
 ];
 
-const hiddenTabs = new Set(['Packages', 'Settings']);
+const hiddenTabs = new Set(['Packages']);
 
 export default function Sidebar() {
   const router = useRouter();
@@ -112,11 +125,11 @@ export default function Sidebar() {
                       ? 'bg-green-50 text-[#00bc7d]' 
                       : 'text-gray-700 hover:bg-gray-50 hover:text-[#00bc7d]'
                   }`}
-                  title={!isExpanded ? item.name : undefined}
+                  title={item.name}
                 >
                   <div className="flex items-center min-w-0 flex-1">
                     <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {isExpanded && <span className="truncate ml-3">{item.name}</span>}
+                    {isExpanded && <span className="truncate ml-3" title={item.name}>{item.name}</span>}
                   </div>
                   {isExpanded && (
                     isSubMenuExpanded ? (
@@ -130,7 +143,7 @@ export default function Sidebar() {
                 {isExpanded && isSubMenuExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
                     {item.subItems.map((subItem) => {
-                      const isSubActive = pathname === subItem.href || (subItem.href && pathname.startsWith(subItem.href + '/'));
+                      const isSubActive = pathname === subItem.href || (subItem.href && pathname.startsWith(subItem.href + '/') && !item.subItems!.some(s => s.href !== subItem.href && s.href && pathname.startsWith(s.href)));
                       return (
                         <button
                           key={subItem.name}
@@ -140,10 +153,10 @@ export default function Sidebar() {
                               ? 'bg-green-50 text-[#00bc7d] font-medium' 
                               : 'text-gray-600 hover:bg-gray-50 hover:text-[#00bc7d]'
                           }`}
-                          title={!isExpanded ? subItem.name : undefined}
+                          title={subItem.name}
                         >
                           <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                          {isExpanded && <span className="truncate ml-3">{subItem.name}</span>}
+                          {isExpanded && <span className="truncate ml-3" title={subItem.name}>{subItem.name}</span>}
                         </button>
                       );
                     })}
@@ -163,10 +176,10 @@ export default function Sidebar() {
                     : 'text-gray-700 hover:bg-gray-50 hover:text-[#00bc7d]'
                 }`}
                 aria-current={isActive ? 'page' : undefined}
-                title={!isExpanded ? item.name : undefined}
+                title={item.name}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
-                {isExpanded && <span className="truncate ml-3">{item.name}</span>}
+                {isExpanded && <span className="truncate ml-3" title={item.name}>{item.name}</span>}
               </button>
             );
           }

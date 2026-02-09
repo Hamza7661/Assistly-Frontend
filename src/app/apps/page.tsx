@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -56,6 +56,17 @@ export default function AppsPage() {
       setIsLoading(false);
     }
   }, [apps.length, showInactive]);
+
+  // Count apps per WhatsApp number: only show "Set as Current" when the same number is used by multiple apps
+  const appsToShow = showInactive ? allApps : apps;
+  const countByWhatsAppNumber = useMemo(() => {
+    const map = new Map<string, number>();
+    appsToShow.forEach((app: any) => {
+      const num = app.whatsappNumber?.trim?.();
+      if (num) map.set(num, (map.get(num) || 0) + 1);
+    });
+    return map;
+  }, [appsToShow]);
 
   const handleDeleteClick = (appId: string, appName: string) => {
     setConfirmDelete({
@@ -262,11 +273,14 @@ export default function AppsPage() {
                 {appsToShow.map((app: any) => {
                   // Find the app from context if available to get full model
                   const appModel = apps.find(a => a.id === app.id) || app;
+                  const num = app.whatsappNumber?.trim?.();
+                  const sameNumberCount = num ? (countByWhatsAppNumber.get(num) || 0) : 0;
+                  const isCurrentForSharedNumber = currentApp?.id === app.id && sameNumberCount > 1;
                   return (
                 <div
                   key={app.id || app._id}
                   className={`border rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow ${
-                    currentApp?.id === app.id ? 'border-[#00bc7d] border-2' : 'border-gray-200'
+                    isCurrentForSharedNumber ? 'border-[#00bc7d] border-2' : 'border-gray-200'
                   } ${!app.isActive ? 'opacity-60' : ''}`}
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -284,7 +298,7 @@ export default function AppsPage() {
                           </span>
                         )}
                       </div>
-                      {currentApp?.id === app.id && (
+                      {isCurrentForSharedNumber && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#00bc7d] text-white">
                           Current App
                         </span>
@@ -312,7 +326,7 @@ export default function AppsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                    {currentApp?.id !== app.id && app.isActive && (
+                    {currentApp?.id !== app.id && app.isActive && sameNumberCount > 1 && (
                       <button
                         onClick={() => handleSetAsCurrent(app.id)}
                         className="btn-secondary text-sm flex-1"

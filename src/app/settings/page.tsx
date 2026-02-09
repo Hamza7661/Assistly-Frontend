@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Navigation from '@/components/Navigation';
+import { ProtectedRoute } from '@/components';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { User } from '@/models';
 import { 
-  ArrowLeft, 
   User as UserIcon, 
   Shield, 
   Bell, 
@@ -14,11 +16,14 @@ import {
   LogOut,
   Save,
   Edit3,
+  AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, logout, updateUser } = useAuth();
   const router = useRouter();
+  const { isOpen: isSidebarOpen } = useSidebar();
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -110,35 +115,25 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
-      </div>
+      <ProtectedRoute>
+        <div className="bg-white min-h-screen">
+          <Navigation />
+          <div className="content-wrapper sidebar-closed flex items-center justify-center min-h-[60vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+          </div>
+        </div>
+      </ProtectedRoute>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="p-2 text-gray-400 hover:text-gray-600 transition-colors mr-2"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <div className="h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center">
-                <span className="text-lg font-bold text-white">A</span>
-              </div>
-              <h1 className="ml-3 text-xl font-semibold text-gray-900">Settings</h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <ProtectedRoute>
+      <div className="bg-white min-h-screen">
+        <Navigation />
+        <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Account Settings</h1>
+            <p className="text-gray-600 mb-8">Manage your profile, security, and preferences.</p>
         {/* Profile Section */}
         <div className="card mb-8">
           <div className="flex justify-between items-center mb-6">
@@ -343,29 +338,39 @@ export default function SettingsPage() {
         </div>
 
         {/* Danger Zone */}
-        <div className="card border-red-200 bg-red-50">
-          <h3 className="text-lg font-semibold text-red-900 mb-4">Danger Zone</h3>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-red-700 mb-2">
-                Once you delete your account, there is no going back. Please be certain.
-              </p>
-              <button className="btn-secondary border-red-300 text-red-700 hover:bg-red-100">
+        <div className="relative overflow-hidden rounded-xl border border-red-200/80 bg-gradient-to-br from-red-50 to-rose-50/80 shadow-sm">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-400 to-red-600" aria-hidden />
+          <div className="p-6 pl-7">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-red-900">Danger Zone</h3>
+            </div>
+            <p className="text-sm text-red-700/90 mb-6 max-w-xl">
+              Irreversible actions. Once you delete your account, there is no going back. Please be certain.
+            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors shadow-sm"
+              >
+                <Trash2 className="h-4 w-4" />
                 Delete Account
               </button>
-            </div>
-            <div className="pt-4 border-t border-red-200">
               <button
                 onClick={handleLogout}
-                className="btn-secondary border-red-300 text-red-700 hover:bg-red-100 flex items-center"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-red-700 bg-white border border-red-300 hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
               >
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-4 w-4" />
                 Sign Out
               </button>
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }
