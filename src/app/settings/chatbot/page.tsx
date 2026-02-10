@@ -31,6 +31,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+/** Slug from label so backend value matches displayed text (e.g. "Catering" -> "catering") */
+function slugifyLabel(text: string): string {
+  return (text || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || '';
+}
+
 function SortableServicePlanItem({
   leadTypeId,
   servicePlan,
@@ -752,7 +757,13 @@ export default function ChatbotSettingsPage() {
                                     const updated = [...settings.leadTypeMessages!];
                                     const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
                                     if (itemIndex !== -1) {
-                                      updated[itemIndex] = { ...updated[itemIndex], text: e.target.value };
+                                      const newText = e.target.value;
+                                      const newValue = slugifyLabel(newText) || updated[itemIndex].value;
+                                      updated[itemIndex] = {
+                                        ...updated[itemIndex],
+                                        text: newText,
+                                        value: newValue,
+                                      };
                                       updateSettings({ ...settings, leadTypeMessages: updated });
                                     }
                                   }}
