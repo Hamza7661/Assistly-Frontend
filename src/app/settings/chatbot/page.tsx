@@ -106,6 +106,8 @@ export default function ChatbotSettingsPage() {
     primaryColor: '#00bc7d',
     validateEmail: false,
     validatePhoneNumber: false,
+    googleReviewEnabled: false,
+    googleReviewUrl: '',
     leadTypeMessages: []
   });
   const [loading, setLoading] = useState(true);
@@ -253,6 +255,8 @@ export default function ChatbotSettingsPage() {
           primaryColor: integration?.primaryColor || '#00bc7d',
           validateEmail: integration?.validateEmail || false,
           validatePhoneNumber: integration?.validatePhoneNumber || false,
+          googleReviewEnabled: integration?.googleReviewEnabled || false,
+          googleReviewUrl: integration?.googleReviewUrl ?? '',
           leadTypeMessages
         };
         
@@ -354,6 +358,8 @@ export default function ChatbotSettingsPage() {
       newSettings.primaryColor !== originalSettings.primaryColor ||
       Boolean(newSettings.validateEmail) !== Boolean(originalSettings.validateEmail) ||
       Boolean(newSettings.validatePhoneNumber) !== Boolean(originalSettings.validatePhoneNumber) ||
+      Boolean(newSettings.googleReviewEnabled) !== Boolean(originalSettings.googleReviewEnabled) ||
+      (newSettings.googleReviewUrl ?? '') !== (originalSettings.googleReviewUrl ?? '') ||
       newSettings.chatbotImage !== originalSettings.chatbotImage ||
       selectedFile !== null ||
       JSON.stringify(newSettings.leadTypeMessages || []) !== JSON.stringify(originalSettings.leadTypeMessages || [])
@@ -691,6 +697,40 @@ export default function ChatbotSettingsPage() {
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
                       </label>
+                    </div>
+
+                    {/* Google Review (after lead creation) */}
+                    <div className="pt-4 border-t border-gray-200 mt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Ask for Google review after lead creation</label>
+                          <p className="text-sm text-gray-500">Show a &quot;Write a review&quot; prompt in the chat after users submit their name and email</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={settings.googleReviewEnabled || false}
+                            onChange={(e) => updateSettings({ ...settings, googleReviewEnabled: e.target.checked })}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                        </label>
+                      </div>
+                      {settings.googleReviewEnabled && (
+                        <div className="mt-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Google review URL</label>
+                          <input
+                            type="url"
+                            className="input-field w-full"
+                            placeholder="https://search.google.com/local/writereview?placeid=..."
+                            value={settings.googleReviewUrl ?? ''}
+                            onChange={(e) => updateSettings({ ...settings, googleReviewUrl: e.target.value.trim() || '' })}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Paste the &quot;Write a review&quot; link from your Google Business Profile. In Google Search, open your business and click &quot;Write a review&quot; to copy the URL.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

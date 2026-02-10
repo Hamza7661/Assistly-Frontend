@@ -15,6 +15,8 @@ export interface IntegrationSettings {
   primaryColor?: string;
   validateEmail?: boolean;
   validatePhoneNumber?: boolean;
+  googleReviewEnabled?: boolean;
+  googleReviewUrl?: string | null;
   leadTypeMessages?: LeadTypeMessage[];
 }
 
