@@ -155,6 +155,39 @@ export default function LeadsPage() {
   // Format inline bullet points (•) so each starts on a new line
   const formatBulletPoints = (str: string) => str.replace(/ • /g, '\n• ');
 
+  // Render text with URLs as clickable links (opens in new tab)
+  const renderTextWithLinks = (str: string, keyPrefix: string): React.ReactNode => {
+    const formatted = formatBulletPoints(str);
+    const urlRegex = /https?:\/\/[^\s]+/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let urlMatch: RegExpExecArray | null;
+    while ((urlMatch = urlRegex.exec(formatted)) !== null) {
+      if (urlMatch.index > lastIndex) {
+        parts.push(formatted.slice(lastIndex, urlMatch.index));
+      }
+      const rawUrl = urlMatch[0];
+      const href = rawUrl.replace(/[.,;?!)]+$/, '');
+      parts.push(
+        <a
+          key={`${keyPrefix}-url-${urlMatch.index}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline break-all hover:text-blue-800"
+        >
+          {rawUrl}
+        </a>
+      );
+      lastIndex = urlMatch.index + rawUrl.length;
+    }
+    if (lastIndex < formatted.length) {
+      parts.push(formatted.slice(lastIndex));
+    }
+    if (parts.length === 0) return formatted;
+    return <span key={keyPrefix} className="whitespace-pre-wrap">{parts}</span>;
+  };
+
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
     // Updated regex to handle both formats:
@@ -167,7 +200,7 @@ export default function LeadsPage() {
     while ((match = regex.exec(text)) !== null) {
       if (match.index > lastIndex) {
         const chunk = text.slice(lastIndex, match.index).trim();
-        if (chunk) parts.push(<span key={`t-${lastIndex}`} className="whitespace-pre-wrap">{formatBulletPoints(chunk)}</span>);
+        if (chunk) parts.push(renderTextWithLinks(chunk, `t-${lastIndex}`));
       }
       
       // Extract button text and value
@@ -203,10 +236,10 @@ export default function LeadsPage() {
     
     if (lastIndex < text.length) {
       const rest = text.slice(lastIndex).trim();
-      if (rest) parts.push(<span key={`t-${lastIndex}`} className="whitespace-pre-wrap">{formatBulletPoints(rest)}</span>);
+      if (rest) parts.push(renderTextWithLinks(rest, `t-${lastIndex}`));
     }
     
-    if (parts.length === 0) return <span className="whitespace-pre-wrap">{formatBulletPoints(text)}</span>;
+    if (parts.length === 0) return renderTextWithLinks(text, 'only');
     return <div className="flex flex-wrap items-start gap-2">{parts}</div>;
   };
 
