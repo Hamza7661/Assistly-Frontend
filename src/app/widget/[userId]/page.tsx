@@ -246,6 +246,9 @@ export default function WidgetPage() {
     }
   };
 
+  // Format inline bullet points (•) so each starts on a new line
+  const formatBulletPoints = (str: string) => str.replace(/ • /g, '\n• ');
+
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
     // Updated regex to handle both formats:
@@ -258,7 +261,7 @@ export default function WidgetPage() {
     while ((match = regex.exec(text)) !== null) {
       if (match.index > lastIndex) {
         const chunk = text.slice(lastIndex, match.index).trim();
-        if (chunk) parts.push(<span key={`t-${lastIndex}`}>{chunk}</span>);
+        if (chunk) parts.push(<span key={`t-${lastIndex}`} className="whitespace-pre-wrap">{formatBulletPoints(chunk)}</span>);
       }
       
       // Extract button text and value
@@ -294,11 +297,11 @@ export default function WidgetPage() {
     
     if (lastIndex < text.length) {
       const rest = text.slice(lastIndex).trim();
-      if (rest) parts.push(<span key={`t-${lastIndex}`}>{rest}</span>);
+      if (rest) parts.push(<span key={`t-${lastIndex}`} className="whitespace-pre-wrap">{formatBulletPoints(rest)}</span>);
     }
     
-    if (parts.length === 0) return text;
-    return <div className="flex flex-wrap items-center gap-2">{parts}</div>;
+    if (parts.length === 0) return <span className="whitespace-pre-wrap">{formatBulletPoints(text)}</span>;
+    return <div className="flex flex-wrap items-start gap-2">{parts}</div>;
   };
 
   if (!isOpen) {
