@@ -23,6 +23,8 @@ class IntegrationService extends HttpService {
     if (settings.googleReviewEnabled !== undefined) formData.append('googleReviewEnabled', settings.googleReviewEnabled.toString());
     if (settings.googleReviewUrl !== undefined) formData.append('googleReviewUrl', settings.googleReviewUrl ?? '');
     
+    if (settings.preferredLanguages !== undefined) formData.append('preferredLanguages', JSON.stringify(settings.preferredLanguages));
+    
     // Add leadTypeMessages if provided
     if (settings.leadTypeMessages !== undefined) {
       formData.append('leadTypeMessages', JSON.stringify(settings.leadTypeMessages));

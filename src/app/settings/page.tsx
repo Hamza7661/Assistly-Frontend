@@ -7,12 +7,11 @@ import { ProtectedRoute } from '@/components';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { User } from '@/models';
-import { 
-  User as UserIcon, 
-  Shield, 
-  Bell, 
-  CreditCard, 
-  Globe,
+import {
+  User as UserIcon,
+  Shield,
+  Bell,
+  CreditCard,
   LogOut,
   Save,
   Edit3,
@@ -40,10 +39,6 @@ export default function SettingsPage() {
     if (!user) {
       router.push('/signin');
     } else {
-      // Debug: Log user object to check for twilioPhoneNumber
-      console.log('User object:', user);
-      console.log('Twilio Phone Number:', user.twilioPhoneNumber);
-      
       setFormData({
         firstName: user.firstName,
         lastName: user.lastName,
@@ -315,23 +310,6 @@ export default function SettingsPage() {
               <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="font-medium text-gray-900">Billing History</div>
                 <div className="text-sm text-gray-500">View past invoices</div>
-              </button>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center mb-4">
-              <Globe className="h-5 w-5 mr-2 text-[#00bc7d]" />
-              <h3 className="text-lg font-semibold text-gray-900">Preferences</h3>
-            </div>
-            <div className="space-y-3">
-              <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="font-medium text-gray-900">Language</div>
-                <div className="text-sm text-gray-500">Set your preferred language</div>
-              </button>
-              <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="font-medium text-gray-900">Time Zone</div>
-                <div className="text-sm text-gray-500">Configure your time zone</div>
               </button>
             </div>
           </div>

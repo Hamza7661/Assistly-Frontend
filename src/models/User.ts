@@ -103,18 +103,22 @@ export class UserPreferences {
   notifications: NotificationPreferences;
   language: string;
   timezone: string;
+  /** Up to 3 language codes for chatbot labels/synonyms (e.g. ['en','ur','hi']). */
+  preferredLanguages: string[];
 
   constructor(data: any) {
     this.notifications = new NotificationPreferences(data.notifications || {});
     this.language = data.language || 'en';
     this.timezone = data.timezone || 'UTC';
+    this.preferredLanguages = Array.isArray(data.preferredLanguages) ? data.preferredLanguages : [];
   }
 
   toJSON() {
     return {
       notifications: this.notifications.toJSON(),
       language: this.language,
-      timezone: this.timezone
+      timezone: this.timezone,
+      preferredLanguages: this.preferredLanguages
     };
   }
 }
