@@ -92,8 +92,8 @@ export default function WidgetPage() {
       if (!identifier) return;
       try {
         const svc = await useWidgetService();
-        // Use appId if available, otherwise use userId for backward compatibility
-        const res = appId ? await svc.getIntegrationSettingsByApp(appId) : await svc.getIntegrationSettings(userId!);
+        // Public API is app-based only (GET /integration/public/apps/:appId). Path segment is appId.
+        const res = await svc.getIntegrationSettingsByApp(identifier);
         const integration = res.data?.integration;
         
          if (integration) {
