@@ -7,6 +7,8 @@ export interface App {
   whatsappNumberSource?: 'user-provided' | 'twilio-provided';
   whatsappNumberStatus?: 'pending' | 'registered' | 'failed';
   twilioWhatsAppSenderId?: string;
+  /** When true, this app is the one that receives Twilio webhooks/leads for its number (when multiple apps share the same number). */
+  usesTwilioNumber?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -21,6 +23,7 @@ export class AppModel implements App {
   whatsappNumberSource?: 'user-provided' | 'twilio-provided';
   whatsappNumberStatus?: 'pending' | 'registered' | 'failed';
   twilioWhatsAppSenderId?: string;
+  usesTwilioNumber?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -34,6 +37,7 @@ export class AppModel implements App {
     this.whatsappNumberSource = data.whatsappNumberSource || undefined;
     this.whatsappNumberStatus = data.whatsappNumberStatus || undefined;
     this.twilioWhatsAppSenderId = data.twilioWhatsAppSenderId || undefined;
+    this.usesTwilioNumber = !!data.usesTwilioNumber;
     this.isActive = data.isActive !== undefined ? data.isActive : true;
     this.createdAt = data.createdAt || '';
     this.updatedAt = data.updatedAt || '';
@@ -49,6 +53,7 @@ export class AppModel implements App {
       whatsappNumberSource: this.whatsappNumberSource,
       whatsappNumberStatus: this.whatsappNumberStatus,
       twilioWhatsAppSenderId: this.twilioWhatsAppSenderId,
+      usesTwilioNumber: this.usesTwilioNumber,
       isActive: this.isActive,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt

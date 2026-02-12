@@ -67,6 +67,13 @@ class AppService extends HttpService {
       method: 'POST',
     });
   }
+
+  /** Set this app as the one using the Twilio number for webhooks/leads/flows (when multiple apps share the same number). */
+  async setUsesTwilioNumber(appId: string): Promise<AppResponse> {
+    return this.request<AppResponse>(`/apps/${appId}/set-uses-twilio`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const appService = new AppService();

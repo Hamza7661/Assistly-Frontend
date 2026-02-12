@@ -12,6 +12,9 @@ interface ConfirmModalProps {
   cancelText?: string;
   confirmButtonClass?: string;
   isLoading?: boolean;
+  /** Optional content rendered after the message (e.g. dropdown) */
+  children?: React.ReactNode;
+  confirmDisabled?: boolean;
 }
 
 export default function ConfirmModal({
@@ -23,7 +26,9 @@ export default function ConfirmModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   confirmButtonClass = 'btn-primary',
-  isLoading = false
+  isLoading = false,
+  children,
+  confirmDisabled = false
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
@@ -64,6 +69,7 @@ export default function ConfirmModal({
             <p className="text-sm text-gray-600">
               {message}
             </p>
+            {children && <div className="mt-4">{children}</div>}
           </div>
         </div>
 
@@ -77,7 +83,7 @@ export default function ConfirmModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
             className={`px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
               confirmButtonClass === 'btn-primary' 
                 ? 'bg-[#00bc7d] hover:bg-[#00a66d] focus:ring-[#00bc7d]' 
