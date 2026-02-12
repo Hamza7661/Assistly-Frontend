@@ -29,6 +29,7 @@ interface UpdateProfileRequest {
     };
     language?: string;
     timezone?: string;
+    preferredLanguages?: string[];
   };
 }
 

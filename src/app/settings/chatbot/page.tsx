@@ -11,7 +11,8 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { useIntegrationService, useQuestionnareService } from '@/services';
 import type { IntegrationSettings, LeadTypeMessage } from '@/models';
 import { LEAD_TYPES_LIST } from '@/enums/leadTypes';
-import { GripVertical, MoveUp, MoveDown, Trash2, Plus, X } from 'lucide-react';
+import { AVAILABLE_LANGUAGES, PREFERRED_LANGUAGES_MAX } from '@/constants/languages';
+import { GripVertical, MoveUp, MoveDown, Trash2, Plus, X, Globe, Check } from 'lucide-react';
 import { QuestionnareType } from '@/enums/QuestionnareType';
 import {
   DndContext,
@@ -108,6 +109,7 @@ export default function ChatbotSettingsPage() {
     validatePhoneNumber: false,
     googleReviewEnabled: false,
     googleReviewUrl: '',
+    preferredLanguages: [],
     leadTypeMessages: []
   });
   const [loading, setLoading] = useState(true);
@@ -257,6 +259,7 @@ export default function ChatbotSettingsPage() {
           validatePhoneNumber: integration?.validatePhoneNumber || false,
           googleReviewEnabled: integration?.googleReviewEnabled || false,
           googleReviewUrl: integration?.googleReviewUrl ?? '',
+          preferredLanguages: integration?.preferredLanguages?.slice(0, PREFERRED_LANGUAGES_MAX) ?? [],
           leadTypeMessages
         };
         
@@ -360,6 +363,7 @@ export default function ChatbotSettingsPage() {
       Boolean(newSettings.validatePhoneNumber) !== Boolean(originalSettings.validatePhoneNumber) ||
       Boolean(newSettings.googleReviewEnabled) !== Boolean(originalSettings.googleReviewEnabled) ||
       (newSettings.googleReviewUrl ?? '') !== (originalSettings.googleReviewUrl ?? '') ||
+      JSON.stringify(newSettings.preferredLanguages || []) !== JSON.stringify(originalSettings.preferredLanguages || []) ||
       newSettings.chatbotImage !== originalSettings.chatbotImage ||
       selectedFile !== null ||
       JSON.stringify(newSettings.leadTypeMessages || []) !== JSON.stringify(originalSettings.leadTypeMessages || [])
@@ -733,6 +737,47 @@ export default function ChatbotSettingsPage() {
                       )}
                     </div>
                   </div>
+                </div>
+
+                {/* Preferred languages (for labels / greeting options) */}
+                <div className="md:col-span-2">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2 flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-[#00bc7d]" />
+                    Preferred languages
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_LANGUAGES.map(({ code, name }) => {
+                      const selected = (settings.preferredLanguages ?? []).includes(code);
+                      const atLimit = (settings.preferredLanguages ?? []).length >= PREFERRED_LANGUAGES_MAX && !selected;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => {
+                            if (atLimit) return;
+                            const next = selected
+                              ? (settings.preferredLanguages ?? []).filter((c) => c !== code)
+                              : [...(settings.preferredLanguages ?? []), code].slice(0, PREFERRED_LANGUAGES_MAX);
+                            updateSettings({ ...settings, preferredLanguages: next });
+                          }}
+                          disabled={atLimit}
+                          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            selected
+                              ? 'bg-[#00bc7d] text-white border-[#00bc7d]'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-[#00bc7d] hover:text-[#00bc7d]'
+                          }`}
+                        >
+                          {selected && <Check className="h-4 w-4" />}
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(settings.preferredLanguages ?? []).length > 0 && (
+                    <p className="text-xs text-gray-500 mt-3">
+                      Selected: {(settings.preferredLanguages ?? []).length}/{PREFERRED_LANGUAGES_MAX} — {(settings.preferredLanguages ?? []).map((c) => AVAILABLE_LANGUAGES.find((l) => l.code === c)?.name ?? c).join(', ')}
+                    </p>
+                  )}
                 </div>
 
                 {/* Lead Type Messages Configuration */}
