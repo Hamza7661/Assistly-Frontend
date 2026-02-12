@@ -96,8 +96,9 @@ export default function EditAppPage() {
     return true;
   };
 
-  const getWhatsAppStatusBadge = (status?: string) => {
-    switch (status) {
+  const getWhatsAppStatusBadge = (status?: string, hasNumber?: boolean) => {
+    const effectiveStatus = hasNumber && (status === 'pending' || !status) ? 'registered' : status;
+    switch (effectiveStatus) {
       case 'registered':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -277,7 +278,7 @@ export default function EditAppPage() {
                     <Phone className="h-4 w-4" />
                     <span className="font-medium">Current Number:</span>
                     <span>{formData.whatsappNumber}</span>
-                    {getWhatsAppStatusBadge(whatsappNumberStatus)}
+                    {getWhatsAppStatusBadge(whatsappNumberStatus, !!formData.whatsappNumber?.trim?.())}
                   </div>
                 </div>
               )}

@@ -74,8 +74,8 @@ export default function CreateAppPage() {
         toast.success('App created successfully!');
         // Switch to the new app (this sets localStorage and refreshes apps)
         await switchApp(response.data.app.id);
-        // Redirect to integration page
-        router.push('/integration');
+        await refreshApps();
+        router.push('/apps');
       } else {
         setError(response.message || 'Failed to create app');
       }
