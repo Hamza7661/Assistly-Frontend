@@ -23,7 +23,15 @@ export interface LeadsListResponse {
   status: 'success' | 'fail';
   data: {
     leads: Lead[];
-    count: number;
+    count?: number;
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
   };
 }
 
