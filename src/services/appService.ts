@@ -62,6 +62,12 @@ class AppService extends HttpService {
     });
   }
 
+  async restoreApp(appId: string): Promise<AppResponse> {
+    return this.request<AppResponse>(`/apps/${appId}/restore`, {
+      method: 'POST',
+    });
+  }
+
   async registerWhatsApp(appId: string): Promise<AppResponse> {
     return this.request<AppResponse>(`/apps/${appId}/whatsapp/register`, {
       method: 'POST',
