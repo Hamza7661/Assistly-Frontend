@@ -25,6 +25,7 @@ export default function AppsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
   const [togglingAppId, setTogglingAppId] = useState<string | null>(null);
+  const [restoringAppId, setRestoringAppId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [allApps, setAllApps] = useState<any[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<{
@@ -278,6 +279,32 @@ export default function AppsPage() {
       toast.error(err.message || 'Failed to update app status');
     } finally {
       setTogglingAppId(null);
+    }
+  };
+
+  const handleRestoreApp = async (appId: string) => {
+    setRestoringAppId(appId);
+    try {
+      const appService = await useAppService();
+      const response = await appService.restoreApp(appId);
+      if (response.status === 'success') {
+        toast.success('App restored successfully');
+        await refreshApps();
+        const allAppsResponse = await appService.getApps(showInactive);
+        if (allAppsResponse.status === 'success' && allAppsResponse.data?.apps) {
+          setAllApps(allAppsResponse.data.apps);
+        }
+      } else {
+        const msg = response.message || 'Failed to restore app';
+        const isNameConflict = msg.includes('already exists');
+        isNameConflict ? toast.warning(msg) : toast.error(msg);
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to restore app';
+      const isNameConflict = err.response?.status === 409 || msg.includes('already exists');
+      isNameConflict ? toast.warning(msg) : toast.error(msg);
+    } finally {
+      setRestoringAppId(null);
     }
   };
 
@@ -536,12 +563,17 @@ export default function AppsPage() {
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <h3 className="text-lg font-semibold text-gray-900">{app.name}</h3>
-                                    {app.isActive && (
+                                    {app.isActive && !app.deletedAt && (
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                         Active
                                       </span>
                                     )}
-                                    {!app.isActive && (
+                                    {app.deletedAt && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        Deleted
+                                      </span>
+                                    )}
+                                    {!app.isActive && !app.deletedAt && (
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
                                         Inactive
                                       </span>
@@ -578,7 +610,7 @@ export default function AppsPage() {
                               </div>
 
                               <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                                {!app.usesTwilioNumber && app.isActive && sameNumberCount > 1 && (
+                                {!app.usesTwilioNumber && app.isActive && !app.deletedAt && sameNumberCount > 1 && (
                                   <button
                                     onClick={() => handleSetAsCurrent(app.id)}
                                     className="btn-secondary text-sm flex-1"
@@ -586,37 +618,51 @@ export default function AppsPage() {
                                     Use this number
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => handleToggleAppStatus(app.id, app.isActive)}
-                                  disabled={togglingAppId === app.id}
-                                  className={`p-2 rounded disabled:opacity-50 ${
-                                    app.isActive
-                                      ? 'text-orange-600 hover:text-orange-900 hover:bg-orange-50'
-                                      : 'text-green-600 hover:text-green-900 hover:bg-green-50'
-                                  }`}
-                                  title={app.isActive ? 'Disable app' : 'Enable app'}
-                                >
-                                  {app.isActive ? (
-                                    <PowerOff className="h-4 w-4" />
-                                  ) : (
+                                {app.deletedAt && (
+                                  <button
+                                    onClick={() => handleRestoreApp(app.id)}
+                                    disabled={restoringAppId === app.id}
+                                    className="p-2 rounded disabled:opacity-50 text-green-600 hover:text-green-900 hover:bg-green-50"
+                                    title="Restore app"
+                                  >
                                     <Power className="h-4 w-4" />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => router.push(`/apps/${app.id}/edit`)}
-                                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
-                                  title="Edit app"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteClick(app.id, app.name)}
-                                  disabled={deletingAppId === app.id}
-                                  className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded disabled:opacity-50"
-                                  title="Delete app"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                                  </button>
+                                )}
+                                {!app.deletedAt && (
+                                  <>
+                                    <button
+                                      onClick={() => handleToggleAppStatus(app.id, app.isActive)}
+                                      disabled={togglingAppId === app.id}
+                                      className={`p-2 rounded disabled:opacity-50 ${
+                                        app.isActive
+                                          ? 'text-orange-600 hover:text-orange-900 hover:bg-orange-50'
+                                          : 'text-green-600 hover:text-green-900 hover:bg-green-50'
+                                      }`}
+                                      title={app.isActive ? 'Disable app' : 'Enable app'}
+                                    >
+                                      {app.isActive ? (
+                                        <PowerOff className="h-4 w-4" />
+                                      ) : (
+                                        <Power className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => router.push(`/apps/${app.id}/edit`)}
+                                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                                      title="Edit app"
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteClick(app.id, app.name)}
+                                      disabled={deletingAppId === app.id}
+                                      className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded disabled:opacity-50"
+                                      title="Delete app"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           );
