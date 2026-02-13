@@ -81,7 +81,8 @@ export default function LeadsPage() {
           sortOrder,
         });
         setItems(res.data?.leads || []);
-        setTotal(typeof res.data?.count === 'number' ? res.data.count : null);
+        const totalCount = res.data?.pagination?.total ?? res.data?.count;
+        setTotal(typeof totalCount === 'number' ? totalCount : null);
       } catch (e: any) {
         setError(e?.message || 'Failed to load leads');
       } finally {

@@ -10,12 +10,15 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requirePackage?: boolean;
   redirectTo?: string;
+  /** When true, do not show the green spinner during auth/package check (e.g. let child show its own loading state) */
+  hideLoader?: boolean;
 }
 
 export default function ProtectedRoute({ 
   children, 
   requirePackage = false, 
-  redirectTo 
+  redirectTo,
+  hideLoader = false
 }: ProtectedRouteProps) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, updateUser } = useAuth();
@@ -69,11 +72,14 @@ export default function ProtectedRoute({
      }, [isAuthenticated, authLoading, requirePackage, redirectTo, router]);
 
   if (isLoading) {
+    if (hideLoader) {
+      return null;
+    }
     return (
       <div className="min-h-screen bg-gradient-to-br from-white to-gray-50 flex items-center justify-center">
         <div className="loading-spinner"></div>
       </div>
-  );
+    );
   }
 
   if (!user) {
