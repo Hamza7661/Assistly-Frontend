@@ -31,64 +31,92 @@ export default function AppCreationProgressModal({
   const [message, setMessage] = useState('');
   const [hasError, setHasError] = useState(false);
 
-  const updateStepStatus = (stepId: string, status: ProgressStep['status']) => {
-    setSteps(prevSteps => 
-      prevSteps.map(step => 
-        step.id === stepId ? { ...step, status } : step
-      )
-    );
-  };
-
   const handleProgress = (data: any) => {
     const { step, message: msg, percentage: pct, progress, total } = data;
+    
+    console.log('Progress received:', { step, message: msg, percentage: pct });
     
     setCurrentStep(step);
     setMessage(msg || '');
     setPercentage(pct || Math.round((progress / total) * 100));
 
-    // Update previous steps to completed
-    steps.forEach((s, index) => {
-      const stepIndex = steps.findIndex(st => st.id === step);
-      if (index < stepIndex) {
-        updateStepStatus(s.id, 'completed');
-      } else if (s.id === step) {
-        updateStepStatus(s.id, 'in-progress');
-      }
+    // Update steps using functional update to avoid stale closure
+    setSteps(prevSteps => {
+      const stepIndex = prevSteps.findIndex(st => st.id === step);
+      
+      return prevSteps.map((s, index) => {
+        // Mark all previous steps as completed
+        if (index < stepIndex) {
+          return { ...s, status: 'completed' as const };
+        }
+        // Mark current step as in-progress
+        else if (s.id === step) {
+          return { ...s, status: 'in-progress' as const };
+        }
+        // Keep future steps as pending
+        return s;
+      });
     });
 
     // If complete
     if (step === 'complete') {
-      steps.forEach(s => updateStepStatus(s.id, 'completed'));
+      setSteps(prevSteps => prevSteps.map(s => ({ ...s, status: 'completed' as const })));
       setTimeout(() => {
         onComplete?.();
-      }, 1000);
+      }, 1500);
     }
 
     // If error
     if (step === 'error') {
       setHasError(true);
-      const errorStep = steps.find(s => s.status === 'in-progress');
-      if (errorStep) {
-        updateStepStatus(errorStep.id, 'error');
-      }
+      setSteps(prevSteps => {
+        const errorStepIndex = prevSteps.findIndex(s => s.status === 'in-progress');
+        if (errorStepIndex !== -1) {
+          return prevSteps.map((s, idx) => 
+            idx === errorStepIndex ? { ...s, status: 'error' as const } : s
+          );
+        }
+        return prevSteps;
+      });
       onError?.(msg || 'An error occurred');
     }
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      // Reset state when modal closes
+      setSteps([
+        { id: 'initializing', label: 'Initializing seed data', status: 'pending' },
+        { id: 'workflows', label: 'Creating conversation workflows', status: 'pending' },
+        { id: 'faqs', label: 'Setting up FAQs', status: 'pending' },
+        { id: 'servicePlans', label: 'Configuring service plans', status: 'pending' },
+        { id: 'leadTypes', label: 'Setting up lead types', status: 'pending' },
+      ]);
+      setPercentage(0);
+      setMessage('');
+      setHasError(false);
+      return;
+    }
+
+    console.log('Modal opened, listening for progress events');
+    
+    // Show initial progress
+    setMessage('Initializing seed data...');
+    setPercentage(0);
 
     // Listen for WebSocket progress updates
     const handleProgressEvent = (event: CustomEvent) => {
+      console.log('Received progress event:', event.detail);
       handleProgress(event.detail);
     };
 
     window.addEventListener('app_creation_progress' as any, handleProgressEvent);
 
     return () => {
+      console.log('Removing progress event listener');
       window.removeEventListener('app_creation_progress' as any, handleProgressEvent);
     };
-  }, [isOpen, steps]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
