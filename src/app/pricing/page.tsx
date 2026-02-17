@@ -118,40 +118,9 @@ export default function PricingPage() {
     }
   };
 
-  const handlePackageUpgrade = async (pkg: any) => {
-    if (!user) return;
-    setProcessing(true);
-    try {
-      const isFree = pkg.price?.amount === 0 || pkg.type === 'free-trial';
-      if (isFree) {
-        const { useAuthService } = await import('@/services');
-        const authService = await useAuthService();
-        const response = await authService.updateUserProfile(user._id, { package: pkg._id });
-        if (response.status === 'success') {
-          updateUser(new User(response.data.user));
-          toast.success('Package upgraded successfully!');
-          loadSubscription();
-          loadPackages();
-        }
-      } else {
-        const subscriptionService = await useSubscriptionService();
-        const checkoutResponse = await subscriptionService.createCheckoutSession(
-          pkg._id,
-          `${window.location.origin}/pricing?subscription=success`,
-          `${window.location.origin}/pricing?subscription=canceled`
-        );
-        if (checkoutResponse.data.url) window.location.href = checkoutResponse.data.url;
-      }
-    } catch (e: any) {
-      const msg = e.message || '';
-      if (msg.includes('Stripe is not configured') || msg.includes('STRIPE_SECRET_KEY')) {
-        toast.info('⏰ Coming Soon! Payment processing is on the way.');
-      } else {
-        toast.error(msg || 'Failed to upgrade package.');
-      }
-    } finally {
-      setProcessing(false);
-    }
+  const handlePackageUpgrade = (pkg: any) => {
+    // Redirect to Upzilo contact page for all package upgrades
+    window.open('https://upzilo.com/contact/', '_blank');
   };
 
   const formatDate = (dateString: string) => {
@@ -204,7 +173,7 @@ export default function PricingPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute requirePackage={true}>
+      <ProtectedRoute>
         <div className={styles.container}>
           <Navigation />
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -226,8 +195,8 @@ export default function PricingPage() {
         <div className={`pt-16 transition-all duration-300 ${isSidebarOpen ? 'lg:pl-64' : 'lg:pl-0'}`}>
           <div className={styles.pageContainer}>
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">Pricing</h1>
-              <p className="text-gray-600 mt-2">View your subscription and upgrade options</p>
+              <h1 className="text-3xl font-bold text-gray-900">Upgrade Your Package</h1>
+              <p className="text-gray-600 mt-2">Choose the perfect plan to scale your business</p>
             </div>
 
             <div className="space-y-6">
@@ -385,84 +354,242 @@ export default function PricingPage() {
                 </div>
               )}
 
-              {/* Upgrade Packages */}
-              {packageInfo && packages.length > 0 && (() => {
-                const currentPackagePrice = packageInfo.price?.amount || 0;
-                const upgradePackages = packages
-                  .filter((pkg: any) => {
-                    const pkgPrice = pkg.price?.amount || 0;
-                    return pkg.isActive && pkgPrice > currentPackagePrice;
-                  })
-                  .sort((a: any, b: any) => (a.price?.amount || 0) - (b.price?.amount || 0));
-                if (upgradePackages.length === 0) return null;
-                return (
-                  <div className="bg-white rounded-lg shadow-md p-6">
+              {/* Available Packages */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-7 w-7 text-green-600" />
+                    Available Plans
+                  </h2>
+                  <p className="text-gray-600">Choose the perfect plan to scale your business</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Basic Plan */}
+                  <div className="border-2 border-gray-200 bg-white rounded-lg p-6">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Basic Plan</h3>
+                    <div className="mb-4">
+                      <span className="text-4xl font-bold text-gray-900">£149</span>
+                      <span className="text-gray-600 ml-2">/per month</span>
+                    </div>
+                    
                     <div className="mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                        <TrendingUp className="h-7 w-7 text-green-600" />
-                        Upgrade Your Plan
-                      </h2>
-                      <p className="text-gray-600">Upgrade to a higher tier plan for more features and limits</p>
+                      <p className="text-sm font-semibold text-gray-700 mb-3">Limits</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Chatbot Queries</span>
+                          <span className="font-semibold">500</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Voice Minutes</span>
+                          <span className="font-semibold">300</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Lead Generation</span>
+                          <span className="font-semibold">0</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {upgradePackages.map((pkg: any) => {
-                        const localPrice = formatPriceInLocalCurrency(pkg.price?.amount || 0);
-                        return (
-                          <div
-                            key={pkg._id}
-                            className={`border-2 rounded-lg p-6 ${pkg.isPopular ? 'border-[#00bc7d] bg-green-50' : 'border-gray-200 bg-white'}`}
-                          >
-                            {pkg.isPopular && (
-                              <div className="bg-[#00bc7d] text-white text-xs font-semibold px-3 py-1 rounded-full inline-block mb-4">
-                                Most Popular
-                              </div>
-                            )}
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
-                            <div className="mb-4">
-                              <span className="text-3xl font-bold text-gray-900">
-                                {localPrice.symbol}{localPrice.amount.toFixed(2)}
-                              </span>
-                              <span className="text-gray-600 ml-2">/{pkg.price?.billingCycle === 'yearly' ? 'year' : 'month'}</span>
-                              {localPrice.countryName !== 'United States' && (
-                                <div className="text-xs text-gray-500 mt-1">({localPrice.countryName} pricing)</div>
-                              )}
-                            </div>
-                            <p className="text-gray-600 text-sm mb-4">{pkg.description}</p>
-                            <div className="space-y-3 mb-6">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Chatbot Queries</span>
-                                <span className="font-semibold text-gray-900">
-                                  {pkg.limits?.chatbotQueries === -1 ? 'Unlimited' : pkg.limits?.chatbotQueries?.toLocaleString() || '0'}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Voice Minutes</span>
-                                <span className="font-semibold text-gray-900">
-                                  {pkg.limits?.voiceMinutes === -1 ? 'Unlimited' : pkg.limits?.voiceMinutes?.toLocaleString() || '0'}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Lead Generation</span>
-                                <span className="font-semibold text-gray-900">
-                                  {pkg.limits?.leadGeneration === -1 ? 'Unlimited' : pkg.limits?.leadGeneration?.toLocaleString() || '0'}
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handlePackageUpgrade(pkg)}
-                              className={`block w-full text-center py-2 px-4 rounded-lg font-semibold transition-colors ${
-                                pkg.isPopular ? 'bg-[#00bc7d] text-white hover:bg-[#00a870]' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                              }`}
-                            >
-                              Upgrade to {pkg.name}
-                            </button>
-                          </div>
-                        );
-                      })}
+
+                    <div className="mb-6">
+                      <p className="text-sm font-semibold text-gray-700 mb-3">Features</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>1 UK Phone Number Included</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>WhatsApp Integration</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>AI Chatbot Integration on Website</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Unified Inbox Dashboard</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Call Logs + Message History</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Basic Customer Support</span>
+                        </li>
+                      </ul>
                     </div>
+
+                    <button
+                      onClick={() => window.open('https://upzilo.com/contact/', '_blank')}
+                      className="block w-full text-center py-3 px-4 rounded-lg font-semibold bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
+                    >
+                      Upgrade
+                    </button>
                   </div>
-                );
-              })()}
+
+                  {/* Premium Plan */}
+                  <div className="border-2 border-[#00bc7d] bg-green-50 rounded-lg p-6 relative">
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-[#00bc7d] text-white text-xs font-bold px-4 py-1 rounded-full">
+                        MOST POPULAR
+                      </span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2 mt-2">Premium Plan</h3>
+                    <div className="mb-4">
+                      <span className="text-4xl font-bold text-gray-900">£249</span>
+                      <span className="text-gray-600 ml-2">/per month</span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-700 mb-4 font-medium">Everything in Basic Plan in addition to:</p>
+
+                    <div className="mb-6">
+                      <p className="text-sm font-semibold text-gray-700 mb-3">Limits</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Chatbot Queries</span>
+                          <span className="font-semibold">2,000</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Voice Minutes</span>
+                          <span className="font-semibold">1,000</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Lead Generation</span>
+                          <span className="font-semibold">0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <p className="text-sm font-semibold text-gray-700 mb-3">Features</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Facebook Messenger Integration</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Instagram DM Integration</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Priority Support</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Advanced Monitoring & Reliability Support</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Faster Response & Issue Resolution</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Reporting & Usage Tracking</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Enhanced Call Management</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <button
+                      onClick={() => window.open('https://upzilo.com/contact/', '_blank')}
+                      className="block w-full text-center py-3 px-4 rounded-lg font-semibold bg-[#00bc7d] text-white hover:bg-[#00a870] transition-colors"
+                    >
+                      Upgrade
+                    </button>
+                  </div>
+
+                  {/* Enterprise Plan */}
+                  <div className="border-2 border-gray-200 bg-white rounded-lg p-6">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Enterprise Plan</h3>
+                    <div className="mb-4">
+                      <span className="text-2xl font-semibold text-gray-600">Contact us for price</span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-700 mb-4 font-medium">Everything in Basic Plan in addition to:</p>
+
+                    <div className="mb-6">
+                      <p className="text-sm font-semibold text-gray-700 mb-3">Limits</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Chatbot Queries</span>
+                          <span className="font-semibold">Unlimited</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Voice Minutes</span>
+                          <span className="font-semibold">Unlimited</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Lead Generation</span>
+                          <span className="font-semibold">Unlimited</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <p className="text-sm font-semibold text-gray-700 mb-3">Features</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Facebook Messenger Integration</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Instagram DM Integration</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Priority Support</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Advanced Monitoring & Reliability Support</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Faster Response & Issue Resolution</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Reporting & Usage Tracking</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Enhanced Call Management</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Unlimited AI chatbot queries per month</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Unlimited voice minutes per month</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Unlimited lead generation calls per month</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>More Support & Optimization included</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <button
+                      onClick={() => window.open('https://upzilo.com/contact/', '_blank')}
+                      className="block w-full text-center py-3 px-4 rounded-lg font-semibold bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Contact Us
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

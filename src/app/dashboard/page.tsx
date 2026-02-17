@@ -5,7 +5,7 @@ import AppsPage from '@/app/apps/page';
 
 export default function DashboardPage() {
   return (
-    <ProtectedRoute requirePackage={true} hideLoader>
+    <ProtectedRoute hideLoader>
       <AppsPage />
     </ProtectedRoute>
   );
