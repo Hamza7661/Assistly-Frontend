@@ -16,10 +16,6 @@ interface UpdateAppRequest {
   whatsappNumberSource?: 'user-provided' | 'twilio-provided';
   whatsappNumberStatus?: 'pending' | 'registered' | 'failed';
   twilioWhatsAppSenderId?: string;
-  facebookPageId?: string | null;
-  instagramBusinessAccountId?: string | null;
-  instagramAccessToken?: string | null;
-  instagramUsername?: string | null;
   isActive?: boolean;
 }
 
