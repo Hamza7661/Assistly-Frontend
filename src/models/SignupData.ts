@@ -42,8 +42,27 @@ export class SignupData {
     if (!this.phoneNumber.trim()) errors.push('Phone number is required');
     if (!this.profession.trim()) errors.push('Profession is required');
     if (!this.package.trim()) errors.push('Package selection is required');
+    
+    // Enhanced password validation
     if (!this.password || this.password.length < 8) {
       errors.push('Password must be at least 8 characters long');
+    } else {
+      // Check for uppercase
+      if (!/[A-Z]/.test(this.password)) {
+        errors.push('Password must contain at least one uppercase letter');
+      }
+      // Check for lowercase
+      if (!/[a-z]/.test(this.password)) {
+        errors.push('Password must contain at least one lowercase letter');
+      }
+      // Check for number
+      if (!/\d/.test(this.password)) {
+        errors.push('Password must contain at least one number');
+      }
+      // Check for special character (including dot)
+      if (!/[@$!%*?&.#_\-+=^()[\]{}|~;:'"\\/<>,`]/.test(this.password)) {
+        errors.push('Password must contain at least one special character (@$!%*?&.#_-+=^()[]{}|~;:\'\"\\/<>,`)');
+      }
     }
 
     return {
