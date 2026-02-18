@@ -145,12 +145,10 @@ export default function EditAppPage() {
 
       // Handle WhatsApp number updates
       if (formData.whatsappOption === 'use-my-number') {
-        if (formData.whatsappNumber.trim() !== formData.whatsappNumber) {
-          // Number changed, reset status
-          updateData.whatsappNumber = formData.whatsappNumber.trim();
-          updateData.whatsappNumberSource = 'user-provided';
-          updateData.whatsappNumberStatus = 'pending';
-        }
+        const newNumber = formData.whatsappNumber.trim();
+        updateData.whatsappNumber = newNumber;
+        updateData.whatsappNumberSource = 'user-provided';
+        updateData.whatsappNumberStatus = 'pending';
       } else if (formData.whatsappOption === 'get-from-twilio' && whatsappNumberSource !== 'twilio-provided') {
         // User wants to switch to Twilio-provided number
         updateData.whatsappNumber = undefined;
