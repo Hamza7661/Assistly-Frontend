@@ -10,7 +10,7 @@ import { useQuestionnareService } from '@/services';
 import { QuestionnareType } from '@/enums/QuestionnareType';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Building2, Phone, Power, PowerOff, LayoutList, Layers, GitBranch, Users, ExternalLink, DollarSign, MessageCircle, Plug, User, ClipboardList, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Building2, Phone, Power, PowerOff, LayoutList, Layers, GitBranch, Users, ExternalLink, MessageCircle, Plug, User, ClipboardList, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -679,10 +679,6 @@ export default function AppsPage() {
           <div className="mt-10 pt-8 border-t border-gray-200">
             <h3 className="text-sm font-medium text-gray-500 mb-3">Quick links</h3>
             <div className="flex flex-wrap gap-3">
-              <a href="/pricing" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <DollarSign className="h-4 w-4" />
-                Pricing
-              </a>
               <a href="/settings/chatbot" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
                 <MessageCircle className="h-4 w-4" />
                 Chatbot settings
