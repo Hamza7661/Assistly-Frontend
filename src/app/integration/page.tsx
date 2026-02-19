@@ -32,7 +32,7 @@ export default function IntegrationPage() {
 
   const whatsappScriptSnippet = useMemo(() => {
     if (!whatsappNumber) return '';
-    return `<script src="${appUrl}/whatsapp-widget.js"\n  data-whatsapp-number="${whatsappNumber}"\n  data-message="Hello! I'd like to chat.">\n</script>`;
+    return `<script src="${appUrl}/whatsapp-widget.js" data-whatsapp-number="${whatsappNumber}" data-message="Hello! I'd like to chat."></script>`;
   }, [appUrl, whatsappNumber]);
 
   const [copiedScript, setCopiedScript] = useState(false);
@@ -113,17 +113,19 @@ export default function IntegrationPage() {
 
               {/* Script snippet */}
               <div className="ml-11">
-                <p className="text-sm text-gray-600 mb-2">
-                  Paste this snippet before the closing <code className="bg-gray-100 px-1 rounded text-xs">&lt;/body&gt;</code> tag of your website:
-                </p>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 relative">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600">
+                    Paste this snippet before the closing <code className="bg-gray-100 px-1 rounded text-xs">&lt;/body&gt;</code> tag of your website:
+                  </p>
                   <button
-                    className="absolute top-2 right-2 text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50 transition-colors"
+                    className="shrink-0 ml-4 text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50 transition-colors"
                     onClick={copyScript}
                   >
                     {copiedScript ? 'Copied!' : 'Copy'}
                   </button>
-                  <pre className="whitespace-pre-wrap break-all text-sm pr-16 text-gray-800 font-mono">
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto">
+                  <pre className="whitespace-pre text-sm text-gray-800 font-mono">
                     {scriptSnippet}
                   </pre>
                 </div>
@@ -165,21 +167,22 @@ export default function IntegrationPage() {
 
                   {/* Script snippet */}
                   <div className="ml-11">
-                    <p className="text-sm text-gray-600 mb-2">
-                      Paste this snippet before the closing <code className="bg-gray-100 px-1 rounded text-xs">&lt;/body&gt;</code> tag of your website:
-                    </p>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 relative">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-gray-600">
+                        Paste this snippet before the closing <code className="bg-gray-100 px-1 rounded text-xs">&lt;/body&gt;</code> tag of your website:
+                      </p>
                       <button
-                        className="absolute top-2 right-2 text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50 transition-colors"
+                        className="shrink-0 ml-4 text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50 transition-colors"
                         onClick={copyWhatsappScript}
                       >
                         {copiedWhatsapp ? 'Copied!' : 'Copy'}
                       </button>
-                      <pre className="whitespace-pre-wrap break-all text-sm pr-16 text-gray-800 font-mono">
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto">
+                      <pre className="whitespace-pre text-sm text-gray-800 font-mono">
                         {whatsappScriptSnippet}
                       </pre>
                     </div>
-
                   </div>
                 </>
               ) : (
