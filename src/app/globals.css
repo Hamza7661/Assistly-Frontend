@@ -77,7 +77,9 @@ a {
 
   /* Sidebar-aware content wrapper */
   .content-wrapper {
-    @apply pt-16 transition-all duration-300;
+    /* Mobile nav = 64px top row + 48px app selector row = 112px (pt-28) */
+    /* Desktop nav = 64px only (pt-16) */
+    @apply pt-28 lg:pt-16 transition-all duration-300;
   }
 
   .content-wrapper.sidebar-open {

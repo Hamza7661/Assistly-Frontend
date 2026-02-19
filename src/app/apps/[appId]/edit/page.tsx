@@ -9,7 +9,7 @@ import { useAppService } from '@/services';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
-import { Building2, Phone, Loader2, CheckCircle2, XCircle, Clock, MessageCircle } from 'lucide-react';
+import { Building2, Phone, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
@@ -157,12 +157,9 @@ export default function EditAppPage() {
 
       // Handle WhatsApp number updates
       if (formData.whatsappOption === 'use-my-number') {
-        if (formData.whatsappNumber.trim() !== formData.whatsappNumber) {
-          // Number changed, reset status
-          updateData.whatsappNumber = formData.whatsappNumber.trim();
-          updateData.whatsappNumberSource = 'user-provided';
-          updateData.whatsappNumberStatus = 'pending';
-        }
+        updateData.whatsappNumber = formData.whatsappNumber.trim();
+        updateData.whatsappNumberSource = 'user-provided';
+        updateData.whatsappNumberStatus = 'pending';
       } else if (formData.whatsappOption === 'get-from-twilio' && whatsappNumberSource !== 'twilio-provided') {
         // User wants to switch to Twilio-provided number
         updateData.whatsappNumber = undefined;
@@ -365,101 +362,6 @@ export default function EditAppPage() {
                     </p>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200 pt-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <MessageCircle className="h-5 w-5" />
-                Facebook Messenger &amp; Instagram
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Run the same chatbot flow on Facebook Messenger (via Twilio) and Instagram (via Meta Graph API).
-              </p>
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900">Facebook Messenger (via Twilio)</h4>
-                  <div>
-                    <label htmlFor="facebookPageId" className="block text-sm font-medium text-gray-700 mb-2">
-                      Facebook Page ID <span className="text-gray-500 font-normal">(optional)</span>
-                    </label>
-                    <input
-                      id="facebookPageId"
-                      name="facebookPageId"
-                      type="text"
-                      className="input-field w-full"
-                      placeholder="e.g. 123456789012345"
-                      value={formData.facebookPageId}
-                      onChange={(e) => handleInputChange('facebookPageId', e.target.value)}
-                    />
-                    <p className="mt-2 text-sm text-gray-500">
-                      In Twilio Console → Messaging → Senders → Facebook Messenger, connect your Page and paste the Page ID here. Set webhook to: <code className="bg-gray-100 px-1 rounded">/webhook/messenger</code>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 border-t border-gray-200 pt-4">
-                  <h4 className="font-medium text-gray-900">Instagram DMs (via Meta Graph API)</h4>
-                  <div>
-                    <label htmlFor="instagramBusinessAccountId" className="block text-sm font-medium text-gray-700 mb-2">
-                      Instagram Business Account ID <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="instagramBusinessAccountId"
-                      name="instagramBusinessAccountId"
-                      type="text"
-                      className="input-field w-full"
-                      placeholder="e.g. 17841401234567890"
-                      value={formData.instagramBusinessAccountId}
-                      onChange={(e) => handleInputChange('instagramBusinessAccountId', e.target.value)}
-                    />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Your Instagram Business Account ID from Meta. Find it in <a href="https://business.facebook.com/settings/instagram-accounts" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800">Meta Business Suite → Settings → Instagram accounts</a>.
-                    </p>
-                  </div>
-                  <div>
-                    <label htmlFor="instagramAccessToken" className="block text-sm font-medium text-gray-700 mb-2">
-                      Instagram Page Access Token <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="instagramAccessToken"
-                      name="instagramAccessToken"
-                      type="password"
-                      className="input-field w-full font-mono text-sm"
-                      placeholder="Paste long-lived page access token"
-                      value={formData.instagramAccessToken}
-                      onChange={(e) => handleInputChange('instagramAccessToken', e.target.value)}
-                    />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Long-lived Page Access Token from Meta. Generate one in the <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800">Meta Graph API Explorer</a> with <code className="bg-gray-100 px-1">instagram_basic</code>, <code className="bg-gray-100 px-1">instagram_manage_messages</code>, and <code className="bg-gray-100 px-1">pages_manage_metadata</code> permissions.
-                    </p>
-                  </div>
-                  <div>
-                    <label htmlFor="instagramUsername" className="block text-sm font-medium text-gray-700 mb-2">
-                      Instagram Username <span className="text-gray-500 font-normal">(optional)</span>
-                    </label>
-                    <input
-                      id="instagramUsername"
-                      name="instagramUsername"
-                      type="text"
-                      className="input-field w-full"
-                      placeholder="e.g. @yourbusiness"
-                      value={formData.instagramUsername}
-                      onChange={(e) => handleInputChange('instagramUsername', e.target.value)}
-                    />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Optional display label for your Instagram account. Not used for routing.
-                    </p>
-                  </div>
-                  <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <p className="text-sm text-indigo-900 font-medium mb-2">Instagram Webhook Setup:</p>
-                    <ol className="text-sm text-indigo-800 space-y-1 list-decimal list-inside">
-                      <li>In Meta App Dashboard → Products → Webhooks, add webhook callback URL: <code className="bg-indigo-100 px-1 rounded">https://your-ai-domain.com/webhook/instagram</code></li>
-                      <li>Set verify token to match your <code className="bg-indigo-100 px-1">META_VERIFY_TOKEN</code> env variable</li>
-                      <li>Subscribe to <strong>messages</strong> field for your Instagram account</li>
-                    </ol>
-                  </div>
-                </div>
               </div>
             </div>
 

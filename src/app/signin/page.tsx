@@ -145,12 +145,7 @@ function SigninContent() {
           // Only authenticate if email is verified
           await login(token);
           
-          // Check if user has a package, if not redirect to packages page
-          if (!user.hasPackage()) {
-            router.push('/packages');
-          } else {
-            router.push('/dashboard');
-          }
+          router.push('/dashboard');
         } else {
           setError('Authentication token not received');
         }

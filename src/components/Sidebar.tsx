@@ -12,7 +12,6 @@ import {
   Users,
   User,
   Briefcase,
-  DollarSign,
   ChevronDown,
   ChevronRight,
   Settings,
@@ -53,7 +52,6 @@ const navigation: MenuItem[] = [
     ]
   },
   { name: 'Integration', href: '/integration', icon: Plug },
-  { name: 'Pricing', href: '/pricing', icon: DollarSign },
 ];
 
 const hiddenTabs = new Set(['Packages']);
