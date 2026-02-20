@@ -9,7 +9,10 @@ import { getCountryCode } from '@/utils/countryDetection';
 type BotMessage = { type: 'bot'; content: string; step?: string };
 type WarnMessage = { type: 'warn' | 'error'; content: string };
 type ReviewPromptMessage = { type: 'review_prompt'; content: string; reviewUrl: string };
-type AnyMessage = BotMessage | WarnMessage | ReviewPromptMessage | { type: 'user'; content: string };
+type UserFileMessage = { type: 'user'; content: string; fileInfo?: { filename: string; fileId: string; contentType: string } };
+type AnyMessage = BotMessage | WarnMessage | ReviewPromptMessage | UserFileMessage | { type: 'user'; content: string };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 export default function WidgetPage() {
   const params = useParams<{ userId?: string; appId?: string }>();
@@ -34,7 +37,9 @@ export default function WidgetPage() {
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle click outside to close widget
   useEffect(() => {
@@ -226,6 +231,53 @@ export default function WidgetPage() {
     setInput('');
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (file.size > 25 * 1024 * 1024) {
+      setMessages(prev => [...prev, { type: 'warn', content: 'File too large. Maximum size is 25MB.' } as WarnMessage]);
+      return;
+    }
+
+    setIsUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadRes = await fetch(`${API_BASE}/chat-uploads/apps/${identifier}`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      const uploadData = await uploadRes.json();
+      const { fileId, filename, contentType } = uploadData.data;
+
+      // Show user-side file message
+      const userMsg: UserFileMessage = {
+        type: 'user',
+        content: `📎 ${filename}`,
+        fileInfo: { filename, fileId, contentType }
+      };
+      setMessages(prev => [...prev, userMsg]);
+      setIsTyping(true);
+
+      // Notify bot via WebSocket
+      wsRef.current.send(JSON.stringify({
+        type: 'file_upload',
+        fileId,
+        filename,
+        contentType,
+        downloadUrl: `${API_BASE}/chat-uploads/${fileId}`,
+        country: countryCode
+      }));
+    } catch (err) {
+      setMessages(prev => [...prev, { type: 'error', content: 'File upload failed. Please try again.' } as WarnMessage]);
+    } finally {
+      setIsUploadingFile(false);
+      // Reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   // Function to resize iframe based on widget state
   const resizeIframe = (height: number) => {
     if (window.parent && window.parent !== window) {
@@ -284,10 +336,11 @@ export default function WidgetPage() {
 
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
-    // Updated regex to handle both formats:
-    // 1. <button>text</button> (simple format)
-    // 2. <button value="something">text</button> (with value attribute)
-    const regex = /<button(?:\s+value=["']([^"']*)["'])?>([\s\S]*?)<\/button>/gi;
+    // Matches:
+    // <button>text</button>
+    // <button value="val">text</button>
+    // <file url="..." name="filename">label</file>
+    const regex = /<(button|file)(?:\s+value=["']([^"']*)["'])?(?:\s+url=["']([^"']*)["'])?(?:\s+name=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     
@@ -297,21 +350,37 @@ export default function WidgetPage() {
         if (chunk) parts.push(renderTextWithLinks(chunk, `t-${lastIndex}`));
       }
       
-      // Extract button text and value
-      const buttonValue = match[1] || ''; // value attribute
-      const buttonText = (match[2] || '').trim(); // text content
-      
-      if (buttonText) {
-        // Use button value if available, otherwise use button text
-        const clickValue = buttonValue || buttonText;
-        
+      const tagName = match[1].toLowerCase();
+      const buttonValue = match[2] || '';
+      const fileUrl = match[3] || '';
+      const fileName = match[4] || 'Download';
+      const innerText = (match[5] || '').trim();
+
+      if (tagName === 'file' && fileUrl) {
+        parts.push(
+          <a
+            key={`f-${match.index}`}
+            href={fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={fileName}
+            className="flex items-center gap-2 rounded-lg text-white text-xs sm:text-sm font-medium px-3 py-2 shadow-sm mt-1 hover:opacity-90 transition"
+            style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            {innerText || fileName}
+          </a>
+        );
+      } else if (tagName === 'button' && innerText) {
+        const clickValue = buttonValue || innerText;
         parts.push(
           <button
             key={`b-${match.index}`}
             className="block w-full text-left rounded-full text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 active:translate-y-px transition mt-1 whitespace-normal break-words"
             style={{ 
               backgroundColor: settings.primaryColor || '#00bc7d',
-              '--hover-color': (settings.primaryColor || '#00bc7d') + 'dd'
             } as React.CSSProperties}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = (settings.primaryColor || '#00bc7d') + 'dd';
@@ -321,7 +390,7 @@ export default function WidgetPage() {
             }}
             onClick={() => sendText(clickValue)}
           >
-            {buttonText}
+            {innerText}
           </button>
         );
       }
@@ -527,10 +596,37 @@ export default function WidgetPage() {
       </div>
       
       {/* Input */}
-      <div className="p-2 sm:p-3 border-t flex gap-1 sm:gap-2">
+      <div className="p-2 sm:p-3 border-t flex gap-1 sm:gap-2 items-center">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"
+          className="hidden"
+          onChange={handleFileUpload}
+          disabled={!connected || isUploadingFile}
+        />
+        {/* File upload button */}
+        <button
+          title="Attach a file"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!connected || isUploadingFile}
+          className="p-1.5 sm:p-2 rounded border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-40 transition shrink-0"
+        >
+          {isUploadingFile ? (
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+          )}
+        </button>
         <input
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
-          placeholder={connected ? 'Type your message...' : (chatEnded ? 'Chat ended' : 'Connecting...')}
+          placeholder={connected ? 'Type a message or attach a file...' : (chatEnded ? 'Chat ended' : 'Connecting...')}
           disabled={!connected}
           value={input}
           onChange={(e) => setInput(e.target.value)}

@@ -1,5 +1,5 @@
 import { HttpService } from './httpService';
-import { ChatbotWorkflow, WorkflowListResponse, WorkflowResponse, WorkflowMutationResponse, WorkflowOption, WorkflowGroup, WorkflowGroupListResponse } from '@/models/ChatbotWorkflow';
+import { ChatbotWorkflow, WorkflowListResponse, WorkflowResponse, WorkflowMutationResponse, WorkflowOption, WorkflowGroup, WorkflowGroupListResponse, WorkflowAttachment } from '@/models/ChatbotWorkflow';
 
 class ChatbotWorkflowService extends HttpService {
   async list(appId: string, includeInactive?: boolean): Promise<WorkflowListResponse> {
@@ -121,6 +121,28 @@ class ChatbotWorkflowService extends HttpService {
     };
   }
 
+  async uploadAttachment(appId: string, workflowId: string, file: File): Promise<{ status: string; data: { attachment: WorkflowAttachment } }> {
+    const formData = new FormData();
+    formData.append('attachment', file);
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}/${workflowId}/attachment`, {
+      method: 'PUT',
+      body: formData
+    });
+    return res;
+  }
+
+  async deleteAttachment(appId: string, workflowId: string): Promise<{ status: string; message: string }> {
+    const res = await this.request<any>(`/chatbot-workflows/apps/${appId}/${workflowId}/attachment`, {
+      method: 'DELETE'
+    });
+    return res;
+  }
+
+  getAttachmentUrl(appId: string, workflowId: string): string {
+    const base = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+    return `${base}/chatbot-workflows/apps/${appId}/${workflowId}/attachment`;
+  }
+
   private sanitizeWorkflow(workflow: Partial<ChatbotWorkflow>): any {
     const clean: any = {};
     
@@ -131,6 +153,7 @@ class ChatbotWorkflowService extends HttpService {
     if (workflow.isRoot !== undefined) clean.isRoot = workflow.isRoot;
     if (workflow.isActive !== undefined) clean.isActive = workflow.isActive;
     if (workflow.order !== undefined) clean.order = workflow.order;
+    if (workflow.options !== undefined) clean.options = workflow.options;
     
     return clean;
   }
