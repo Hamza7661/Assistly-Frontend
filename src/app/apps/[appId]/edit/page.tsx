@@ -30,11 +30,7 @@ export default function EditAppPage() {
     industry: '',
     description: '',
     whatsappOption: 'use-my-number' as 'use-my-number' | 'get-from-twilio',
-    whatsappNumber: '',
-    facebookPageId: '',
-    instagramBusinessAccountId: '',
-    instagramAccessToken: '',
-    instagramUsername: ''
+    whatsappNumber: ''
   });
 
   const [whatsappNumberStatus, setWhatsappNumberStatus] = useState<string | undefined>(undefined);
@@ -53,11 +49,7 @@ export default function EditAppPage() {
             industry: app.industry || '',
             description: app.description || '',
             whatsappOption: app.whatsappNumber ? 'use-my-number' : 'get-from-twilio',
-            whatsappNumber: app.whatsappNumber || '',
-            facebookPageId: app.facebookPageId || '',
-            instagramBusinessAccountId: app.instagramBusinessAccountId || '',
-            instagramAccessToken: '', // Don't display existing token for security
-            instagramUsername: app.instagramUsername || ''
+            whatsappNumber: app.whatsappNumber || ''
           });
           setWhatsappNumberStatus(app.whatsappNumberStatus);
           setWhatsappNumberSource(app.whatsappNumberSource);
@@ -148,11 +140,7 @@ export default function EditAppPage() {
       const updateData: any = {
         name: formData.name.trim(),
         industry: formData.industry,
-        description: formData.description.trim() || undefined,
-        facebookPageId: formData.facebookPageId.trim() || null,
-        instagramBusinessAccountId: formData.instagramBusinessAccountId.trim() || null,
-        instagramAccessToken: formData.instagramAccessToken.trim() || null,
-        instagramUsername: formData.instagramUsername.trim() || null
+        description: formData.description.trim() || undefined
       };
 
       // Handle WhatsApp number updates
