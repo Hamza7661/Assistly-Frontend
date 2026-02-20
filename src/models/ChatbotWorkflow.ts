@@ -15,6 +15,13 @@ export interface WorkflowOption {
   order?: number;
 }
 
+export interface WorkflowAttachment {
+  hasFile: boolean;
+  filename?: string | null;
+  contentType?: string | null;
+  size?: number | null;
+}
+
 export interface ChatbotWorkflowItem {
   _id?: string;
   owner?: string;
@@ -22,6 +29,7 @@ export interface ChatbotWorkflowItem {
   question: string;
   questionTypeId?: number;
   options: WorkflowOption[];
+  attachment?: WorkflowAttachment;
   isRoot?: boolean;
   isActive?: boolean;
   order?: number;
@@ -37,6 +45,7 @@ export class ChatbotWorkflow {
   question: string;
   questionTypeId?: number;
   options: WorkflowOption[];
+  attachment?: WorkflowAttachment;
   isRoot: boolean;
   isActive: boolean;
   order: number;
@@ -51,6 +60,7 @@ export class ChatbotWorkflow {
     this.question = data.question || '';
     this.questionTypeId = data.questionTypeId ?? 0;
     this.options = data.options || [];
+    this.attachment = data.attachment;
     this.isRoot = data.isRoot ?? false;
     this.isActive = data.isActive ?? true;
     this.order = data.order ?? 0;
