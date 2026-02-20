@@ -499,41 +499,51 @@ export default function TreatmentPlansPage() {
 
     return (
       <div ref={setNodeRef} style={style} className="bg-white rounded border border-gray-200">
-        <div className="flex items-center gap-2 p-2">
+        <div className="flex items-start gap-2 p-2">
+          {/* Drag handle */}
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-[#00bc7d]"
+            className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-[#00bc7d] shrink-0 mt-0.5"
           >
-            <GripVertical className="h-5 w-5" />
+            <GripVertical className="h-4 w-4" />
           </div>
-          <button
-            onClick={() => workflow._id && toggleWorkflowExpansion(workflow._id)}
-            className="flex-1 text-left flex items-center gap-2 hover:text-[#00bc7d]"
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-4 w-4 text-gray-400" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-gray-400" />
-            )}
-            <span className="font-medium text-gray-900">{workflow.title}</span>
-            <span className="px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-100 rounded">
-              Order: {attachedWorkflow.order + 1}
-            </span>
-            {workflow.isRoot && (
-              <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded">
-                Root
+
+          {/* Expand toggle + content */}
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => workflow._id && toggleWorkflowExpansion(workflow._id)}
+              className="w-full text-left flex items-center gap-1.5 hover:text-[#00bc7d]"
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+              )}
+              <span className="font-medium text-gray-900 text-sm leading-snug">{workflow.title}</span>
+            </button>
+            {/* Badges on their own line so they never push the title */}
+            <div className="flex flex-wrap gap-1.5 mt-1 pl-5">
+              <span className="px-2 py-0.5 text-xs font-medium text-amber-700 bg-amber-100 rounded">
+                Order: {attachedWorkflow.order + 1}
               </span>
-            )}
-            {!workflow.isActive && (
-              <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded">
-                Inactive
-              </span>
-            )}
-          </button>
+              {workflow.isRoot && (
+                <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded">
+                  Root
+                </span>
+              )}
+              {!workflow.isActive && (
+                <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded">
+                  Inactive
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Remove button */}
           <button
             onClick={() => removeWorkflowFromPlan(planIdx, attachedWorkflow.workflowId)}
-            className="p-1 text-red-500 hover:text-red-700"
+            className="p-1 text-red-400 hover:text-red-600 shrink-0 mt-0.5"
             title="Remove workflow from plan"
           >
             <X className="h-4 w-4" />
@@ -548,7 +558,7 @@ export default function TreatmentPlansPage() {
                   <span className="font-medium">Question:</span> {workflow.question}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <p className="text-sm text-gray-600">
                   <span className="font-medium">Question Type:</span> {formatQuestionType(workflow.questionTypeId, questionTypes)}
                 </p>
@@ -686,6 +696,9 @@ export default function TreatmentPlansPage() {
                   </div>
                   <div className={styles.dataRow}>
                     <div className={styles.colQ}>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 md:hidden">
+                        Service Plan Title
+                      </label>
                       <textarea
                         value={plan.title}
                         onChange={(e) => updatePlan(planIdx, 'title', e.target.value)}
@@ -698,6 +711,9 @@ export default function TreatmentPlansPage() {
                       )}
                     </div>
                     <div className={styles.colA}>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 md:hidden">
+                        Description
+                      </label>
                       <textarea
                         value={plan.description}
                         onChange={(e) => updatePlan(planIdx, 'description', e.target.value)}
@@ -710,7 +726,7 @@ export default function TreatmentPlansPage() {
                       )}
                     </div>
                     <div className={styles.colActions}>
-                      <button onClick={() => removePlanRow(planIdx)} className="btn-secondary border-red-300 text-red-700 hover:bg-red-100">Remove</button>
+                      <button onClick={() => removePlanRow(planIdx)} className="btn-secondary border-red-300 text-red-700 hover:bg-red-100 w-full sm:w-auto">Remove</button>
                     </div>
                   </div>
                   
@@ -939,18 +955,18 @@ export default function TreatmentPlansPage() {
                         
                         {/* Attach Existing Workflow button - only show when not showing selector */}
                         {showingWorkflowSelector !== planIdx && (
-                          <div className="mt-4 flex items-center gap-3">
+                          <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2">
                             <button
                               onClick={() => setShowingWorkflowSelector(planIdx)}
                               disabled={!plan.title.trim() || !plan.description.trim()}
-                              className="btn-primary text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="btn-primary text-sm flex items-center gap-1 self-start disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Plus className="h-4 w-4" />
                               Attach Existing Workflow
                             </button>
                             {(!plan.title.trim() || !plan.description.trim()) && (
-                              <span className="text-sm text-amber-600 flex items-center gap-1">
-                                <Info className="h-4 w-4" />
+                              <span className="text-sm text-amber-600 flex items-start gap-1">
+                                <Info className="h-4 w-4 shrink-0 mt-0.5" />
                                 Please add a service plan title and description before attaching workflows
                               </span>
                             )}
@@ -962,17 +978,15 @@ export default function TreatmentPlansPage() {
               ))}
               
               <div className={styles.actionsRow}>
-                <div className="flex items-center w-full">
-                  <button onClick={addPlanRow} className="btn-secondary">Add Service Plan</button>
-                  <div className="flex items-center ml-auto">
-                    {hasUnsavedChanges && (
-                      <div className="text-sm text-amber-600 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                        You have unsaved changes
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 ml-auto">
+                <button onClick={addPlanRow} className="btn-secondary shrink-0">Add Service Plan</button>
+                <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
+                  {hasUnsavedChanges && (
+                    <div className="text-sm text-amber-600 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-amber-500 rounded-full shrink-0"></div>
+                      You have unsaved changes
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
                     {hasUnsavedChanges && (
                       <button
                         onClick={() => {

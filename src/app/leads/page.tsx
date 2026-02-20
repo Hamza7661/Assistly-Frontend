@@ -368,72 +368,111 @@ export default function LeadsPage() {
 
           {error && <div className="error-message mb-4">{error}</div>}
 
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
             {loading ? (
               <div className="p-6 flex items-center justify-center"><div className="loading-spinner"></div></div>
+            ) : items.length === 0 ? (
+              <div className="p-10 text-center text-gray-400 text-sm">No leads found</div>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b">
-                    <th className="p-3">Title</th>
-                    <th className="p-3">Lead type</th>
-                    <th className="p-3">Service type</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3 w-32"></th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* ── Mobile card list ── */}
+                <ul className="divide-y divide-gray-100 sm:hidden">
                   {items.map(l => (
-                    <tr key={l._id} className="border-b last:border-b-0">
-                      <td className="p-3">{l.title}</td>
-                      <td className="p-3">{l.leadType || '-'}</td>
-                      <td className="p-3">{l.serviceType || '-'}</td>
-                      <td className="p-3">{l.leadDateTime ? new Date(l.leadDateTime).toLocaleString() : '-'}</td>
-                      <td className="p-3 flex gap-2">
-                        <button aria-label="View lead" title="View" className="inline-flex items-center justify-center border border-gray-300 rounded-md h-8 w-8 text-gray-700 hover:bg-gray-50" onClick={() => openView(l)}>
+                    <li key={l._id} className="p-4 flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{l.title}</p>
+                        {l.leadName && <p className="text-xs text-gray-500 mt-0.5 truncate">{l.leadName}</p>}
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {l.leadType && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{l.leadType}</span>
+                          )}
+                          {l.serviceType && (
+                            <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{l.serviceType}</span>
+                          )}
+                        </div>
+                        {l.leadDateTime && (
+                          <p className="text-xs text-gray-400 mt-1">{new Date(l.leadDateTime).toLocaleDateString()}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <button aria-label="View lead" title="View" className="inline-flex items-center justify-center border border-gray-200 rounded-lg h-8 w-8 text-gray-600 hover:bg-gray-50" onClick={() => openView(l)}>
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button aria-label="Edit lead" title="Edit" className="inline-flex items-center justify-center border border-gray-300 rounded-md h-8 w-8 text-gray-700 hover:bg-gray-50" onClick={() => openEdit(l)}>
+                        <button aria-label="Edit lead" title="Edit" className="inline-flex items-center justify-center border border-gray-200 rounded-lg h-8 w-8 text-gray-600 hover:bg-gray-50" onClick={() => openEdit(l)}>
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button aria-label="Delete lead" title="Delete" className="inline-flex items-center justify-center border border-gray-300 rounded-md h-8 w-8 text-gray-700 hover:bg-gray-50" onClick={() => openConfirm(l._id!)}>
+                        <button aria-label="Delete lead" title="Delete" className="inline-flex items-center justify-center border border-gray-200 rounded-lg h-8 w-8 text-red-400 hover:bg-red-50" onClick={() => openConfirm(l._id!)}>
                           <Trash2 className="h-4 w-4" />
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+                    </li>
                   ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td className="p-8 text-gray-500 text-center" colSpan={5}>No leads</td>
+                </ul>
+
+                {/* ── Desktop table ── */}
+                <table className="hidden sm:table w-full text-sm">
+                  <thead>
+                    <tr className="text-left border-b bg-gray-50">
+                      <th className="px-4 py-3 font-medium text-gray-600">Title</th>
+                      <th className="px-4 py-3 font-medium text-gray-600">Lead type</th>
+                      <th className="px-4 py-3 font-medium text-gray-600">Service type</th>
+                      <th className="px-4 py-3 font-medium text-gray-600">Date</th>
+                      <th className="px-4 py-3 w-32"></th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {items.map(l => (
+                      <tr key={l._id} className="border-b last:border-b-0 hover:bg-gray-50/50">
+                        <td className="px-4 py-3 max-w-[200px] truncate">{l.title}</td>
+                        <td className="px-4 py-3 text-gray-600">{l.leadType || '-'}</td>
+                        <td className="px-4 py-3 text-gray-600">{l.serviceType || '-'}</td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{l.leadDateTime ? new Date(l.leadDateTime).toLocaleString() : '-'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1.5">
+                            <button aria-label="View lead" title="View" className="inline-flex items-center justify-center border border-gray-200 rounded-md h-8 w-8 text-gray-600 hover:bg-gray-50" onClick={() => openView(l)}>
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button aria-label="Edit lead" title="Edit" className="inline-flex items-center justify-center border border-gray-200 rounded-md h-8 w-8 text-gray-600 hover:bg-gray-50" onClick={() => openEdit(l)}>
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button aria-label="Delete lead" title="Delete" className="inline-flex items-center justify-center border border-gray-200 rounded-md h-8 w-8 text-red-400 hover:bg-red-50" onClick={() => openConfirm(l._id!)}>
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <div className="text-sm text-gray-600">Page {page}{total !== null && total >= 0 ? ` of ${Math.max(1, Math.ceil(total / limit))}` : ''}</div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-500">
+              Page {page}{total !== null && total >= 0 ? ` of ${Math.max(1, Math.ceil(total / limit))}` : ''}
+              {total !== null && <span className="ml-1 text-gray-400">({total} total)</span>}
+            </p>
             <div className="flex items-center gap-2">
-              <select className="border border-gray-300 rounded px-2 py-1 text-xs h-8" value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value, 10)); }}>
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
+              <select className="border border-gray-300 rounded-lg px-2 py-1 text-xs h-8" value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value, 10)); }}>
+                <option value={5}>5 / page</option>
+                <option value={10}>10 / page</option>
+                <option value={20}>20 / page</option>
+                <option value={50}>50 / page</option>
               </select>
-              <button aria-label="Previous page" className="inline-flex items-center justify-center border border-gray-300 rounded-md h-8 w-8 text-gray-700 disabled:opacity-50" disabled={page <= 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))}>
+              <button aria-label="Previous page" className="inline-flex items-center justify-center border border-gray-300 rounded-lg h-8 w-8 text-gray-700 disabled:opacity-40" disabled={page <= 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button aria-label="Next page" className="inline-flex items-center justify-center border border-gray-300 rounded-md h-8 w-8 text-gray-700 disabled:opacity-50" disabled={(total !== null ? page >= Math.max(1, Math.ceil(total / limit)) : items.length < limit) || loading} onClick={() => setPage(p => p + 1)}>
+              <button aria-label="Next page" className="inline-flex items-center justify-center border border-gray-300 rounded-lg h-8 w-8 text-gray-700 disabled:opacity-40" disabled={(total !== null ? page >= Math.max(1, Math.ceil(total / limit)) : items.length < limit) || loading} onClick={() => setPage(p => p + 1)}>
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
 
           {isViewOpen && viewItem && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
               <div className="absolute inset-0 bg-black/30" onClick={closeView}></div>
-              <div className="relative bg-white w-full max-w-3xl rounded-lg shadow-lg border border-gray-200 p-5 max-h-[90vh] overflow-y-auto">
+              <div className="relative bg-white w-full sm:max-w-3xl rounded-t-2xl sm:rounded-xl shadow-lg border border-gray-200 p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="font-semibold">Lead details</h2>
                   <button className="text-gray-500" onClick={closeView}>✕</button>
@@ -515,9 +554,9 @@ export default function LeadsPage() {
           )}
 
           {isEditOpen && editItem && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
               <div className="absolute inset-0 bg-black/30" onClick={closeEdit}></div>
-              <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-lg border border-gray-200 p-5">
+              <div className="relative bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-xl shadow-lg border border-gray-200 p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="font-semibold">Edit lead</h2>
                   <button className="text-gray-500" onClick={closeEdit}>✕</button>
@@ -558,7 +597,7 @@ export default function LeadsPage() {
 
           {/* New Lead Notification */}
           {newLeadNotification && (
-            <div className="fixed top-4 right-4 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm">
+            <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
                   <Bell className="w-5 h-5 text-green-500" />

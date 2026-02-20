@@ -428,70 +428,65 @@ function ChatbotWorkflowPageContent() {
       <div 
         ref={setNodeRef} 
         style={style}
-        className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+        className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50"
       >
-        <div className="flex justify-between items-start">
-          <div className="flex items-start gap-3 flex-1">
-            {/* Drag Handle */}
-            <button
-              {...attributes}
-              {...listeners}
-              className="mt-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
-              disabled={disabled}
-              title="Drag to reorder"
-            >
-              <GripVertical className="h-5 w-5" />
-            </button>
-            
-            {/* Order Badge */}
-            <span className={`px-2 py-0.5 text-xs font-medium rounded mt-1 ${
-              question.isActive 
-                ? 'text-blue-700 bg-blue-100' 
-                : 'text-gray-500 bg-gray-200'
-            }`}>
-              {question.isActive ? `Order: ${index + 1}` : 'Inactive'}
-            </span>
+        <div className="flex items-start gap-2">
+          {/* Drag Handle */}
+          <button
+            {...attributes}
+            {...listeners}
+            className="mt-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 touch-none"
+            disabled={disabled}
+            title="Drag to reorder"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
 
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="h-4 w-4 text-blue-600" />
-                <h4 className="font-medium text-gray-900">{question.question}</h4>
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-2 mb-1.5 min-w-0">
+                  <MessageSquare className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium text-gray-900 break-words min-w-0 flex-1">{question.question}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                    question.isActive ? 'text-blue-700 bg-blue-100' : 'text-gray-500 bg-gray-200'
+                  }`}>
+                    {question.isActive ? `#${index + 1}` : 'Inactive'}
+                  </span>
+                  {question.questionTypeId && (
+                    <span className="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">
+                      {formatQuestionType(question.questionTypeId, questionTypes)}
+                    </span>
+                  )}
+                  {question.isActive ? (
+                    <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded">Active</span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded">Inactive</span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-xs text-gray-500">
-                {question.questionTypeId && (
-                  <span className="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">
-                    {formatQuestionType(question.questionTypeId, questionTypes)}
-                  </span>
-                )}
-                {question.isActive ? (
-                  <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded">
-                    Active
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded">
-                    Inactive
-                  </span>
-                )}
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  onClick={onEdit}
+                  className="p-1.5 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                  disabled={disabled}
+                  title="Edit Question"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={onDelete}
+                  className="p-1.5 rounded border border-gray-200 bg-white text-red-500 hover:bg-red-50 disabled:opacity-50"
+                  disabled={disabled}
+                  title="Delete Question"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
-          </div>
-          <div className="flex gap-2 ml-4">
-            <button
-              onClick={onEdit}
-              className="btn-secondary"
-              disabled={disabled}
-              title="Edit Question"
-            >
-              <Edit2 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={onDelete}
-              className="btn-secondary text-red-600 hover:text-red-700"
-              disabled={disabled}
-              title="Delete Question"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
           </div>
         </div>
       </div>
@@ -542,23 +537,23 @@ function ChatbotWorkflowPageContent() {
         <Navigation />
         <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Conversations</h1>
-              <p className="text-gray-600 mt-2">Create conversation flows and add questions to build interactive dialogues</p>
-              <p className="text-sm text-gray-500 mt-1">
-                • Create a conversation flow to group related questions • Add questions within each flow • Link questions to create conversation paths
-              </p>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Conversations</h1>
+                <p className="text-gray-600 mt-1 text-sm sm:text-base">Create conversation flows and add questions to build interactive dialogues</p>
+                <p className="text-xs text-gray-400 mt-1 hidden sm:block">
+                  • Create a flow to group related questions • Add questions within each flow • Questions are linked automatically in order
+                </p>
+              </div>
+              <button
+                onClick={handleCreateNewWorkflow}
+                className="btn-primary flex items-center gap-2 self-start shrink-0"
+                disabled={editingQuestion !== null}
+              >
+                <Plus className="h-4 w-4" />
+                Create Flow
+              </button>
             </div>
-            <button
-              onClick={handleCreateNewWorkflow}
-              className="btn-primary flex items-center gap-2"
-              disabled={editingQuestion !== null}
-            >
-              <Plus className="h-5 w-5" />
-              Create Flow
-            </button>
-          </div>
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -593,45 +588,40 @@ function ChatbotWorkflowPageContent() {
                     className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
                   >
                     {/* Workflow Header */}
-                    <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-[#00bc7d]/5 to-transparent">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Folder className="h-6 w-6 text-[#00bc7d]" />
-                            <h3 className="text-xl font-semibold text-gray-900">{group.rootQuestion.question}</h3>
-                            <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded">
-                              Root
-                            </span>
+                    <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-[#00bc7d]/5 to-transparent">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2 mb-1 flex-wrap">
+                            <Folder className="h-5 w-5 text-[#00bc7d] shrink-0 mt-0.5" />
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{group.rootQuestion.question}</h3>
+                            <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded shrink-0">Root</span>
                             {!group.isActive && (
-                              <span className="px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded">
-                                Inactive
-                              </span>
+                              <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded shrink-0">Inactive</span>
                             )}
                           </div>
-                          <p className="text-gray-600 ml-9">{group.rootQuestion.question}</p>
-                          <div className="flex items-center gap-4 mt-3 ml-9 text-sm text-gray-500">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 ml-7 text-xs text-gray-500">
                             <span>Type: {formatQuestionType(group.rootQuestion.questionTypeId, questionTypes)}</span>
-                            <span>•</span>
+                            <span className="text-gray-300">·</span>
                             <span>{activeQuestionsInWorkflow.length} active question{activeQuestionsInWorkflow.length !== 1 ? 's' : ''}</span>
                             {questionsInWorkflow.length > activeQuestionsInWorkflow.length && (
                               <>
-                                <span>•</span>
+                                <span className="text-gray-300">·</span>
                                 <span className="text-gray-400">{questionsInWorkflow.length - activeQuestionsInWorkflow.length} inactive</span>
                               </>
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 shrink-0">
                           <button
                             onClick={() => toggleExpanded(group._id)}
-                            className="btn-secondary"
+                            className="btn-secondary p-2"
                             title={isExpanded ? 'Collapse' : 'Expand'}
                           >
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </button>
                           <button
                             onClick={() => handleEditQuestion(group.rootQuestion)}
-                            className="btn-secondary"
+                            className="btn-secondary p-2"
                             disabled={editingQuestion !== null}
                             title="Edit Root Question"
                           >
@@ -639,7 +629,7 @@ function ChatbotWorkflowPageContent() {
                           </button>
                           <button
                             onClick={() => { setQuestionIdToDelete(group.rootQuestion._id ?? null); setShowDeleteModal(true); }}
-                            className="btn-secondary text-red-600 hover:text-red-700"
+                            className="btn-secondary p-2 text-red-600 hover:text-red-700"
                             disabled={editingQuestion !== null}
                             title="Delete Workflow"
                           >
@@ -651,12 +641,12 @@ function ChatbotWorkflowPageContent() {
 
                     {/* Workflow Content */}
                     {isExpanded && (
-                      <div className="p-6">
+                      <div className="p-4 sm:p-6">
                         {/* Add Question Button */}
                         <div className="mb-4">
                           <button
                             onClick={() => handleAddQuestionToWorkflow(group._id)}
-                            className="btn-secondary flex items-center gap-2 text-sm"
+                            className="btn-secondary flex items-center gap-2 text-sm w-full sm:w-auto justify-center sm:justify-start"
                             disabled={editingQuestion !== null}
                           >
                             <Plus className="h-4 w-4" />
@@ -713,87 +703,63 @@ function ChatbotWorkflowPageContent() {
           </div>
         </div>
 
-        {/* Create New Flow Modal */}
+        {/* Shared modal shell */}
         {editingQuestion === 'new-workflow' && (
-          <div className="fixed z-50 inset-0 flex items-center justify-center bg-black/50" onClick={handleCancelEdit}>
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <div className="fixed z-50 inset-0 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={handleCancelEdit}>
+            <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex justify-between items-center rounded-t-2xl sm:rounded-t-xl">
+                <h2 className="text-base sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
                   <Folder className="h-5 w-5 text-[#00bc7d]" />
                   Create New Conversation Flow
                 </h2>
-                <button
-                  onClick={handleCancelEdit}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-5 w-5" /></button>
               </div>
-              <div className="p-6">
-                {renderQuestionForm(true)}
-              </div>
+              <div className="p-4 sm:p-6">{renderQuestionForm(true)}</div>
             </div>
           </div>
         )}
 
-        {/* Add Question to Flow Modal */}
         {editingQuestion === 'new-question' && editingWorkflowGroupId && (
-          <div className="fixed z-50 inset-0 flex items-center justify-center bg-black/50" onClick={handleCancelEdit}>
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <div className="fixed z-50 inset-0 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={handleCancelEdit}>
+            <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex justify-between items-center rounded-t-2xl sm:rounded-t-xl">
+                <h2 className="text-base sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
                   <MessageSquare className="h-5 w-5 text-blue-600" />
                   Add Question to Flow
                 </h2>
-                <button
-                  onClick={handleCancelEdit}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-5 w-5" /></button>
               </div>
-              <div className="p-6">
-                {renderQuestionForm(false)}
-              </div>
+              <div className="p-4 sm:p-6">{renderQuestionForm(false)}</div>
             </div>
           </div>
         )}
 
-        {/* Edit Question Modal */}
         {editingQuestion && editingQuestion !== 'new-workflow' && editingQuestion !== 'new-question' && (
-          <div className="fixed z-50 inset-0 flex items-center justify-center bg-black/50" onClick={handleCancelEdit}>
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">Edit Question</h2>
-                <button
-                  onClick={handleCancelEdit}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+          <div className="fixed z-50 inset-0 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={handleCancelEdit}>
+            <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex justify-between items-center rounded-t-2xl sm:rounded-t-xl">
+                <h2 className="text-base sm:text-xl font-semibold text-gray-900">Edit Question</h2>
+                <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-5 w-5" /></button>
               </div>
-              <div className="p-6">
-                {renderQuestionForm(false)}
-              </div>
+              <div className="p-4 sm:p-6">{renderQuestionForm(false)}</div>
             </div>
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
         {showDeleteModal && (
-          <div className="fixed z-50 inset-0 flex items-center justify-center bg-black/50">
-            <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-md m-4">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900">Confirm Deletion</h2>
-              <p className="mb-6 text-gray-700">Are you sure you want to delete this question? This action cannot be undone.</p>
-              <div className="flex justify-end gap-2">
+          <div className="fixed z-50 inset-0 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+            <div className="bg-white rounded-t-2xl sm:rounded-xl p-5 shadow-lg w-full sm:max-w-md">
+              <h2 className="text-base font-semibold mb-2 text-gray-900">Confirm Deletion</h2>
+              <p className="mb-5 text-sm text-gray-700">Are you sure you want to delete this question? This action cannot be undone.</p>
+              <div className="flex gap-2">
                 <button
-                  className="btn-secondary px-4 py-2 rounded"
+                  className="btn-secondary flex-1"
                   onClick={() => { setShowDeleteModal(false); setQuestionIdToDelete(null); }}
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700"
+                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700"
                   onClick={handleDeleteQuestion}
                 >
                   Delete
@@ -816,7 +782,7 @@ function ChatbotWorkflowPageContent() {
           <textarea
             value={newQuestion.question || ''}
             onChange={(e) => setNewQuestion({ ...newQuestion, question: e.target.value })}
-            className="input-field"
+            className="input-field w-full"
             rows={3}
             placeholder={isRoot ? "Enter the workflow title" : "Enter the question to ask users"}
           />

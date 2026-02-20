@@ -127,44 +127,44 @@ export default function SettingsPage() {
         <Navigation />
         <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Account Settings</h1>
-            <p className="text-gray-600 mb-8">Manage your profile, security, and preferences.</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Account Settings</h1>
+            <p className="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8">Manage your profile, security, and preferences.</p>
         {/* Profile Section */}
         <div className="card mb-8">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <UserIcon className="h-5 w-5 mr-2 text-[#00bc7d]" />
+              <UserIcon className="h-5 w-5 mr-2 text-[#00bc7d] shrink-0" />
               Profile Information
             </h2>
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
-                className="btn-secondary flex items-center"
+                className="btn-secondary flex items-center self-start sm:self-auto"
               >
                 <Edit3 className="h-4 w-4 mr-2" />
                 Edit Profile
               </button>
             ) : (
-              <div className="flex space-x-3">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setIsEditing(false)}
-                  className="btn-secondary"
+                  className="btn-secondary flex-1 sm:flex-none"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Save className="h-4 w-4 mr-2" />
+                      <Save className="h-4 w-4" />
                       Save Changes
                     </>
                   )}

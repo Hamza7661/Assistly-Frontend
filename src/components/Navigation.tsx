@@ -54,6 +54,7 @@ export default function Navigation() {
     <>
       {/* Top Bar with App Selector */}
       <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40">
+        {/* Row 1: Logo + toggles + user menu (h-16) */}
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Left: Logo and Sidebar Toggle */}
@@ -91,7 +92,7 @@ export default function Navigation() {
               </div>
             </div>
 
-            {/* Center: App Selector (Desktop) */}
+            {/* Center: App Selector (Desktop only) */}
             <div className="hidden lg:flex items-center flex-1 justify-center px-4">
               <AppSelector />
             </div>
@@ -143,6 +144,11 @@ export default function Navigation() {
             </div>
           </div>
         </div>
+
+        {/* Row 2: App Selector (Mobile only, h-12) */}
+        <div className="lg:hidden border-t border-gray-100 px-4 h-12 flex items-center">
+          <AppSelector />
+        </div>
       </div>
 
       {/* Desktop Sidebar */}
@@ -159,17 +165,10 @@ export default function Navigation() {
             className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsMobileSidebarOpen(false)}
           />
-          <div className="lg:hidden fixed left-0 top-16 bottom-0 z-50 w-64">
+          <div className="lg:hidden fixed left-0 top-28 bottom-0 z-50 w-64">
             <Sidebar />
           </div>
         </>
-      )}
-
-      {/* Mobile App Selector (shown when sidebar is closed) */}
-      {!isMobileSidebarOpen && (
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
-          <AppSelector />
-        </div>
       )}
     </>
   );

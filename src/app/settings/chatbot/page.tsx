@@ -470,8 +470,8 @@ export default function ChatbotSettingsPage() {
         <Navigation />
         <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Chatbot Settings</h1>
-          <p className="text-gray-600 mb-8">Customize your chatbot appearance, greeting, and lead type messages.</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Chatbot Settings</h1>
+          <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">Customize your chatbot appearance, greeting, and lead type messages.</p>
 
           {/* Chatbot Settings Section */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
@@ -671,12 +671,12 @@ export default function ChatbotSettingsPage() {
                 <div className="md:col-span-2">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Validation Settings</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
                         <label className="text-sm font-medium text-gray-700">Validate Email</label>
                         <p className="text-sm text-gray-500">Require valid email when users provide email addresses</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
                         <input
                           type="checkbox"
                           className="sr-only peer"
@@ -687,12 +687,12 @@ export default function ChatbotSettingsPage() {
                       </label>
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
                         <label className="text-sm font-medium text-gray-700">Validate Phone Number</label>
                         <p className="text-sm text-gray-500">Require valid phone number when users provide phone numbers</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
                         <input
                           type="checkbox"
                           className="sr-only peer"
@@ -705,12 +705,12 @@ export default function ChatbotSettingsPage() {
 
                     {/* Google Review (after lead creation) */}
                     <div className="pt-4 border-t border-gray-200 mt-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
+                      <div className="flex items-center justify-between gap-4 mb-3">
+                        <div className="min-w-0">
                           <label className="text-sm font-medium text-gray-700">Ask for Google review after lead creation</label>
                           <p className="text-sm text-gray-500">Show a &quot;Write a review&quot; prompt in the chat after users submit their name and email</p>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
                           <input
                             type="checkbox"
                             className="sr-only peer"
@@ -782,7 +782,7 @@ export default function ChatbotSettingsPage() {
 
                 {/* Lead Type Messages Configuration */}
                 <div className="md:col-span-2">
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
                     <div>
                       <h3 className="text-lg font-medium text-gray-900">Lead Type Messages</h3>
                       <p className="text-sm text-gray-600 mt-1">
@@ -812,7 +812,7 @@ export default function ChatbotSettingsPage() {
                           leadTypeMessages: [...currentMessages, newMessage] 
                         });
                       }}
-                      className="btn-secondary flex items-center gap-2 text-sm"
+                      className="btn-secondary flex items-center gap-2 text-sm self-start shrink-0"
                     >
                       <Plus className="h-4 w-4" />
                       Add New
@@ -829,211 +829,204 @@ export default function ChatbotSettingsPage() {
                           const isLastActive = activeCount === 1 && leadType.isActive;
                           
                           return (
-                            <div key={leadType.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg bg-white">
-                              <div className="flex-shrink-0 text-gray-400 cursor-move">
-                                <GripVertical className="h-5 w-5" />
-                              </div>
-                              
-                              <div className="flex-1 space-y-2">
-                                <input
-                                  type="text"
-                                  value={leadType.text}
-                                  onChange={(e) => {
-                                    const updated = [...settings.leadTypeMessages!];
-                                    const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
-                                    if (itemIndex !== -1) {
-                                      const newText = e.target.value;
-                                      const newValue = slugifyLabel(newText) || updated[itemIndex].value;
-                                      updated[itemIndex] = {
-                                        ...updated[itemIndex],
-                                        text: newText,
-                                        value: newValue,
-                                      };
-                                      updateSettings({ ...settings, leadTypeMessages: updated });
-                                    }
-                                  }}
-                                  className="input-field text-sm"
-                                  placeholder="Lead type message"
-                                />
-                                
-                                {/* Service Plans Mapping – ordered per lead type */}
-                                {availableServicePlans.length > 0 && (
-                                  <div className="text-xs">
-                                    <label className="block text-gray-600 mb-1">
-                                      Show these services in order (leave empty for all):
-                                    </label>
-                                    {(leadType.relevantServicePlans || []).length === 0 ? (
-                                      <p className="text-gray-500 italic mt-1">No filter - shows all services</p>
-                                    ) : (
-                                      <DndContext
-                                        sensors={sensors}
-                                        collisionDetection={closestCenter}
-                                        onDragEnd={(event) => {
-                                          const itemIndex = settings.leadTypeMessages!.findIndex(lt => lt.id === leadType.id);
-                                          handleServicePlanDragEnd(itemIndex, leadType.id, event);
+                            <div key={leadType.id} className="p-3 sm:p-4 border border-gray-200 rounded-lg bg-white">
+                              <div className="flex items-start gap-2">
+                                {/* Drag handle */}
+                                <div className="flex-shrink-0 text-gray-400 cursor-move mt-2.5">
+                                  <GripVertical className="h-4 w-4" />
+                                </div>
+
+                                <div className="flex-1 min-w-0 space-y-2">
+                                  {/* Input + action buttons row */}
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={leadType.text}
+                                      onChange={(e) => {
+                                        const updated = [...settings.leadTypeMessages!];
+                                        const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
+                                        if (itemIndex !== -1) {
+                                          const newText = e.target.value;
+                                          const newValue = slugifyLabel(newText) || updated[itemIndex].value;
+                                          updated[itemIndex] = {
+                                            ...updated[itemIndex],
+                                            text: newText,
+                                            value: newValue,
+                                          };
+                                          updateSettings({ ...settings, leadTypeMessages: updated });
+                                        }
+                                      }}
+                                      className="input-field text-sm flex-1 min-w-0"
+                                      placeholder="Lead type message"
+                                    />
+                                    {/* Action buttons — always visible inline */}
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...settings.leadTypeMessages!];
+                                          const sorted = [...updated].sort((a, b) => a.order - b.order);
+                                          const itemIndex = sorted.findIndex(lt => lt.id === leadType.id);
+                                          if (itemIndex > 0) {
+                                            const prevItem = sorted[itemIndex - 1];
+                                            const currentOrder = leadType.order;
+                                            const prevOrder = prevItem.order;
+                                            const currentItem = updated.find(lt => lt.id === leadType.id)!;
+                                            const prevItemInUpdated = updated.find(lt => lt.id === prevItem.id)!;
+                                            currentItem.order = prevOrder;
+                                            prevItemInUpdated.order = currentOrder;
+                                            updateSettings({ ...settings, leadTypeMessages: updated });
+                                          }
                                         }}
+                                        disabled={index === 0}
+                                        className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-40"
+                                        title="Move up"
                                       >
-                                        <SortableContext
-                                          items={(leadType.relevantServicePlans || []).map((p) => `${leadType.id}-${p}`)}
-                                          strategy={horizontalListSortingStrategy}
+                                        <MoveUp className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...settings.leadTypeMessages!];
+                                          const sorted = [...updated].sort((a, b) => a.order - b.order);
+                                          const itemIndex = sorted.findIndex(lt => lt.id === leadType.id);
+                                          if (itemIndex < sorted.length - 1) {
+                                            const nextItem = sorted[itemIndex + 1];
+                                            const currentOrder = leadType.order;
+                                            const nextOrder = nextItem.order;
+                                            const currentItem = updated.find(lt => lt.id === leadType.id)!;
+                                            const nextItemInUpdated = updated.find(lt => lt.id === nextItem.id)!;
+                                            currentItem.order = nextOrder;
+                                            nextItemInUpdated.order = currentOrder;
+                                            updateSettings({ ...settings, leadTypeMessages: updated });
+                                          }
+                                        }}
+                                        disabled={index === settings.leadTypeMessages!.length - 1}
+                                        className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded disabled:opacity-40"
+                                        title="Move down"
+                                      >
+                                        <MoveDown className="h-3.5 w-3.5" />
+                                      </button>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          className="sr-only peer"
+                                          checked={leadType.isActive}
+                                          onChange={(e) => {
+                                            const updated = [...settings.leadTypeMessages!];
+                                            const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
+                                            if (itemIndex !== -1) {
+                                              updated[itemIndex] = { ...updated[itemIndex], isActive: e.target.checked };
+                                              const activeCount = updated.filter(lt => lt.isActive).length;
+                                              if (activeCount === 0) {
+                                                toast.warning('At least one lead type must be active');
+                                                return;
+                                              }
+                                              updateSettings({ ...settings, leadTypeMessages: updated });
+                                            }
+                                          }}
+                                        />
+                                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...settings.leadTypeMessages!];
+                                          const sorted = [...updated].sort((a, b) => a.order - b.order);
+                                          const activeCount = sorted.filter(lt => lt.isActive).length;
+                                          if (leadType.isActive && activeCount === 1) {
+                                            toast.warning('Cannot delete the last active lead type. Disable it instead or enable another one first.');
+                                            return;
+                                          }
+                                          const filtered = updated.filter(lt => lt.id !== leadType.id);
+                                          const reordered = filtered.sort((a, b) => a.order - b.order).map((lt, idx) => ({ ...lt, order: idx }));
+                                          updateSettings({ ...settings, leadTypeMessages: reordered });
+                                        }}
+                                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-40"
+                                        title="Remove lead type"
+                                        disabled={isLastActive}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                
+                                  {/* Service Plans Mapping – ordered per lead type */}
+                                  {availableServicePlans.length > 0 && (
+                                    <div className="text-xs">
+                                      <label className="block text-gray-600 mb-1">
+                                        Show these services in order (leave empty for all):
+                                      </label>
+                                      {(leadType.relevantServicePlans || []).length === 0 ? (
+                                        <p className="text-gray-500 italic mt-1">No filter - shows all services</p>
+                                      ) : (
+                                        <DndContext
+                                          sensors={sensors}
+                                          collisionDetection={closestCenter}
+                                          onDragEnd={(event) => {
+                                            const itemIndex = settings.leadTypeMessages!.findIndex(lt => lt.id === leadType.id);
+                                            handleServicePlanDragEnd(itemIndex, leadType.id, event);
+                                          }}
                                         >
-                                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                                            {(leadType.relevantServicePlans || []).map((servicePlan) => (
-                                              <SortableServicePlanItem
-                                                key={`${leadType.id}-${servicePlan}`}
-                                                leadTypeId={leadType.id}
-                                                servicePlan={servicePlan}
-                                                onRemove={() => {
+                                          <SortableContext
+                                            items={(leadType.relevantServicePlans || []).map((p) => `${leadType.id}-${p}`)}
+                                            strategy={horizontalListSortingStrategy}
+                                          >
+                                            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                              {(leadType.relevantServicePlans || []).map((servicePlan) => (
+                                                <SortableServicePlanItem
+                                                  key={`${leadType.id}-${servicePlan}`}
+                                                  leadTypeId={leadType.id}
+                                                  servicePlan={servicePlan}
+                                                  onRemove={() => {
+                                                    const updated = [...settings.leadTypeMessages!];
+                                                    const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
+                                                    if (itemIndex !== -1) {
+                                                      const newPlans = (updated[itemIndex].relevantServicePlans || []).filter(p => p !== servicePlan);
+                                                      updated[itemIndex] = {
+                                                        ...updated[itemIndex],
+                                                        relevantServicePlans: newPlans.length > 0 ? newPlans : undefined
+                                                      };
+                                                      updateSettings({ ...settings, leadTypeMessages: updated });
+                                                    }
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          </SortableContext>
+                                        </DndContext>
+                                      )}
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {(availableServicePlans.filter(p => !(leadType.relevantServicePlans || []).includes(p))).length > 0 && (
+                                          <>
+                                            <span className="text-gray-500 self-center">Add:</span>
+                                            {availableServicePlans.filter(p => !(leadType.relevantServicePlans || []).includes(p)).map((servicePlan) => (
+                                              <button
+                                                key={servicePlan}
+                                                type="button"
+                                                onClick={() => {
                                                   const updated = [...settings.leadTypeMessages!];
                                                   const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
                                                   if (itemIndex !== -1) {
-                                                    const newPlans = (updated[itemIndex].relevantServicePlans || []).filter(p => p !== servicePlan);
+                                                    const current = updated[itemIndex].relevantServicePlans || [];
                                                     updated[itemIndex] = {
                                                       ...updated[itemIndex],
-                                                      relevantServicePlans: newPlans.length > 0 ? newPlans : undefined
+                                                      relevantServicePlans: [...current, servicePlan]
                                                     };
                                                     updateSettings({ ...settings, leadTypeMessages: updated });
                                                   }
                                                 }}
-                                              />
+                                                className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                                              >
+                                                + {servicePlan}
+                                              </button>
                                             ))}
-                                          </div>
-                                        </SortableContext>
-                                      </DndContext>
-                                    )}
-                                    <div className="flex flex-wrap gap-2 mt-1">
-                                      {(availableServicePlans.filter(p => !(leadType.relevantServicePlans || []).includes(p))).length > 0 && (
-                                        <>
-                                          <span className="text-gray-500 self-center">Add:</span>
-                                          {availableServicePlans.filter(p => !(leadType.relevantServicePlans || []).includes(p)).map((servicePlan) => (
-                                            <button
-                                              key={servicePlan}
-                                              type="button"
-                                              onClick={() => {
-                                                const updated = [...settings.leadTypeMessages!];
-                                                const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
-                                                if (itemIndex !== -1) {
-                                                  const current = updated[itemIndex].relevantServicePlans || [];
-                                                  updated[itemIndex] = {
-                                                    ...updated[itemIndex],
-                                                    relevantServicePlans: [...current, servicePlan]
-                                                  };
-                                                  updateSettings({ ...settings, leadTypeMessages: updated });
-                                                }
-                                              }}
-                                              className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
-                                            >
-                                              + {servicePlan}
-                                            </button>
-                                          ))}
-                                        </>
-                                      )}
+                                          </>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = [...settings.leadTypeMessages!];
-                                    const sorted = [...updated].sort((a, b) => a.order - b.order);
-                                    const itemIndex = sorted.findIndex(lt => lt.id === leadType.id);
-                                    if (itemIndex > 0) {
-                                      const prevItem = sorted[itemIndex - 1];
-                                      const currentOrder = leadType.order;
-                                      const prevOrder = prevItem.order;
-                                      const currentItem = updated.find(lt => lt.id === leadType.id)!;
-                                      const prevItemInUpdated = updated.find(lt => lt.id === prevItem.id)!;
-                                      currentItem.order = prevOrder;
-                                      prevItemInUpdated.order = currentOrder;
-                                      updateSettings({ ...settings, leadTypeMessages: updated });
-                                    }
-                                  }}
-                                  disabled={index === 0}
-                                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Move up"
-                                >
-                                  <MoveUp className="h-4 w-4" />
-                                </button>
-                                
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = [...settings.leadTypeMessages!];
-                                    const sorted = [...updated].sort((a, b) => a.order - b.order);
-                                    const itemIndex = sorted.findIndex(lt => lt.id === leadType.id);
-                                    if (itemIndex < sorted.length - 1) {
-                                      const nextItem = sorted[itemIndex + 1];
-                                      const currentOrder = leadType.order;
-                                      const nextOrder = nextItem.order;
-                                      const currentItem = updated.find(lt => lt.id === leadType.id)!;
-                                      const nextItemInUpdated = updated.find(lt => lt.id === nextItem.id)!;
-                                      currentItem.order = nextOrder;
-                                      nextItemInUpdated.order = currentOrder;
-                                      updateSettings({ ...settings, leadTypeMessages: updated });
-                                    }
-                                  }}
-                                  disabled={index === settings.leadTypeMessages!.length - 1}
-                                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Move down"
-                                >
-                                  <MoveDown className="h-4 w-4" />
-                                </button>
-                                
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={leadType.isActive}
-                                    onChange={(e) => {
-                                      const updated = [...settings.leadTypeMessages!];
-                                      const itemIndex = updated.findIndex(lt => lt.id === leadType.id);
-                                      if (itemIndex !== -1) {
-                                        updated[itemIndex] = { ...updated[itemIndex], isActive: e.target.checked };
-                                        // Ensure at least one is active
-                                        const activeCount = updated.filter(lt => lt.isActive).length;
-                                        if (activeCount === 0) {
-                                          toast.warning('At least one lead type must be active');
-                                          return;
-                                        }
-                                        updateSettings({ ...settings, leadTypeMessages: updated });
-                                      }
-                                    }}
-                                  />
-                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
-                                </label>
-                                
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = [...settings.leadTypeMessages!];
-                                    const sorted = [...updated].sort((a, b) => a.order - b.order);
-                                    const activeCount = sorted.filter(lt => lt.isActive).length;
-                                    
-                                    // Prevent deletion if it's the last active item
-                                    if (leadType.isActive && activeCount === 1) {
-                                      toast.warning('Cannot delete the last active lead type. Disable it instead or enable another one first.');
-                                      return;
-                                    }
-                                    
-                                    // Remove the item
-                                    const filtered = updated.filter(lt => lt.id !== leadType.id);
-                                    
-                                    // Reorder remaining items
-                                    const reordered = filtered
-                                      .sort((a, b) => a.order - b.order)
-                                      .map((lt, idx) => ({ ...lt, order: idx }));
-                                    
-                                    updateSettings({ ...settings, leadTypeMessages: reordered });
-                                  }}
-                                  className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Remove lead type"
-                                  disabled={isLastActive}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           );
@@ -1092,22 +1085,21 @@ export default function ChatbotSettingsPage() {
               </div>
             )}
             
-            <div className="mt-6 flex items-center">
+            <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3">
               {hasUnsavedChanges && (
-                <div className="text-sm text-amber-600 flex items-center gap-2 mr-auto">
-                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                <div className="text-sm text-amber-600 flex items-center gap-2 sm:mr-auto">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full shrink-0"></div>
                   You have unsaved changes
                 </div>
               )}
-              <div className="flex gap-2 ml-auto">
+              <div className="flex gap-2 sm:ml-auto">
                 {hasUnsavedChanges && (
                   <button
-                    className="btn-secondary"
+                    className="btn-secondary flex-1 sm:flex-none"
                     onClick={() => {
                       setSettings(originalSettings!);
                       setHasUnsavedChanges(false);
                       setSelectedFile(null);
-                      // Reload image preview if original had one
                       if (originalSettings?.chatbotImage && fileInputRef.current) {
                         fileInputRef.current.value = '';
                       }
@@ -1118,7 +1110,7 @@ export default function ChatbotSettingsPage() {
                   </button>
                 )}
                 <button
-                  className="btn-primary"
+                  className="btn-primary flex-1 sm:flex-none"
                   onClick={handleSaveSettings}
                   disabled={saving || loading || !hasUnsavedChanges}
                 >

@@ -145,8 +145,7 @@ export default function EditAppPage() {
 
       // Handle WhatsApp number updates
       if (formData.whatsappOption === 'use-my-number') {
-        const newNumber = formData.whatsappNumber.trim();
-        updateData.whatsappNumber = newNumber;
+        updateData.whatsappNumber = formData.whatsappNumber.trim();
         updateData.whatsappNumberSource = 'user-provided';
         updateData.whatsappNumberStatus = 'pending';
       } else if (formData.whatsappOption === 'get-from-twilio' && whatsappNumberSource !== 'twilio-provided') {

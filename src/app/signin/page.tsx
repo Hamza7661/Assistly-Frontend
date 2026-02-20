@@ -145,7 +145,6 @@ function SigninContent() {
           // Only authenticate if email is verified
           await login(token);
           
-          // Always redirect to dashboard after login
           router.push('/dashboard');
         } else {
           setError('Authentication token not received');
