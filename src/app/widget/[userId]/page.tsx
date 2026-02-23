@@ -38,8 +38,10 @@ export default function WidgetPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [fileUploadEnabled, setFileUploadEnabled] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isIntentionalClose = useRef(false);
 
   // Handle click outside to close widget
   useEffect(() => {
@@ -162,19 +164,30 @@ export default function WidgetPage() {
     }
     wsRef.current = ws;
     ws.onopen = () => {
+      isIntentionalClose.current = false;
+      setChatEnded(false);
       setConnected(true);
-      // Let backend handle the initial greeting flow
+      // Show typing indicator while waiting for the initial greeting from backend
+      setIsTyping(true);
     };
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data) as AnyMessage;
+        const msgType = (msg as any).type;
+
+        // Handle file upload enable signal (not a chat message)
+        if (msgType === 'enable_file_upload') {
+          setFileUploadEnabled(true);
+          return;
+        }
+
         setMessages((prev) => [...prev, msg]);
-        if ((msg as WarnMessage).type === 'warn' || (msg as WarnMessage).type === 'error') {
+        if (msgType === 'warn' || msgType === 'error') {
           setIsTyping(false);
           return;
         }
         // Stop typing indicator for bot and review_prompt messages
-        if ((msg as any).type === 'bot' || (msg as any).type === 'review_prompt') {
+        if (msgType === 'bot' || msgType === 'review_prompt') {
           setIsTyping(false);
         }
       } catch (err) {
@@ -184,17 +197,22 @@ export default function WidgetPage() {
     };
     ws.onclose = () => {
       setConnected(false);
-      setChatEnded(true);
+      // Only mark chat as ended for unexpected closes, not controlled cleanup/reconnects
+      if (!isIntentionalClose.current) {
+        setChatEnded(true);
+        setIsTyping(false);
+      }
     };
     ws.onerror = () => {
       setMessages((prev) => [...prev, { type: 'error', content: 'WebSocket error' }]);
     };
 
     return () => {
+      isIntentionalClose.current = true;
       ws?.close();
       wsRef.current = null;
     };
-  }, [fullWsUrl, isOpen, settings.greeting]);
+  }, [fullWsUrl, isOpen]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -269,6 +287,8 @@ export default function WidgetPage() {
         downloadUrl: `${API_BASE}/chat-uploads/${fileId}`,
         country: countryCode
       }));
+      // Hide the upload button after a file is submitted
+      setFileUploadEnabled(false);
     } catch (err) {
       setMessages(prev => [...prev, { type: 'error', content: 'File upload failed. Please try again.' } as WarnMessage]);
     } finally {
@@ -422,13 +442,13 @@ export default function WidgetPage() {
         {/* Chat button */}
         <button
           onClick={() => {
-            // Opening widget - clear messages and start fresh
             setMessages([]);
             setConnected(false);
+            setChatEnded(false);
             setIsTyping(false);
+            setFileUploadEnabled(false);
             setIsOpen(true);
             sendWidgetState(true);
-            // Resize iframe to accommodate expanded widget
             resizeIframe(600);
           }}
           className="w-16 h-16 sm:w-18 sm:h-18 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
@@ -583,7 +603,31 @@ export default function WidgetPage() {
           </div>
         ))}
         {!messages.length && (
-          <div className="text-gray-500 text-sm sm:text-base font-medium">Connecting to chat...</div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            {chatEnded ? (
+              <>
+                <div className="text-gray-400 text-sm">Connection lost.</div>
+                <button
+                  onClick={() => {
+                    setChatEnded(false);
+                    setConnected(false);
+                    setMessages([]);
+                    setIsOpen(false);
+                    setTimeout(() => setIsOpen(true), 100);
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-full text-white font-medium"
+                  style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
+                >
+                  Reconnect
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-gray-500 text-sm sm:text-base font-medium">
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}></div>
+                Connecting to chat...
+              </div>
+            )}
+          </div>
         )}
         {isTyping && (
           <div className="flex items-center gap-1">
@@ -597,36 +641,40 @@ export default function WidgetPage() {
       
       {/* Input */}
       <div className="p-2 sm:p-3 border-t flex gap-1 sm:gap-2 items-center">
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"
-          className="hidden"
-          onChange={handleFileUpload}
-          disabled={!connected || isUploadingFile}
-        />
-        {/* File upload button */}
-        <button
-          title="Attach a file"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!connected || isUploadingFile}
-          className="p-1.5 sm:p-2 rounded border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-40 transition shrink-0"
-        >
-          {isUploadingFile ? (
-            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-          ) : (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-            </svg>
-          )}
-        </button>
+        {/* Hidden file input - only rendered when upload is enabled */}
+        {fileUploadEnabled && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"
+            className="hidden"
+            onChange={handleFileUpload}
+            disabled={!connected || isUploadingFile}
+          />
+        )}
+        {/* File upload button - only shown when backend requests a file */}
+        {fileUploadEnabled && (
+          <button
+            title="Attach a file"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!connected || isUploadingFile}
+            className="p-1.5 sm:p-2 rounded border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-40 transition shrink-0"
+          >
+            {isUploadingFile ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            )}
+          </button>
+        )}
         <input
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
-          placeholder={connected ? 'Type a message or attach a file...' : (chatEnded ? 'Chat ended' : 'Connecting...')}
+          placeholder={connected ? 'Type a message...' : (chatEnded ? 'Chat ended' : 'Connecting...')}
           disabled={!connected}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -640,6 +688,21 @@ export default function WidgetPage() {
         >
           Send
         </button>
+      </div>
+
+      {/* Powered by UpZilo */}
+      <div className="flex items-center justify-center gap-1.5 py-1.5 border-t border-gray-100 bg-white">
+        <span className="text-[10px] text-gray-400 font-medium tracking-wide">Powered by</span>
+        <a
+          href="https://upzilo.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity"
+          title="UpZilo"
+        >
+          <img src="/upzilo-logo.png" alt="UpZilo" className="h-4 w-auto" />
+          <span className="text-[11px] font-semibold text-gray-500">UpZilo</span>
+        </a>
       </div>
       </div>
     </>
