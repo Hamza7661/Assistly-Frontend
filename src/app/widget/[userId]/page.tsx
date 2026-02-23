@@ -89,9 +89,11 @@ export default function WidgetPage() {
     } else {
       url.searchParams.set('user_id', 'PUBLIC_USER_ID');
     }
-    url.searchParams.set('country', countryCode);
+    // NOTE: countryCode is intentionally NOT included in the URL — the backend doesn't read it
+    // from the WebSocket query params, and including it causes unnecessary reconnects each time
+    // the country is detected, which breaks the greeting display.
     return url.toString();
-  }, [rawWs, appId, userId, countryCode]);
+  }, [rawWs, appId, userId]);
 
   // Load integration settings and detect country
   useEffect(() => {
@@ -164,6 +166,8 @@ export default function WidgetPage() {
     }
     wsRef.current = ws;
     ws.onopen = () => {
+      // Guard: ignore events from a stale (already-replaced) WebSocket
+      if (wsRef.current !== ws) return;
       isIntentionalClose.current = false;
       setChatEnded(false);
       setConnected(true);
@@ -171,6 +175,8 @@ export default function WidgetPage() {
       setIsTyping(true);
     };
     ws.onmessage = (e) => {
+      // Guard: ignore messages from a stale WebSocket
+      if (wsRef.current !== ws) return;
       try {
         const msg = JSON.parse(e.data) as AnyMessage;
         const msgType = (msg as any).type;
@@ -196,6 +202,10 @@ export default function WidgetPage() {
       }
     };
     ws.onclose = () => {
+      // Guard: ignore close events from a stale WebSocket (e.g. after a reconnect).
+      // wsRef.current is set to null in cleanup before ws.close() is called, so a
+      // stale onclose always sees wsRef.current !== ws and skips the state update.
+      if (wsRef.current !== ws) return;
       setConnected(false);
       // Only mark chat as ended for unexpected closes, not controlled cleanup/reconnects
       if (!isIntentionalClose.current) {
@@ -204,13 +214,14 @@ export default function WidgetPage() {
       }
     };
     ws.onerror = () => {
+      if (wsRef.current !== ws) return;
       setMessages((prev) => [...prev, { type: 'error', content: 'WebSocket error' }]);
     };
 
     return () => {
       isIntentionalClose.current = true;
+      wsRef.current = null; // Clear ref BEFORE close so stale onclose is ignored
       ws?.close();
-      wsRef.current = null;
     };
   }, [fullWsUrl, isOpen]);
 
@@ -241,6 +252,9 @@ export default function WidgetPage() {
     }));
     setMessages((prev) => [...prev, { type: 'user', content: value }]);
     setIsTyping(true);
+    // Hide the file upload button after the user sends any message — it will be re-shown
+    // only if the bot explicitly asks for a file again via the enable_file_upload signal.
+    setFileUploadEnabled(false);
   };
 
   const send = () => {
