@@ -12,7 +12,7 @@ import { ChatbotWorkflow, WorkflowGroup, WorkflowOption, formatQuestionType } fr
 import { useQuestionTypeService } from '@/services';
 import type { QuestionTypeItem } from '@/models/QuestionType';
 import { toast } from 'react-toastify';
-import { Trash2, Plus, Save, Edit2, X, ChevronDown, ChevronUp, Folder, MessageSquare, GripVertical, Paperclip, Link2, Upload, FileText, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, Save, Edit2, X, ChevronDown, ChevronUp, Folder, MessageSquare, GripVertical, Paperclip, Link2, Upload, FileText, AlertCircle, GitBranch, ArrowDown } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -450,12 +450,18 @@ function ChatbotWorkflowPageContent() {
     onEdit,
     onDelete,
     disabled,
+    isLinked,
+    linkedFrom,
   }: { 
     question: ChatbotWorkflow; 
     index: number;
     onEdit: () => void;
     onDelete: () => void;
     disabled: boolean;
+    /** True when this question is a branch target (not in the sequential queue) */
+    isLinked: boolean;
+    /** Parent question text + option text that links here */
+    linkedFrom?: { questionText: string; optionText: string }[];
   }) => {
     const {
       attributes,
@@ -481,39 +487,63 @@ function ChatbotWorkflowPageContent() {
       <div 
         ref={setNodeRef} 
         style={style}
-        className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50"
+        className={`border rounded-lg p-3 sm:p-4 ${
+          isLinked
+            ? 'border-gray-300 bg-gray-100 border-l-4 border-l-gray-400'
+            : 'border-gray-200 bg-gray-50'
+        }`}
       >
         <div className="flex items-start gap-2">
-          <button
-            {...attributes}
-            {...listeners}
-            className="mt-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 touch-none"
-            disabled={disabled}
-            title="Drag to reorder"
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
+          {isLinked ? (
+            <div className="mt-1 w-4 shrink-0" />
+          ) : (
+            <button
+              {...attributes}
+              {...listeners}
+              className="mt-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 touch-none"
+              disabled={disabled}
+              title="Drag to reorder"
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-2 mb-1.5 min-w-0">
-                  <MessageSquare className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                  {isLinked
+                    ? <GitBranch className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                    : <MessageSquare className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                  }
                   <p className="text-sm font-medium text-gray-900 break-words min-w-0 flex-1">{question.question}</p>
                 </div>
+
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                    question.isActive ? 'text-blue-700 bg-blue-100' : 'text-gray-500 bg-gray-200'
-                  }`}>
-                    {question.isActive ? `#${index + 1}` : 'Inactive'}
-                  </span>
+                  {/* Sequential vs Linked type badge */}
+                  {isLinked ? (
+                    <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-200 rounded flex items-center gap-1">
+                      <GitBranch className="h-3 w-3" />
+                      Linked
+                    </span>
+                  ) : (
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded flex items-center gap-1 ${
+                      question.isActive ? 'text-blue-700 bg-blue-100' : 'text-gray-500 bg-gray-200'
+                    }`}>
+                      <ArrowDown className="h-3 w-3" />
+                      {question.isActive ? `#${index + 1} Sequential` : 'Inactive'}
+                    </span>
+                  )}
+
+                  {/* Active / Inactive */}
                   {question.isActive ? (
                     <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded">Active</span>
                   ) : (
                     <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded">Inactive</span>
                   )}
+
                   {hasOptions && (
-                    <span className="px-2 py-0.5 text-xs font-medium text-purple-700 bg-purple-100 rounded flex items-center gap-1">
+                    <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-200 rounded flex items-center gap-1">
                       <Link2 className="h-3 w-3" />
                       {question.options!.length} option{question.options!.length !== 1 ? 's' : ''}
                     </span>
@@ -525,7 +555,25 @@ function ChatbotWorkflowPageContent() {
                     </span>
                   )}
                 </div>
-                {/* Show options preview */}
+
+                {/* For linked questions: show which question/option links here */}
+                {isLinked && linkedFrom && linkedFrom.length > 0 && (
+                  <div className="mt-2 ml-6 space-y-0.5">
+                    {linkedFrom.map((ref, ri) => (
+                      <div key={ri} className="flex items-center gap-1 text-xs text-gray-500">
+                        <Link2 className="h-3 w-3 shrink-0" />
+                        <span className="text-gray-400">from</span>
+                        <span className="font-medium truncate max-w-[180px]" title={ref.questionText}>
+                          {ref.questionText.length > 35 ? ref.questionText.substring(0, 35) + '…' : ref.questionText}
+                        </span>
+                        <span className="text-gray-400">›</span>
+                        <span className="italic truncate max-w-[120px]" title={ref.optionText}>{ref.optionText}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* For sequential questions: show options/branch preview */}
                 {hasOptions && (
                   <div className="mt-2 ml-6 space-y-1">
                     {question.options!.map((opt, oi) => {
@@ -534,13 +582,18 @@ function ChatbotWorkflowPageContent() {
                         <div key={oi} className="flex items-center gap-1.5 text-xs text-gray-600">
                           <span className="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center text-[10px] shrink-0">{oi + 1}</span>
                           <span className="font-medium">{opt.text}</span>
-                          {linkedQ && (
-                            <span className="text-purple-600 flex items-center gap-0.5">
-                              <Link2 className="h-3 w-3" />
+                          {linkedQ ? (
+                            <span className="text-gray-500 flex items-center gap-0.5">
+                              <GitBranch className="h-3 w-3" />
                               → {linkedQ.question.substring(0, 40)}{linkedQ.question.length > 40 ? '…' : ''}
                             </span>
+                          ) : (
+                            <span className="text-gray-400 flex items-center gap-0.5">
+                              <ArrowDown className="h-3 w-3" />
+                              sequential
+                            </span>
                           )}
-                          {opt.isTerminal && <span className="text-red-500">(ends flow)</span>}
+                          {opt.isTerminal && <span className="text-red-500 ml-1">(ends flow)</span>}
                         </div>
                       );
                     })}
@@ -743,22 +796,50 @@ function ChatbotWorkflowPageContent() {
                               strategy={verticalListSortingStrategy}
                             >
                               <div className="space-y-3">
-                                {questionsInWorkflow.map((question, index) => {
+                                {(() => {
+                                  // Build a set of question IDs that are branch targets
+                                  const linkedIds = new Set<string>();
+                                  questionsInWorkflow.forEach(q => {
+                                    (q.options || []).forEach(opt => {
+                                      if (opt.nextQuestionId) linkedIds.add(opt.nextQuestionId);
+                                    });
+                                  });
+
+                                  // Build a reverse-lookup: questionId → [{questionText, optionText}]
+                                  const linkedFromMap = new Map<string, { questionText: string; optionText: string }[]>();
+                                  questionsInWorkflow.forEach(q => {
+                                    (q.options || []).forEach(opt => {
+                                      if (opt.nextQuestionId) {
+                                        const existing = linkedFromMap.get(opt.nextQuestionId) || [];
+                                        existing.push({ questionText: q.question, optionText: opt.text });
+                                        linkedFromMap.set(opt.nextQuestionId, existing);
+                                      }
+                                    });
+                                  });
+
                                   const activeQuestions = getActiveQuestionsForWorkflow(group._id);
-                                  const activeIndex = activeQuestions.findIndex(aq => aq._id === question._id);
-                                  const displayIndex = activeIndex >= 0 ? activeIndex : index;
-                                  
-                                  return (
-                                    <SortableQuestionItem
-                                      key={question._id}
-                                      question={question}
-                                      index={displayIndex}
-                                      onEdit={() => handleEditQuestion(question)}
-                                      onDelete={() => { setQuestionIdToDelete(question._id ?? null); setShowDeleteModal(true); }}
-                                      disabled={editingQuestion !== null}
-                                    />
-                                  );
-                                })}
+                                  // Sequential questions only (not linked) for sequential index
+                                  const sequentialQuestions = activeQuestions.filter(q => !linkedIds.has(q._id || ''));
+
+                                  return questionsInWorkflow.map((question, index) => {
+                                    const isLinked = linkedIds.has(question._id || '');
+                                    const seqIndex = sequentialQuestions.findIndex(q => q._id === question._id);
+                                    const displayIndex = seqIndex >= 0 ? seqIndex : index;
+
+                                    return (
+                                      <SortableQuestionItem
+                                        key={question._id}
+                                        question={question}
+                                        index={displayIndex}
+                                        onEdit={() => handleEditQuestion(question)}
+                                        onDelete={() => { setQuestionIdToDelete(question._id ?? null); setShowDeleteModal(true); }}
+                                        disabled={editingQuestion !== null}
+                                        isLinked={isLinked}
+                                        linkedFrom={linkedFromMap.get(question._id || '')}
+                                      />
+                                    );
+                                  });
+                                })()}
                               </div>
                             </SortableContext>
                           </DndContext>
