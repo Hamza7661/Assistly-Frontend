@@ -422,13 +422,12 @@ export default function WidgetPage() {
         {/* Chat button */}
         <button
           onClick={() => {
-            // Opening widget - clear messages and start fresh
             setMessages([]);
             setConnected(false);
+            setChatEnded(false);
             setIsTyping(false);
             setIsOpen(true);
             sendWidgetState(true);
-            // Resize iframe to accommodate expanded widget
             resizeIframe(600);
           }}
           className="w-16 h-16 sm:w-18 sm:h-18 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
@@ -583,7 +582,31 @@ export default function WidgetPage() {
           </div>
         ))}
         {!messages.length && (
-          <div className="text-gray-500 text-sm sm:text-base font-medium">Connecting to chat...</div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            {chatEnded ? (
+              <>
+                <div className="text-gray-400 text-sm">Connection lost.</div>
+                <button
+                  onClick={() => {
+                    setChatEnded(false);
+                    setConnected(false);
+                    setMessages([]);
+                    setIsOpen(false);
+                    setTimeout(() => setIsOpen(true), 100);
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-full text-white font-medium"
+                  style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
+                >
+                  Reconnect
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-gray-500 text-sm sm:text-base font-medium">
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}></div>
+                Connecting to chat...
+              </div>
+            )}
+          </div>
         )}
         {isTyping && (
           <div className="flex items-center gap-1">
@@ -640,6 +663,21 @@ export default function WidgetPage() {
         >
           Send
         </button>
+      </div>
+
+      {/* Powered by UpZilo */}
+      <div className="flex items-center justify-center gap-1.5 py-1.5 border-t border-gray-100 bg-white">
+        <span className="text-[10px] text-gray-400 font-medium tracking-wide">Powered by</span>
+        <a
+          href="https://upzilo.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity"
+          title="UpZilo"
+        >
+          <img src="/upzilo-logo.png" alt="UpZilo" className="h-4 w-auto" />
+          <span className="text-[11px] font-semibold text-gray-500">UpZilo</span>
+        </a>
       </div>
       </div>
     </>
