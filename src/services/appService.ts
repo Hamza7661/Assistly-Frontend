@@ -6,6 +6,12 @@ interface CreateAppRequest {
   description?: string;
   whatsappOption?: 'use-my-number' | 'get-from-twilio';
   whatsappNumber?: string;
+  /** Short-lived Facebook user access token (from FB.login). Backend will exchange + store. */
+  facebookShortLivedToken?: string;
+  /** Facebook Page ID selected by the user after OAuth. */
+  facebookPageId?: string;
+  /** Facebook Page name (display label). */
+  facebookPageName?: string;
 }
 
 interface UpdateAppRequest {
@@ -17,10 +23,20 @@ interface UpdateAppRequest {
   whatsappNumberStatus?: 'pending' | 'registered' | 'failed';
   twilioWhatsAppSenderId?: string;
   facebookPageId?: string | null;
+  facebookPageName?: string | null;
   instagramBusinessAccountId?: string | null;
   instagramAccessToken?: string | null;
   instagramUsername?: string | null;
   isActive?: boolean;
+}
+
+interface ConnectFacebookRequest {
+  /** Short-lived user access token from FB.login() */
+  shortLivedToken: string;
+  /** The Facebook Page ID the user selected */
+  pageId: string;
+  /** Page name (used as fallback display label if Meta doesn't return it) */
+  pageName: string;
 }
 
 interface AppResponse {
@@ -81,6 +97,25 @@ class AppService extends HttpService {
   /** Set this app as the one using the Twilio number for webhooks/leads/flows (when multiple apps share the same number). */
   async setUsesTwilioNumber(appId: string): Promise<AppResponse> {
     return this.request<AppResponse>(`/apps/${appId}/set-uses-twilio`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Exchange a short-lived Facebook token for a long-lived one,
+   * retrieve the page access token, and store everything on the app.
+   * The actual tokens are stored server-side only (never returned to the frontend).
+   */
+  async connectFacebook(appId: string, data: ConnectFacebookRequest): Promise<AppResponse> {
+    return this.request<AppResponse>(`/apps/${appId}/facebook/connect`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Remove all Facebook OAuth tokens from this app. */
+  async disconnectFacebook(appId: string): Promise<AppResponse> {
+    return this.request<AppResponse>(`/apps/${appId}/facebook/disconnect`, {
       method: 'POST',
     });
   }
