@@ -15,7 +15,7 @@ export const FACEBOOK_SDK_SRC =
 // Comma-separated list of OAuth permissions requested during FB.login.
 export const FACEBOOK_LOGIN_SCOPE =
   process.env.NEXT_PUBLIC_FACEBOOK_LOGIN_SCOPE ||
-  'pages_show_list,pages_messaging,pages_read_engagement';
+  'pages_show_list,pages_messaging';
 
 // Poll interval (ms) while waiting for the FB SDK global to be available.
 export const FACEBOOK_POLL_INTERVAL_MS = Number(
