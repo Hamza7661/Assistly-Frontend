@@ -3,10 +3,10 @@
 // with sensible defaults for local development.
 
 export const FACEBOOK_APP_ID =
-  process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
+  process.env.PUBLIC_FACEBOOK_APP_ID || '';
 
 export const FACEBOOK_API_VERSION =
-  process.env.NEXT_PUBLIC_FACEBOOK_API_VERSION || 'v22.0';
+  process.env.PUBLIC_FACEBOOK_API_VERSION || 'v22.0';
 
 export const FACEBOOK_SDK_SRC =
   process.env.NEXT_PUBLIC_FACEBOOK_SDK_SRC ||
@@ -15,7 +15,7 @@ export const FACEBOOK_SDK_SRC =
 // Comma-separated list of OAuth permissions requested during FB.login.
 export const FACEBOOK_LOGIN_SCOPE =
   process.env.NEXT_PUBLIC_FACEBOOK_LOGIN_SCOPE ||
-  'pages_show_list,pages_messaging';
+  'pages_show_list,pages_messaging,pages_read_engagement';
 
 // Poll interval (ms) while waiting for the FB SDK global to be available.
 export const FACEBOOK_POLL_INTERVAL_MS = Number(
