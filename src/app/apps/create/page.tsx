@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -9,26 +9,11 @@ import { useAppService } from '@/services';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
-import {
-  FACEBOOK_APP_ID,
-  FACEBOOK_API_VERSION,
-  FACEBOOK_SDK_SRC,
-  FACEBOOK_LOGIN_SCOPE,
-  FACEBOOK_POLL_INTERVAL_MS,
-} from '@/constants/facebook';
+import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
 import { Building2, Loader2, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
-
-// Facebook SDK global — loaded asynchronously
-declare const FB: any;
-
-interface FbPage {
-  id: string;
-  name: string;
-  access_token: string;
-}
 
 export default function CreateAppPage() {
   const router = useRouter();
@@ -46,118 +31,22 @@ export default function CreateAppPage() {
     whatsappNumber: ''
   });
 
-  // ── Facebook OAuth state ──────────────────────────────────────────
-  const [fbSdkReady, setFbSdkReady] = useState(false);
-  const [fbConnecting, setFbConnecting] = useState(false);
-  const [fbPages, setFbPages] = useState<FbPage[]>([]);
-  const [fbShortLivedToken, setFbShortLivedToken] = useState('');
-  const [fbSelectedPageId, setFbSelectedPageId] = useState('');
-  const [fbSelectedPageName, setFbSelectedPageName] = useState('');
-  const fbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Load Facebook SDK
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const initSdk = () => {
-      try {
-        (window as any).FB.init({
-          appId: FACEBOOK_APP_ID,
-          cookie: true,
-          xfbml: false,
-          version: FACEBOOK_API_VERSION
-        });
-        setFbSdkReady(true);
-      } catch (_) {}
-    };
-
-    if (typeof (window as any).FB !== 'undefined') {
-      initSdk();
-      return;
-    }
-
-    (window as any).fbAsyncInit = initSdk;
-
-    if (!document.getElementById('facebook-jssdk')) {
-      const script = document.createElement('script');
-      script.id = 'facebook-jssdk';
-      script.src = FACEBOOK_SDK_SRC;
-      script.async = true;
-      script.defer = true;
-      document.body.appendChild(script);
-    }
-
-    // Poll until FB global becomes available (handles async load timing)
-    fbPollRef.current = setInterval(() => {
-      if (typeof (window as any).FB !== 'undefined') {
-        clearInterval(fbPollRef.current!);
-        setFbSdkReady(true);
-      }
-    }, FACEBOOK_POLL_INTERVAL_MS);
-
-    return () => {
-      if (fbPollRef.current) clearInterval(fbPollRef.current);
-    };
-  }, []);
-
-  // ── Facebook handlers ─────────────────────────────────────────────
-  const handleFacebookConnect = () => {
-    const FBSdk = (window as any).FB;
-    if (!FBSdk) {
-      toast.error('Facebook SDK is still loading. Please try again in a moment.');
-      return;
-    }
-
-    setFbConnecting(true);
-    setFbPages([]);
-    setFbShortLivedToken('');
-    setFbSelectedPageId('');
-    setFbSelectedPageName('');
-
-    FBSdk.login(
-      (response: any) => {
-        if (!response.authResponse) {
-          // User cancelled or denied
-          setFbConnecting(false);
-          return;
-        }
-        const token = response.authResponse.accessToken;
-        FBSdk.api(
-          '/me/accounts',
-          { access_token: token, fields: 'id,name,access_token' },
-          (pagesRes: any) => {
-            setFbConnecting(false);
-            if (pagesRes.error || !pagesRes.data) {
-              toast.error(
-                pagesRes?.error?.message ||
-                'Could not fetch your Facebook pages. Please ensure you granted the required permissions.'
-              );
-              return;
-            }
-            const pages: FbPage[] = pagesRes.data;
-            if (pages.length === 0) {
-              toast.error('No Facebook pages found. Make sure you admin at least one page.');
-              return;
-            }
-            setFbShortLivedToken(token);
-            setFbPages(pages);
-            // Auto-select when there is only one page
-            if (pages.length === 1) {
-              setFbSelectedPageId(pages[0].id);
-              setFbSelectedPageName(pages[0].name);
-            }
-          }
-        );
-      },
-      { scope: FACEBOOK_LOGIN_SCOPE }
-    );
-  };
+  // ── Facebook OAuth ────────────────────────────────────────────────
+  const {
+    fbSdkReady,
+    fbConnecting,
+    fbPages,
+    fbShortLivedToken,
+    fbSelectedPageId,
+    fbSelectedPageName,
+    handleFacebookConnect,
+    resetFacebookSelection,
+    setFbSelectedPageId,
+    setFbSelectedPageName,
+  } = useFacebookOAuth();
 
   const handleFacebookRemove = () => {
-    setFbShortLivedToken('');
-    setFbPages([]);
-    setFbSelectedPageId('');
-    setFbSelectedPageName('');
+    resetFacebookSelection();
   };
 
   // ── Form handlers ─────────────────────────────────────────────────

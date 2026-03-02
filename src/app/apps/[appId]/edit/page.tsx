@@ -1,21 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAppService } from '@/services';
-import { ProtectedRoute } from '@/components';
+import { ProtectedRoute, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
-import {
-  FACEBOOK_APP_ID,
-  FACEBOOK_API_VERSION,
-  FACEBOOK_SDK_SRC,
-  FACEBOOK_LOGIN_SCOPE,
-  FACEBOOK_POLL_INTERVAL_MS,
-} from '@/constants/facebook';
+import { WhatsappNumberStatus } from '@/enums/WhatsappNumberStatus';
+import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
 import {
   Building2,
   Phone,
@@ -31,15 +26,6 @@ import {
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
-
-// Facebook SDK global — loaded asynchronously
-declare const FB: any;
-
-interface FbPage {
-  id: string;
-  name: string;
-  access_token: string;
-}
 
 export default function EditAppPage() {
   const router = useRouter();
@@ -63,23 +49,31 @@ export default function EditAppPage() {
     instagramUsername: ''
   });
 
-  const [whatsappNumberStatus, setWhatsappNumberStatus] = useState<string | undefined>(undefined);
+  const [whatsappNumberStatus, setWhatsappNumberStatus] = useState<WhatsappNumberStatus | undefined>(
+    undefined
+  );
   const [whatsappNumberSource, setWhatsappNumberSource] = useState<string | undefined>(undefined);
 
   // ── Persisted Facebook connection (loaded from API) ───────────────
   const [fbConnectedPageId, setFbConnectedPageId] = useState('');
   const [fbConnectedPageName, setFbConnectedPageName] = useState('');
   const [fbTokenExpiry, setFbTokenExpiry] = useState<string | null>(null);
-
-  // ── Facebook OAuth (in-progress) state ───────────────────────────
-  const [fbSdkReady, setFbSdkReady] = useState(false);
-  const [fbConnecting, setFbConnecting] = useState(false);
   const [fbSaving, setFbSaving] = useState(false);
-  const [fbPages, setFbPages] = useState<FbPage[]>([]);
-  const [fbShortLivedToken, setFbShortLivedToken] = useState('');
-  const [fbSelectedPageId, setFbSelectedPageId] = useState('');
-  const [fbSelectedPageName, setFbSelectedPageName] = useState('');
-  const fbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+
+  // ── Facebook OAuth ────────────────────────────────────────────────
+  const {
+    fbSdkReady,
+    fbConnecting,
+    fbPages,
+    fbShortLivedToken,
+    fbSelectedPageId,
+    fbSelectedPageName,
+    handleFacebookConnect,
+    resetFacebookSelection,
+    setFbSelectedPageId,
+    setFbSelectedPageName,
+  } = useFacebookOAuth();
 
   // Load app data
   useEffect(() => {
@@ -129,100 +123,7 @@ export default function EditAppPage() {
     }
   }, [appId]);
 
-  // Load Facebook SDK
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const initSdk = () => {
-      try {
-        (window as any).FB.init({
-          appId: FACEBOOK_APP_ID,
-          cookie: true,
-          xfbml: false,
-          version: FACEBOOK_API_VERSION
-        });
-        setFbSdkReady(true);
-      } catch (_) {}
-    };
-
-    if (typeof (window as any).FB !== 'undefined') {
-      initSdk();
-      return;
-    }
-
-    (window as any).fbAsyncInit = initSdk;
-
-    if (!document.getElementById('facebook-jssdk')) {
-      const script = document.createElement('script');
-      script.id = 'facebook-jssdk';
-      script.src = FACEBOOK_SDK_SRC;
-      script.async = true;
-      script.defer = true;
-      document.body.appendChild(script);
-    }
-
-    fbPollRef.current = setInterval(() => {
-      if (typeof (window as any).FB !== 'undefined') {
-        clearInterval(fbPollRef.current!);
-        setFbSdkReady(true);
-      }
-    }, FACEBOOK_POLL_INTERVAL_MS);
-
-    return () => {
-      if (fbPollRef.current) clearInterval(fbPollRef.current);
-    };
-  }, []);
-
   // ── Facebook OAuth handlers ───────────────────────────────────────
-  const handleFacebookConnect = () => {
-    const FBSdk = (window as any).FB;
-    if (!FBSdk) {
-      toast.error('Facebook SDK is still loading. Please try again in a moment.');
-      return;
-    }
-
-    setFbConnecting(true);
-    setFbPages([]);
-    setFbShortLivedToken('');
-    setFbSelectedPageId('');
-    setFbSelectedPageName('');
-
-    FBSdk.login(
-      (response: any) => {
-        if (!response.authResponse) {
-          setFbConnecting(false);
-          return;
-        }
-        const token = response.authResponse.accessToken;
-        FBSdk.api(
-          '/me/accounts',
-          { access_token: token, fields: 'id,name,access_token' },
-          (pagesRes: any) => {
-            setFbConnecting(false);
-            if (pagesRes.error || !pagesRes.data) {
-              toast.error(
-                pagesRes?.error?.message ||
-                'Could not fetch your Facebook pages. Please ensure you granted the required permissions.'
-              );
-              return;
-            }
-            const pages: FbPage[] = pagesRes.data;
-            if (pages.length === 0) {
-              toast.error('No Facebook pages found. Make sure you admin at least one page.');
-              return;
-            }
-            setFbShortLivedToken(token);
-            setFbPages(pages);
-            if (pages.length === 1) {
-              setFbSelectedPageId(pages[0].id);
-              setFbSelectedPageName(pages[0].name);
-            }
-          }
-        );
-      },
-      { scope: FACEBOOK_LOGIN_SCOPE }
-    );
-  };
 
   const handleFacebookSave = async () => {
     if (!fbShortLivedToken || !fbSelectedPageId) {
@@ -243,10 +144,7 @@ export default function EditAppPage() {
         setFbConnectedPageName(updated.facebookPageName || fbSelectedPageName);
         setFbTokenExpiry(updated.facebookTokenExpiry || null);
         // Clear in-progress state
-        setFbPages([]);
-        setFbShortLivedToken('');
-        setFbSelectedPageId('');
-        setFbSelectedPageName('');
+        resetFacebookSelection();
         toast.success('Facebook page connected successfully!');
         await refreshApps();
       } else {
@@ -259,8 +157,11 @@ export default function EditAppPage() {
     }
   };
 
-  const handleFacebookDisconnect = async () => {
-    if (!confirm('Remove the Facebook page connection from this app?')) return;
+  const handleFacebookDisconnect = () => {
+    setShowDisconnectConfirm(true);
+  };
+
+  const confirmFacebookDisconnect = async () => {
     setFbSaving(true);
     try {
       const appService = await useAppService();
@@ -278,14 +179,12 @@ export default function EditAppPage() {
       toast.error(err.message || 'Failed to disconnect');
     } finally {
       setFbSaving(false);
+      setShowDisconnectConfirm(false);
     }
   };
 
   const cancelFbSelection = () => {
-    setFbShortLivedToken('');
-    setFbPages([]);
-    setFbSelectedPageId('');
-    setFbSelectedPageName('');
+    resetFacebookSelection();
   };
 
   // ── WhatsApp helpers ──────────────────────────────────────────────
@@ -311,23 +210,25 @@ export default function EditAppPage() {
 
   const getWhatsAppStatusBadge = (status?: string, hasNumber?: boolean) => {
     const effectiveStatus =
-      hasNumber && (status === 'pending' || !status) ? 'registered' : status;
+      hasNumber && (status === WhatsappNumberStatus.Pending || !status)
+        ? WhatsappNumberStatus.Registered
+        : status;
     switch (effectiveStatus) {
-      case 'registered':
+      case WhatsappNumberStatus.Registered:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <CheckCircle2 className="h-3 w-3" />
             Registered
           </span>
         );
-      case 'pending':
+      case WhatsappNumberStatus.Pending:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             <Clock className="h-3 w-3" />
             Pending
           </span>
         );
-      case 'failed':
+      case WhatsappNumberStatus.Failed:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
             <XCircle className="h-3 w-3" />
@@ -363,7 +264,7 @@ export default function EditAppPage() {
         if (formData.whatsappNumber.trim() !== formData.whatsappNumber) {
           updateData.whatsappNumber = formData.whatsappNumber.trim();
           updateData.whatsappNumberSource = 'user-provided';
-          updateData.whatsappNumberStatus = 'pending';
+          updateData.whatsappNumberStatus = WhatsappNumberStatus.Pending;
         }
       } else if (
         formData.whatsappOption === 'get-from-twilio' &&
@@ -371,7 +272,7 @@ export default function EditAppPage() {
       ) {
         updateData.whatsappNumber = undefined;
         updateData.whatsappNumberSource = 'twilio-provided';
-        updateData.whatsappNumberStatus = 'pending';
+        updateData.whatsappNumberStatus = WhatsappNumberStatus.Pending;
       }
 
       const response = await appService.updateApp(appId, updateData);
@@ -601,7 +502,8 @@ export default function EditAppPage() {
                         />
                       </div>
                       <p className="mt-3 text-sm text-gray-500">
-                        {formData.whatsappNumber && whatsappNumberStatus === 'registered'
+                        {formData.whatsappNumber &&
+                        whatsappNumberStatus === WhatsappNumberStatus.Registered
                           ? 'Changing the number will require re-registration with Twilio.'
                           : 'Your number will be registered with Twilio for WhatsApp messaging. Make sure the number can receive SMS or voice calls for verification.'}
                       </p>
@@ -846,6 +748,20 @@ export default function EditAppPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showDisconnectConfirm}
+        onClose={() => {
+          if (!fbSaving) setShowDisconnectConfirm(false);
+        }}
+        onConfirm={confirmFacebookDisconnect}
+        title="Disconnect Facebook Page"
+        message="Are you sure you want to remove the Facebook Page connection from this app? Messenger routing from this page will stop until you reconnect."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        confirmButtonClass="btn-danger"
+        isLoading={fbSaving}
+      />
     </ProtectedRoute>
   );
 }
