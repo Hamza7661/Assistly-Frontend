@@ -47,11 +47,8 @@ export default function ProtectedRoute({
              const freshUser = new User(response.data.user);
              updateUser(freshUser);
              
-             // Only check package requirement if this route requires it
-             if (requirePackage && !freshUser.hasPackage()) {
-               router.push(redirectTo || '/packages');
-               return;
-             }
+             // Package requirement check removed - users can access all routes without package
+             // Users can optionally choose a package from pricing/packages page
            } else {
              // API call failed, redirect to signin
              router.push('/signin');

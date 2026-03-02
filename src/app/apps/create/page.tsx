@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -8,12 +8,14 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { useAppService } from '@/services';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
+import AppCreationProgressModal from '@/components/AppCreationProgressModal';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
 import { Building2, Loader2, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
+import { io, Socket } from 'socket.io-client';
 
 export default function CreateAppPage() {
   const router = useRouter();
@@ -21,7 +23,9 @@ export default function CreateAppPage() {
   const { refreshApps, switchApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [isLoading, setIsLoading] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState('');
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -30,6 +34,49 @@ export default function CreateAppPage() {
     whatsappOption: 'use-my-number' as 'use-my-number' | 'get-from-twilio',
     whatsappNumber: ''
   });
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    };
+  }, [socket]);
+
+  // Initialize WebSocket connection ONLY when creating app (lazy loading)
+  const initializeSocket = () => {
+    if (!socket && user?._id) {
+      const socketUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
+      const newSocket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: false, // Don't auto-reconnect
+      });
+
+      newSocket.on('connect', () => {
+        console.log('WebSocket connected for app creation');
+        newSocket.emit('join', user._id);
+      });
+
+      newSocket.on('app_creation_progress', (data) => {
+        // Dispatch custom event for progress modal
+        window.dispatchEvent(new CustomEvent('app_creation_progress', { detail: data }));
+      });
+
+      setSocket(newSocket);
+    }
+  };
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    };
+  }, [socket]);
 
   // ── Facebook OAuth ────────────────────────────────────────────────
   const {
@@ -74,9 +121,15 @@ export default function CreateAppPage() {
     e.preventDefault();
     setError('');
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
+
+    // Initialize WebSocket only when user clicks submit (lazy loading for performance)
+    initializeSocket();
 
     setIsLoading(true);
+    setShowProgress(true);
 
     try {
       const appService = await useAppService();
@@ -105,9 +158,17 @@ export default function CreateAppPage() {
         await refreshApps();
         router.push('/apps');
       } else {
+        setShowProgress(false);
         setError(response.message || 'Failed to create app');
+        setIsLoading(false);
+        // Disconnect socket on error
+        if (socket) {
+          socket.disconnect();
+          setSocket(null);
+        }
       }
     } catch (err: any) {
+      setShowProgress(false);
       if (err.response?.data?.message) {
         setError(err.response.data.message);
       } else if (err.message) {
@@ -116,8 +177,54 @@ export default function CreateAppPage() {
         setError('An error occurred while creating the app');
       }
       toast.error('Failed to create app');
-    } finally {
       setIsLoading(false);
+      // Disconnect socket on error
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+      // Disconnect socket on error
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    }
+  };
+
+
+  const handleProgressComplete = async () => {
+    try {
+      // Disconnect socket after completion
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+      
+      // Refresh apps and switch to the new one
+      await refreshApps();
+      const apps = JSON.parse(localStorage.getItem('apps') || '[]');
+      if (apps.length > 0) {
+        const newestApp = apps[0]; // Assuming newest is first
+        await switchApp(newestApp.id);
+      }
+      toast.success('App created successfully!');
+      router.push('/apps');
+    } catch (error) {
+      console.error('Error during progress complete:', error);
+      router.push('/apps');
+    }
+  };
+
+  const handleProgressError = (errorMsg: string) => {
+    setShowProgress(false);
+    setError(errorMsg);
+    setIsLoading(false);
+    toast.error(errorMsg);
+    
+    // Disconnect socket on error
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
     }
   };
 
@@ -127,6 +234,11 @@ export default function CreateAppPage() {
     <ProtectedRoute>
       <div className="bg-white min-h-screen">
         <Navigation />
+        <AppCreationProgressModal 
+          isOpen={showProgress}
+          onComplete={handleProgressComplete}
+          onError={handleProgressError}
+        />
         <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Create New App</h1>

@@ -61,7 +61,7 @@ export default function AppSelector() {
         title={currentApp ? `Current app: ${currentApp.name} (${getIndustryLabel(currentApp.industry)})` : 'Select an app'}
       >
         <Building2 className="h-4 w-4 text-[#00bc7d]" />
-        <span className="hidden md:block max-w-[150px] truncate font-semibold">
+        <span className="max-w-[140px] truncate font-semibold">
           {currentApp?.name || 'Select App'}
         </span>
         {currentApp && (

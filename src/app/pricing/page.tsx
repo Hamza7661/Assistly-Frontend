@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,9 +22,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { User } from '@/models/User';
+import { PRICING_PLANS, CONTACT_URL } from '@/constants/pricingPlans';
 import styles from '../dashboard/styles.module.css';
 
+// Set to true to show Upgrade Your Package page and Current Subscription sections
+const SHOW_UPGRADE_PAGE = false;
+
 export default function PricingPage() {
+  const router = useRouter();
   const { user, updateUser } = useAuth();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [subscription, setSubscription] = useState<any>(null);
@@ -34,12 +40,20 @@ export default function PricingPage() {
   const [detectedCountryCode, setDetectedCountryCode] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!SHOW_UPGRADE_PAGE) {
+      router.replace('/dashboard');
+      return;
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!SHOW_UPGRADE_PAGE || !user?._id) return;
     if (user?._id) {
       loadSubscription();
       loadPackages();
       detectAndSetRegion();
     }
-  }, [user?._id]);
+  }, [user?._id, SHOW_UPGRADE_PAGE]);
 
   useEffect(() => {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -118,40 +132,9 @@ export default function PricingPage() {
     }
   };
 
-  const handlePackageUpgrade = async (pkg: any) => {
-    if (!user) return;
-    setProcessing(true);
-    try {
-      const isFree = pkg.price?.amount === 0 || pkg.type === 'free-trial';
-      if (isFree) {
-        const { useAuthService } = await import('@/services');
-        const authService = await useAuthService();
-        const response = await authService.updateUserProfile(user._id, { package: pkg._id });
-        if (response.status === 'success') {
-          updateUser(new User(response.data.user));
-          toast.success('Package upgraded successfully!');
-          loadSubscription();
-          loadPackages();
-        }
-      } else {
-        const subscriptionService = await useSubscriptionService();
-        const checkoutResponse = await subscriptionService.createCheckoutSession(
-          pkg._id,
-          `${window.location.origin}/pricing?subscription=success`,
-          `${window.location.origin}/pricing?subscription=canceled`
-        );
-        if (checkoutResponse.data.url) window.location.href = checkoutResponse.data.url;
-      }
-    } catch (e: any) {
-      const msg = e.message || '';
-      if (msg.includes('Stripe is not configured') || msg.includes('STRIPE_SECRET_KEY')) {
-        toast.info('⏰ Coming Soon! Payment processing is on the way.');
-      } else {
-        toast.error(msg || 'Failed to upgrade package.');
-      }
-    } finally {
-      setProcessing(false);
-    }
+  const handlePackageUpgrade = (pkg: any) => {
+    // Redirect to Upzilo contact page for all package upgrades
+    window.open('https://upzilo.com/contact/', '_blank');
   };
 
   const formatDate = (dateString: string) => {
@@ -202,9 +185,17 @@ export default function PricingPage() {
     );
   };
 
+  if (!SHOW_UPGRADE_PAGE) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <ProtectedRoute requirePackage={true}>
+      <ProtectedRoute>
         <div className={styles.container}>
           <Navigation />
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -226,8 +217,8 @@ export default function PricingPage() {
         <div className={`pt-16 transition-all duration-300 ${isSidebarOpen ? 'lg:pl-64' : 'lg:pl-0'}`}>
           <div className={styles.pageContainer}>
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">Pricing</h1>
-              <p className="text-gray-600 mt-2">View your subscription and upgrade options</p>
+              <h1 className="text-3xl font-bold text-gray-900">Upgrade Your Package</h1>
+              <p className="text-gray-600 mt-2">Choose the perfect plan to scale your business</p>
             </div>
 
             <div className="space-y-6">
@@ -385,84 +376,96 @@ export default function PricingPage() {
                 </div>
               )}
 
-              {/* Upgrade Packages */}
-              {packageInfo && packages.length > 0 && (() => {
-                const currentPackagePrice = packageInfo.price?.amount || 0;
-                const upgradePackages = packages
-                  .filter((pkg: any) => {
-                    const pkgPrice = pkg.price?.amount || 0;
-                    return pkg.isActive && pkgPrice > currentPackagePrice;
-                  })
-                  .sort((a: any, b: any) => (a.price?.amount || 0) - (b.price?.amount || 0));
-                if (upgradePackages.length === 0) return null;
-                return (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <div className="mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                        <TrendingUp className="h-7 w-7 text-green-600" />
-                        Upgrade Your Plan
-                      </h2>
-                      <p className="text-gray-600">Upgrade to a higher tier plan for more features and limits</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {upgradePackages.map((pkg: any) => {
-                        const localPrice = formatPriceInLocalCurrency(pkg.price?.amount || 0);
-                        return (
-                          <div
-                            key={pkg._id}
-                            className={`border-2 rounded-lg p-6 ${pkg.isPopular ? 'border-[#00bc7d] bg-green-50' : 'border-gray-200 bg-white'}`}
-                          >
-                            {pkg.isPopular && (
-                              <div className="bg-[#00bc7d] text-white text-xs font-semibold px-3 py-1 rounded-full inline-block mb-4">
-                                Most Popular
-                              </div>
-                            )}
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
-                            <div className="mb-4">
-                              <span className="text-3xl font-bold text-gray-900">
+              {/* Available Packages - same plans as Choose Package page, regional pricing */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-7 w-7 text-green-600" />
+                    Available Plans
+                  </h2>
+                  <p className="text-gray-600">Choose the perfect plan to scale your business. Prices shown for your region.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {PRICING_PLANS.map((plan) => {
+                    const localPrice = plan.basePriceUsd != null ? formatPriceInLocalCurrency(plan.basePriceUsd) : null;
+                    const limitVal = (v: number | 'Unlimited') => (typeof v === 'number' ? v.toLocaleString() : v);
+                    return (
+                      <div
+                        key={plan.id}
+                        className={`border-2 rounded-lg p-6 relative ${
+                          plan.popular ? 'border-[#00bc7d] bg-green-50' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        {plan.popular && (
+                          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                            <span className="bg-[#00bc7d] text-white text-xs font-bold px-4 py-1 rounded-full">
+                              MOST POPULAR
+                            </span>
+                          </div>
+                        )}
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2 mt-2">{plan.name}</h3>
+                        <div className="mb-4">
+                          {localPrice ? (
+                            <>
+                              <span className="text-4xl font-bold text-gray-900">
                                 {localPrice.symbol}{localPrice.amount.toFixed(2)}
                               </span>
-                              <span className="text-gray-600 ml-2">/{pkg.price?.billingCycle === 'yearly' ? 'year' : 'month'}</span>
-                              {localPrice.countryName !== 'United States' && (
+                              <span className="text-gray-600 ml-2">/per month</span>
+                              {localPrice.countryName && localPrice.countryName !== 'United States' && (
                                 <div className="text-xs text-gray-500 mt-1">({localPrice.countryName} pricing)</div>
                               )}
+                            </>
+                          ) : (
+                            <span className="text-2xl font-semibold text-gray-600">Contact us for price</span>
+                          )}
+                        </div>
+                        {plan.featuresSubtitle && (
+                          <p className="text-sm text-gray-700 mb-4 font-medium">{plan.featuresSubtitle}</p>
+                        )}
+                        <div className="mb-6">
+                          <p className="text-sm font-semibold text-gray-700 mb-3">Limits</p>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Chatbot Queries</span>
+                              <span className="font-semibold">{limitVal(plan.limits.chatbotQueries)}</span>
                             </div>
-                            <p className="text-gray-600 text-sm mb-4">{pkg.description}</p>
-                            <div className="space-y-3 mb-6">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Chatbot Queries</span>
-                                <span className="font-semibold text-gray-900">
-                                  {pkg.limits?.chatbotQueries === -1 ? 'Unlimited' : pkg.limits?.chatbotQueries?.toLocaleString() || '0'}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Voice Minutes</span>
-                                <span className="font-semibold text-gray-900">
-                                  {pkg.limits?.voiceMinutes === -1 ? 'Unlimited' : pkg.limits?.voiceMinutes?.toLocaleString() || '0'}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Lead Generation</span>
-                                <span className="font-semibold text-gray-900">
-                                  {pkg.limits?.leadGeneration === -1 ? 'Unlimited' : pkg.limits?.leadGeneration?.toLocaleString() || '0'}
-                                </span>
-                              </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Voice Minutes</span>
+                              <span className="font-semibold">{limitVal(plan.limits.voiceMinutes)}</span>
                             </div>
-                            <button
-                              onClick={() => handlePackageUpgrade(pkg)}
-                              className={`block w-full text-center py-2 px-4 rounded-lg font-semibold transition-colors ${
-                                pkg.isPopular ? 'bg-[#00bc7d] text-white hover:bg-[#00a870]' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                              }`}
-                            >
-                              Upgrade to {pkg.name}
-                            </button>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Lead Generation</span>
+                              <span className="font-semibold">{limitVal(plan.limits.leadGeneration)}</span>
+                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
+                        </div>
+                        <div className="mb-6">
+                          <p className="text-sm font-semibold text-gray-700 mb-3">Features</p>
+                          <ul className="space-y-2">
+                            {plan.features.map((f, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                                <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                <span>{f}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <button
+                          onClick={() => window.open(CONTACT_URL, '_blank')}
+                          className={`block w-full text-center py-3 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+                            plan.popular
+                              ? 'bg-[#00bc7d] text-white hover:bg-[#00a870]'
+                              : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                          }`}
+                        >
+                          {plan.ctaContact && <ExternalLink className="h-4 w-4" />}
+                          {plan.ctaLabel}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -8,3 +8,4 @@ export { default as Toaster } from './Toaster';
 export { default as Logo } from './Logo';
 export { default as ConfirmModal } from './ConfirmModal';
 export { default as NoAppEmptyState } from './NoAppEmptyState';
+export { default as AppCreationProgressModal } from './AppCreationProgressModal';

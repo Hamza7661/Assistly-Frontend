@@ -10,7 +10,7 @@ import { useQuestionnareService } from '@/services';
 import { QuestionnareType } from '@/enums/QuestionnareType';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Building2, Phone, Power, PowerOff, LayoutList, Layers, GitBranch, Users, ExternalLink, DollarSign, MessageCircle, Plug, User, ClipboardList, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Building2, Phone, Power, PowerOff, LayoutList, Layers, GitBranch, Users, ExternalLink, MessageCircle, Plug, User, ClipboardList, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -342,6 +342,23 @@ export default function AppsPage() {
     }
   };
 
+  // Stat card colours
+  const statCards = [
+    { label: 'Lead Types',        value: appStats?.leadTypes  ?? 0, icon: LayoutList, href: '/settings/chatbot',    iconBg: 'bg-[#f0fdf9]',   iconColor: 'text-[#00bc7d]', linkLabel: 'Manage' },
+    { label: 'Services',          value: appStats?.services   ?? 0, icon: Layers,     href: '/treatment-plans',     iconBg: 'bg-blue-50',      iconColor: 'text-blue-500',  linkLabel: 'Manage' },
+    { label: 'Active Workflows',  value: appStats?.workflows  ?? 0, icon: GitBranch,  href: '/chatbot-workflow',    iconBg: 'bg-violet-50',    iconColor: 'text-violet-500',linkLabel: 'Manage' },
+    { label: 'Total Leads',       value: appStats?.leads      ?? 0, icon: Users,      href: '/leads',               iconBg: 'bg-amber-50',     iconColor: 'text-amber-500', linkLabel: 'View' },
+  ];
+
+  const quickLinks = [
+    { href: '/settings/chatbot',   icon: MessageCircle, label: 'Chat Settings' },
+    { href: '/integration',        icon: Plug,          label: 'Integration' },
+    { href: '/leads',              icon: Users,         label: 'Leads' },
+    { href: '/treatment-plans',    icon: ClipboardList, label: 'Service Plans' },
+    { href: '/chatbot-workflow',   icon: FileText,      label: 'Conversation Flows' },
+    { href: '/settings',           icon: User,          label: 'Account Settings' },
+  ];
+
   if (isLoading) {
     return (
       <ProtectedRoute>
@@ -349,23 +366,28 @@ export default function AppsPage() {
           <Navigation />
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">My Apps</h1>
-                  <p className="text-gray-600 mt-2">Manage your apps. Each app has its own industry, flows, plans, and integrations.</p>
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Apps</h1>
+                  <p className="text-gray-500 mt-1 text-sm">Each app has its own number, flows, and leads.</p>
                 </div>
               </div>
-              <div className="min-h-[40vh] flex items-center justify-center">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm animate-pulse">
-                      <div className="h-5 w-24 rounded bg-gray-200 mb-3" />
-                      <div className="h-4 w-full rounded bg-gray-100 mb-2" />
-                      <div className="h-4 w-3/4 rounded bg-gray-100 mb-4" />
-                      <div className="h-9 w-20 rounded bg-gray-100" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-pulse">
+                    <div className="h-1.5 bg-gray-100" />
+                    <div className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-gray-200" />
+                        <div className="space-y-2 flex-1">
+                          <div className="h-4 w-28 rounded bg-gray-200" />
+                          <div className="h-3 w-20 rounded bg-gray-100" />
+                        </div>
+                      </div>
+                      <div className="h-9 w-full rounded-lg bg-gray-100" />
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -380,335 +402,242 @@ export default function AppsPage() {
         <Navigation />
         <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Apps</h1>
-              <p className="text-gray-600 mt-2">Manage your apps. Each app has its own industry, flows, plans, and integrations.</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">Show inactive apps</span>
-                <button
-                  type="button"
-                  onClick={() => setShowInactive(!showInactive)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#00bc7d] focus:ring-offset-2 ${
-                    showInactive ? 'bg-[#00bc7d]' : 'bg-gray-300'
-                  }`}
-                  role="switch"
-                  aria-checked={showInactive}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      showInactive ? 'translate-x-6' : 'translate-x-1'
+
+            {/* ── Header ──────────────────────────────────────────────── */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Apps</h1>
+                <p className="text-gray-500 mt-1 text-sm">Each app has its own WhatsApp number, flows, plans, and leads.</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <span className="text-sm text-gray-600">Show inactive</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowInactive(!showInactive)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#00bc7d] focus:ring-offset-2 ${
+                      showInactive ? 'bg-[#00bc7d]' : 'bg-gray-200'
                     }`}
-                  />
+                    role="switch"
+                    aria-checked={showInactive}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${showInactive ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </label>
+                <button
+                  onClick={() => router.push('/apps/create')}
+                  className="btn-primary flex items-center gap-2 shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  New App
                 </button>
               </div>
-              <button
-                onClick={() => router.push('/apps/create')}
-                className="btn-primary flex items-center gap-2"
-              >
-                <Plus className="h-5 w-5" />
-                Create New App
-              </button>
             </div>
-          </div>
 
-          {/* Stat cards for selected app */}
-          {currentApp && (
-            <div className="mb-8">
-              <h2 className="text-sm font-medium text-gray-500 mb-3">
-                Stats for <span className="text-gray-900">{currentApp.name}</span>
-              </h2>
-              {statsLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex flex-col animate-pulse">
-                      <div className="flex items-center gap-2 text-gray-400 mb-1">
-                        <div className="h-5 w-5 rounded bg-gray-200" />
-                        <div className="h-4 w-20 rounded bg-gray-200" />
-                      </div>
-                      <div className="h-8 w-12 rounded bg-gray-200 mt-2" />
-                      <div className="h-4 w-10 rounded bg-gray-100 mt-3" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Lead types */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex flex-col">
-                    <div className="flex items-center gap-2 text-gray-600 mb-1">
-                      <LayoutList className="h-5 w-5" />
-                      <span className="text-sm font-medium">Lead types</span>
-                    </div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {appStats?.leadTypes ?? 0}
-                    </div>
-                    <a
-                      href="/settings/chatbot"
-                      className="mt-3 text-sm font-medium text-[#00bc7d] hover:text-[#00a870] inline-flex items-center gap-1"
-                    >
-                      Add
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                  {/* Services */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex flex-col">
-                    <div className="flex items-center gap-2 text-gray-600 mb-1">
-                      <Layers className="h-5 w-5" />
-                      <span className="text-sm font-medium">Services</span>
-                    </div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {appStats?.services ?? 0}
-                    </div>
-                    <a
-                      href="/treatment-plans"
-                      className="mt-3 text-sm font-medium text-[#00bc7d] hover:text-[#00a870] inline-flex items-center gap-1"
-                    >
-                      Add
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                  {/* Workflows */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex flex-col">
-                    <div className="flex items-center gap-2 text-gray-600 mb-1">
-                      <GitBranch className="h-5 w-5" />
-                      <span className="text-sm font-medium">Workflows in use</span>
-                    </div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {appStats?.workflows ?? 0}
-                    </div>
-                    <a
-                      href="/chatbot-workflow"
-                      className="mt-3 text-sm font-medium text-[#00bc7d] hover:text-[#00a870] inline-flex items-center gap-1"
-                    >
-                      Add
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                  {/* Leads */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex flex-col">
-                    <div className="flex items-center gap-2 text-gray-600 mb-1">
-                      <Users className="h-5 w-5" />
-                      <span className="text-sm font-medium">Leads</span>
-                    </div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {appStats?.leads ?? 0}
-                    </div>
-                    <a
-                      href="/leads"
-                      className="mt-3 text-sm font-medium text-[#00bc7d] hover:text-[#00a870] inline-flex items-center gap-1"
-                    >
-                      See
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {(() => {
-            const appsToShow = showInactive ? allApps : apps;
-            return appsToShow.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {showInactive ? 'No inactive apps' : 'No apps yet'}
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  {showInactive ? 'All your apps are active' : 'Create your first app to get started'}
+            {/* ── Stat cards ──────────────────────────────────────────── */}
+            {currentApp && (
+              <div className="mb-8">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                  Overview · <span className="text-gray-600 normal-case font-medium tracking-normal">{currentApp.name}</span>
                 </p>
-                {!showInactive && (
-                  <button
-                    onClick={() => router.push('/apps/create')}
-                    className="btn-primary inline-flex items-center gap-2"
-                  >
-                    <Plus className="h-5 w-5" />
-                    Create Your First App
-                  </button>
+                {statsLoading ? (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm animate-pulse flex items-center gap-4">
+                        <div className="w-11 h-11 rounded-xl bg-gray-100 shrink-0" />
+                        <div className="space-y-2 flex-1">
+                          <div className="h-3 w-20 rounded bg-gray-100" />
+                          <div className="h-6 w-10 rounded bg-gray-200" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {statCards.map(({ label, value, icon: Icon, href, iconBg, iconColor, linkLabel }) => (
+                      <a
+                        key={label}
+                        href={href}
+                        className="bg-white border border-gray-200 rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all flex items-center gap-2 sm:gap-4 group"
+                      >
+                        <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+                          <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${iconColor}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-gray-500 truncate">{label}</p>
+                          <p className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{value}</p>
+                        </div>
+                        <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-gray-300 group-hover:text-gray-400 shrink-0 self-start mt-1 hidden sm:block" />
+                      </a>
+                    ))}
+                  </div>
                 )}
               </div>
-            ) : (
-              <div className="space-y-8">
-                {appsGroupedByNumber.map(({ number: groupNumber, apps: groupApps }) => {
-                  const isNoNumber = groupNumber === '__no_number__';
-                  return (
-                    <section key={isNoNumber ? 'no-number' : groupNumber}>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Phone className="h-5 w-5 text-gray-500" />
-                        <h2 className="text-base font-semibold text-gray-800">
-                          {isNoNumber ? 'No number' : groupNumber}
-                        </h2>
-                        {!isNoNumber && groupApps.length > 1 && (
-                          <span className="text-sm text-gray-500">
-                            ({groupApps.length} apps)
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {groupApps.map((app: any) => {
-                          const num = (app.whatsappNumber || app.twilioPhoneNumber)?.trim?.();
-                          const sameNumberCount = num ? (countByWhatsAppNumber.get(num) || 0) : 0;
-                          const isDashboardCurrent = currentApp?.id === app.id;
-                          const usesThisNumber = !!num && !!app.usesTwilioNumber;
-                          return (
-                            <div
-                              key={app.id || app._id}
-                              className={`border rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow ${
-                                isDashboardCurrent ? 'border-[#00bc7d] border-2' : 'border-gray-200'
-                              } ${!app.isActive ? 'opacity-60' : ''}`}
-                            >
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    <h3 className="text-lg font-semibold text-gray-900">{app.name}</h3>
-                                    {app.isActive && !app.deletedAt && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        Active
-                                      </span>
-                                    )}
-                                    {app.deletedAt && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                        Deleted
-                                      </span>
-                                    )}
-                                    {!app.isActive && !app.deletedAt && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
-                                        Inactive
-                                      </span>
-                                    )}
-                                    {isDashboardCurrent && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#00bc7d] text-white">
-                                        Current app
-                                      </span>
-                                    )}
-                                    {usesThisNumber && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800" title="This app is using this number for leads and flows">
-                                        Using this number
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
+            )}
 
-                              <div className="space-y-2 mb-4">
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <Building2 className="h-4 w-4" />
-                                  <span>{getIndustryLabel(app.industry)}</span>
-                                </div>
-                                {num && (
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <Phone className="h-4 w-4" />
-                                    <span className="truncate">{num}</span>
-                                    {getWhatsAppStatusBadge(app.whatsappNumberStatus, !!num)}
-                                  </div>
-                                )}
-                                {app.description && (
-                                  <p className="text-sm text-gray-500 line-clamp-2">{app.description}</p>
-                                )}
-                              </div>
+            {/* ── App cards ───────────────────────────────────────────── */}
+            {(() => {
+              const appsToShow = showInactive ? allApps : apps;
+              return appsToShow.length === 0 ? (
+                <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-200">
+                  <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <Building2 className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    {showInactive ? 'No inactive apps' : 'No apps yet'}
+                  </h3>
+                  <p className="text-gray-500 text-sm mb-6">
+                    {showInactive ? 'All your apps are currently active.' : 'Create your first app to get started.'}
+                  </p>
+                  {!showInactive && (
+                    <button
+                      onClick={() => router.push('/apps/create')}
+                      className="btn-primary inline-flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create Your First App
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {appsToShow.map((app: any) => {
+                            const num = (app.whatsappNumber || app.twilioPhoneNumber)?.trim?.();
+                            const sameNumberCount = num ? (countByWhatsAppNumber.get(num) || 0) : 0;
+                            const isDashboardCurrent = currentApp?.id === app.id;
+                            const initials = app.name?.charAt(0)?.toUpperCase() || '?';
 
-                              <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                                {!app.usesTwilioNumber && app.isActive && !app.deletedAt && sameNumberCount > 1 && (
-                                  <button
-                                    onClick={() => handleSetAsCurrent(app.id)}
-                                    className="btn-secondary text-sm flex-1"
-                                  >
-                                    Use this number
-                                  </button>
-                                )}
-                                {app.deletedAt && (
-                                  <button
-                                    onClick={() => handleRestoreApp(app.id)}
-                                    disabled={restoringAppId === app.id}
-                                    className="p-2 rounded disabled:opacity-50 text-green-600 hover:text-green-900 hover:bg-green-50"
-                                    title="Restore app"
-                                  >
-                                    <Power className="h-4 w-4" />
-                                  </button>
-                                )}
-                                {!app.deletedAt && (
-                                  <>
-                                    <button
-                                      onClick={() => handleToggleAppStatus(app.id, app.isActive)}
-                                      disabled={togglingAppId === app.id}
-                                      className={`p-2 rounded disabled:opacity-50 ${
-                                        app.isActive
-                                          ? 'text-orange-600 hover:text-orange-900 hover:bg-orange-50'
-                                          : 'text-green-600 hover:text-green-900 hover:bg-green-50'
-                                      }`}
-                                      title={app.isActive ? 'Disable app' : 'Enable app'}
-                                    >
-                                      {app.isActive ? (
-                                        <PowerOff className="h-4 w-4" />
-                                      ) : (
-                                        <Power className="h-4 w-4" />
+                            return (
+                              <div
+                                key={app.id || app._id}
+                                className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all overflow-hidden ${
+                                  isDashboardCurrent ? 'border-[#00bc7d] border-2' : 'border-gray-200'
+                                } ${!app.isActive ? 'opacity-60' : ''}`}
+                              >
+                                {/* Accent top bar */}
+                                <div className={`h-1.5 ${isDashboardCurrent ? 'bg-[#00bc7d]' : app.deletedAt ? 'bg-red-300' : !app.isActive ? 'bg-gray-300' : 'bg-gray-100'}`} />
+
+                                <div className="p-5">
+                                  {/* App avatar + name + badges */}
+                                  <div className="flex items-start gap-3 mb-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shrink-0 ${isDashboardCurrent ? 'bg-[#00bc7d]' : 'bg-gray-700'}`}>
+                                      {initials}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h3 className="font-semibold text-gray-900 truncate">{app.name}</h3>
+                                      <p className="text-xs text-gray-500 mt-0.5">{getIndustryLabel(app.industry)}</p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                      {isDashboardCurrent && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#00bc7d] text-white">
+                                          Current
+                                        </span>
                                       )}
-                                    </button>
-                                    <button
-                                      onClick={() => router.push(`/apps/${app.id}/edit`)}
-                                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
-                                      title="Edit app"
-                                    >
-                                      <Edit2 className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteClick(app.id, app.name)}
-                                      disabled={deletingAppId === app.id}
-                                      className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded disabled:opacity-50"
-                                      title="Delete app"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            );
-          })()}
+                                      {app.deletedAt ? (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Deleted</span>
+                                      ) : !app.isActive ? (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inactive</span>
+                                      ) : !isDashboardCurrent ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                                          Active
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
 
-          {/* Quick links */}
-          <div className="mt-10 pt-8 border-t border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500 mb-3">Quick links</h3>
-            <div className="flex flex-wrap gap-3">
-              <a href="/pricing" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <DollarSign className="h-4 w-4" />
-                Pricing
-              </a>
-              <a href="/settings/chatbot" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <MessageCircle className="h-4 w-4" />
-                Chatbot settings
-              </a>
-              <a href="/settings" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <User className="h-4 w-4" />
-                Account settings
-              </a>
-              <a href="/integration" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <Plug className="h-4 w-4" />
-                Integration
-              </a>
-              <a href="/leads" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <Users className="h-4 w-4" />
-                Leads
-              </a>
-              <a href="/treatment-plans" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <ClipboardList className="h-4 w-4" />
-                Service plans
-              </a>
-              <a href="/chatbot-workflow" className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-[#00bc7d] transition-colors">
-                <FileText className="h-4 w-4" />
-                Conversation flows
-              </a>
+                                  {/* WhatsApp number pill */}
+                                  {num ? (
+                                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg mb-4">
+                                      <Phone className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                      <span className="text-sm font-mono text-gray-700 truncate flex-1">{num}</span>
+                                      {getWhatsAppStatusBadge(app.whatsappNumberStatus, !!num)}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 rounded-lg mb-4">
+                                      <Phone className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                      <span className="text-xs text-amber-600">No WhatsApp number</span>
+                                    </div>
+                                  )}
+
+                                  {/* Description */}
+                                  {app.description && (
+                                    <p className="text-xs text-gray-400 line-clamp-2 mb-4">{app.description}</p>
+                                  )}
+
+                                  {/* Actions */}
+                                  <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                                    {!app.usesTwilioNumber && app.isActive && !app.deletedAt && sameNumberCount > 1 && (
+                                      <button onClick={() => handleSetAsCurrent(app.id)} className="btn-secondary text-xs flex-1 py-1.5">
+                                        Use this number
+                                      </button>
+                                    )}
+                                    {app.deletedAt ? (
+                                      <button
+                                        onClick={() => handleRestoreApp(app.id)}
+                                        disabled={restoringAppId === app.id}
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                      >
+                                        <Power className="h-3.5 w-3.5" /> Restore
+                                      </button>
+                                    ) : (
+                                      <div className="flex items-center gap-1 ml-auto">
+                                        <button
+                                          onClick={() => handleToggleAppStatus(app.id, app.isActive)}
+                                          disabled={togglingAppId === app.id}
+                                          className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                                            app.isActive
+                                              ? 'text-orange-500 hover:bg-orange-50'
+                                              : 'text-green-600 hover:bg-green-50'
+                                          }`}
+                                          title={app.isActive ? 'Disable app' : 'Enable app'}
+                                        >
+                                          {app.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                                        </button>
+                                        <button
+                                          onClick={() => router.push(`/apps/${app.id}/edit`)}
+                                          className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                                          title="Edit app"
+                                        >
+                                          <Edit2 className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteClick(app.id, app.name)}
+                                          disabled={deletingAppId === app.id}
+                                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                          title="Delete app"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                </div>
+              );
+            })()}
+
+            {/* ── Quick links ─────────────────────────────────────────── */}
+            <div className="mt-10 pt-8 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Quick Links</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                {quickLinks.map(({ href, icon: Icon, label }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-[#00bc7d] hover:bg-[#f0fdf9] text-center transition-all group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-[#dcfcef] flex items-center justify-center transition-colors">
+                      <Icon className="h-4 w-4 text-gray-500 group-hover:text-[#00bc7d] transition-colors" />
+                    </div>
+                    <span className="text-xs text-gray-600 group-hover:text-[#00895c] font-medium leading-tight">{label}</span>
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
           </div>
         </div>
 
