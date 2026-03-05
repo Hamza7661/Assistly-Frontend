@@ -31,6 +31,7 @@ import {
   horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import EmojiPickerPopover from '@/components/EmojiPicker';
 
 /** Slug from label so backend value matches displayed text (e.g. "Catering" -> "catering") */
 function slugifyLabel(text: string): string {
@@ -125,6 +126,7 @@ export default function ChatbotSettingsPage() {
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [availableServicePlans, setAvailableServicePlans] = useState<string[]>([]);
+  const [openEmojiPicker, setOpenEmojiPicker] = useState<{ type: 'greeting' | 'lead-type'; id?: number } | null>(null);
   
   // Generate greeting preview
   const getGreetingPreview = () => {
@@ -159,32 +161,40 @@ export default function ChatbotSettingsPage() {
   const greetingTemplates = [
     {
       name: 'Professional',
+      emoji: '💼',
       text: 'Hi this is {assistantName} your virtual ai assistant from {companyName}. How can I help you today?'
     },
     {
       name: 'Friendly',
+      emoji: '😊',
       text: 'Hello! I\'m {assistantName} from {companyName}. How can I assist you today?'
     },
     {
       name: 'Casual',
+      emoji: '👋',
       text: 'Hey there! I\'m {assistantName}, your AI assistant at {companyName}. What can I do for you?'
     },
     {
       name: 'Simple',
+      emoji: '🤖',
       text: 'Hello! I\'m {assistantName}. How can I help you today?'
     }
   ];
   
-  const applyTemplate = (template: string, index: number) => {
-    updateSettings({ ...settings, greeting: template });
+  const applyTemplate = (template: typeof greetingTemplates[0], index: number) => {
+    // Include emoji from template if available
+    const greetingWithEmoji = template.emoji ? `${template.emoji} ${template.text}` : template.text;
+    updateSettings({ ...settings, greeting: greetingWithEmoji });
     setSelectedTemplateIndex(index);
   };
   
-  // Check if current greeting matches any template
+  // Check if current greeting matches any template (strip emojis for comparison)
   useEffect(() => {
     const currentGreeting = settings.greeting?.trim() || '';
+    // Remove emojis for comparison
+    const greetingWithoutEmoji = currentGreeting.replace(/\p{Extended_Pictographic}/gu, '').trim();
     const matchingIndex = greetingTemplates.findIndex(
-      template => template.text.trim() === currentGreeting
+      template => template.text.trim() === greetingWithoutEmoji || template.text.trim() === currentGreeting
     );
     setSelectedTemplateIndex(matchingIndex !== -1 ? matchingIndex : null);
   }, [settings.greeting]);
@@ -267,9 +277,10 @@ export default function ChatbotSettingsPage() {
         setOriginalSettings(loadedSettings);
         setHasUnsavedChanges(false);
         
-        // Check if loaded greeting matches any template
+        // Check if loaded greeting matches any template (strip emojis for comparison)
+        const greetingWithoutEmoji = greeting.replace(/\p{Extended_Pictographic}/gu, '').trim();
         const matchingIndex = greetingTemplates.findIndex(
-          template => template.text.trim() === greeting.trim()
+          template => template.text.trim() === greetingWithoutEmoji || template.text.trim() === greeting.trim()
         );
         setSelectedTemplateIndex(matchingIndex !== -1 ? matchingIndex : null);
       } catch (e: any) {
@@ -593,7 +604,44 @@ export default function ChatbotSettingsPage() {
                 </div>
                 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Greeting Message</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Greeting Message
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenEmojiPicker(
+                            openEmojiPicker && openEmojiPicker.type === 'greeting'
+                              ? left
+                              : { type: 'greeting' }
+                          )
+                        }
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
+                          openEmojiPicker && openEmojiPicker.type === 'greeting'
+                            ? 'border-[#00bc7d] bg-[#00bc7d]/5 shadow-sm'
+                            : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="text-lg leading-none">
+                          {settings.greeting?.match(/\p{Extended_Pictographic}/u)?.[0] || '😊'}
+                        </span>
+                        <span className="text-xs font-medium text-gray-700">Add emoji</span>
+                      </button>
+                      {openEmojiPicker && openEmojiPicker.type === 'greeting' && (
+                        <EmojiPickerPopover
+                          onSelect={(emoji) => {
+                            const base = settings.greeting || '';
+                            const next = `${base} ${emoji.native}`.trim();
+                            updateSettings({ ...settings, greeting: next });
+                          }}
+                          onClose={() => setOpenEmojiPicker(null)}
+                          position="left"
+                        />
+                      )}
+                    </div>
+                  </div>
                   
                   {/* Example Templates */}
                   <div className="mb-3">
@@ -603,13 +651,14 @@ export default function ChatbotSettingsPage() {
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => applyTemplate(template.text, idx)}
-                          className={`px-3 py-1.5 text-xs border rounded-md transition-colors ${
+                          onClick={() => applyTemplate(template, idx)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-md transition-colors ${
                             selectedTemplateIndex === idx
                               ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
                               : 'border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                           }`}
                         >
+                          {template.emoji && <span className="text-sm">{template.emoji}</span>}
                           {template.name}
                         </button>
                       ))}
@@ -839,6 +888,48 @@ export default function ChatbotSettingsPage() {
                                 <div className="flex-1 min-w-0 space-y-2">
                                   {/* Input + action buttons row */}
                                   <div className="flex items-center gap-2">
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setOpenEmojiPicker(
+                                            openEmojiPicker &&
+                                              openEmojiPicker.type === 'lead-type' &&
+                                              openEmojiPicker.id === leadType.id
+                                              ? null
+                                              : { type: 'lead-type', id: leadType.id }
+                                          )
+                                        }
+                                        className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 bg-white text-lg hover:bg-gray-50"
+                                        title="Add emoji"
+                                      >
+                                        {leadType.emoji || '🙂'}
+                                      </button>
+                                      {openEmojiPicker &&
+                                        openEmojiPicker.type === 'lead-type' &&
+                                        openEmojiPicker.id === leadType.id && (
+                                          <EmojiPickerPopover
+                                            onSelect={(emoji) => {
+                                              const updated = [...settings.leadTypeMessages!];
+                                              const itemIndex = updated.findIndex(
+                                                (lt) => lt.id === leadType.id
+                                              );
+                                              if (itemIndex !== -1) {
+                                                updated[itemIndex] = {
+                                                  ...updated[itemIndex],
+                                                  emoji: emoji.native,
+                                                };
+                                                updateSettings({
+                                                  ...settings,
+                                                  leadTypeMessages: updated,
+                                                });
+                                              }
+                                            }}
+                                            onClose={() => setOpenEmojiPicker(null)}
+                                            position="right"
+                                          />
+                                        )}
+                                    </div>
                                     <input
                                       type="text"
                                       value={leadType.text}
@@ -1075,7 +1166,7 @@ export default function ChatbotSettingsPage() {
                               className="px-4 py-2 rounded-lg text-sm font-medium text-white"
                               style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
                             >
-                              {leadType.text}
+                              {leadType.emoji ? `${leadType.emoji} ${leadType.text}` : leadType.text}
                             </button>
                           ))}
                       </div>
