@@ -3,7 +3,7 @@
 // with sensible defaults for local development.
 
 export const FACEBOOK_APP_ID =
-  process.env.PUBLIC_FACEBOOK_APP_ID || '';
+  process.env.PUBLIC_FACEBOOK_APP_ID || '1687448629298833';
 
 export const FACEBOOK_API_VERSION =
   process.env.PUBLIC_FACEBOOK_API_VERSION || 'v22.0';
