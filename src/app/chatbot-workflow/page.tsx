@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ProtectedRoute, NoAppEmptyState } from '@/components';
+import { ProtectedRoute, NoAppEmptyState, EmojiPickerPopover } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -58,6 +58,9 @@ function ChatbotWorkflowPageContent() {
   const [questionIdToDelete, setQuestionIdToDelete] = useState<string | null>(null);
   const [creatingNewWorkflow, setCreatingNewWorkflow] = useState(false);
   const [reorderingQuestions, setReorderingQuestions] = useState<Record<string, ChatbotWorkflow[]>>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const questionTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [questionSelectionStart, setQuestionSelectionStart] = useState<number | null>(null);
 
   // Attachment state
   const [pendingAttachmentFile, setPendingAttachmentFile] = useState<File | null>(null);
@@ -86,12 +89,12 @@ function ChatbotWorkflowPageContent() {
       const service = await useChatbotWorkflowService();
       const groupedResponse = await service.listGrouped(currentApp.id, true);
       setWorkflowGroups(groupedResponse.data.workflows);
-      
+
       const allResponse = await service.list(currentApp.id, true);
       setAllQuestions(allResponse.data.workflows);
-      
+
       setReorderingQuestions({});
-      
+
       const workflowId = searchParams.get('workflowId');
       if (workflowId) {
         const targetGroup = groupedResponse.data.workflows.find(
@@ -107,7 +110,7 @@ function ChatbotWorkflowPageContent() {
           }, 100);
         }
       }
-      
+
       return groupedResponse.data.workflows;
     } catch (error: any) {
       toast.error(error.message || 'Failed to load workflows');
@@ -180,11 +183,11 @@ function ChatbotWorkflowPageContent() {
 
   const handleSaveQuestion = async () => {
     if (!currentApp?.id || !editingQuestion) return;
-    
+
     setSaving(true);
     try {
       const service = await useChatbotWorkflowService();
-      
+
       if (!newQuestion.question?.trim()) {
         toast.error('Question is required');
         setSaving(false);
@@ -223,12 +226,12 @@ function ChatbotWorkflowPageContent() {
       if (savedWorkflowId && removingAttachment && !pendingAttachmentFile) {
         try {
           await service.deleteAttachment(currentApp.id, savedWorkflowId);
-        } catch {}
+        } catch { }
         setRemovingAttachment(false);
       }
-      
+
       const loadedWorkflowGroups = await loadWorkflows();
-      
+
       if (creatingNewWorkflow && savedWorkflowId) {
         const newWorkflowGroup = loadedWorkflowGroups.find(
           group => group.rootQuestion._id === savedWorkflowId
@@ -243,7 +246,7 @@ function ChatbotWorkflowPageContent() {
           }, 100);
         }
       }
-      
+
       setEditingQuestion(null);
       setEditingWorkflowGroupId(null);
       setCreatingNewWorkflow(false);
@@ -295,18 +298,18 @@ function ChatbotWorkflowPageContent() {
     if (!questionIdToDelete) return;
     try {
       const service = await useChatbotWorkflowService();
-      
+
       const questionToDelete = allQuestions.find(q => q._id === questionIdToDelete);
       const workflowGroupId = questionToDelete?.workflowGroupId;
       const deletedOrder = questionToDelete?.order ?? 0;
-      
+
       await service.delete(currentApp.id, questionIdToDelete);
-      
+
       if (workflowGroupId) {
         const remainingQuestions = allQuestions
           .filter(q => q.workflowGroupId === workflowGroupId && !q.isRoot && q._id !== questionIdToDelete)
           .sort((a, b) => (a.order || 0) - (b.order || 0));
-        
+
         const reorderPromises = remainingQuestions
           .map((q, index) => {
             const newOrder = index;
@@ -316,12 +319,12 @@ function ChatbotWorkflowPageContent() {
             return null;
           })
           .filter(p => p !== null);
-        
+
         if (reorderPromises.length > 0) {
           await Promise.all(reorderPromises);
         }
       }
-      
+
       toast.success('Question deleted successfully');
       await loadWorkflows();
     } catch (error: any) {
@@ -349,7 +352,7 @@ function ChatbotWorkflowPageContent() {
     }
     return questions.sort((a, b) => (a.order || 0) - (b.order || 0));
   };
-  
+
   const getActiveQuestionsForWorkflow = (workflowGroupId: string): ChatbotWorkflow[] => {
     return allQuestions
       .filter(q => q.workflowGroupId === workflowGroupId && !q.isRoot && q.isActive)
@@ -366,7 +369,7 @@ function ChatbotWorkflowPageContent() {
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const reordered = arrayMove(questions, oldIndex, newIndex);
-        
+
         setReorderingQuestions(prev => ({
           ...prev,
           [workflowGroupId]: reordered
@@ -387,7 +390,7 @@ function ChatbotWorkflowPageContent() {
             await Promise.all(updatePromises);
             toast.success('Question order updated successfully');
           }
-          
+
           await loadWorkflows();
         } catch (error: any) {
           toast.error(error.message || 'Failed to update question order');
@@ -436,24 +439,24 @@ function ChatbotWorkflowPageContent() {
   // Questions that can be linked (for branching dropdowns)
   const getLinkableQuestions = () => {
     const currentGroupId = newQuestion.workflowGroupId;
-    return allQuestions.filter(q => 
-      q._id !== editingQuestion && 
+    return allQuestions.filter(q =>
+      q._id !== editingQuestion &&
       q._id &&
       (currentGroupId ? q.workflowGroupId === currentGroupId : true)
     );
   };
 
   // Sortable Question Item Component
-  const SortableQuestionItem = ({ 
-    question, 
+  const SortableQuestionItem = ({
+    question,
     index,
     onEdit,
     onDelete,
     disabled,
     isLinked,
     linkedFrom,
-  }: { 
-    question: ChatbotWorkflow; 
+  }: {
+    question: ChatbotWorkflow;
     index: number;
     onEdit: () => void;
     onDelete: () => void;
@@ -484,14 +487,13 @@ function ChatbotWorkflowPageContent() {
     const hasAttachment = question.attachment?.hasFile;
 
     return (
-      <div 
-        ref={setNodeRef} 
+      <div
+        ref={setNodeRef}
         style={style}
-        className={`border rounded-lg p-3 sm:p-4 ${
-          isLinked
+        className={`border rounded-lg p-3 sm:p-4 ${isLinked
             ? 'border-gray-300 bg-gray-100 border-l-4 border-l-gray-400'
             : 'border-gray-200 bg-gray-50'
-        }`}
+          }`}
       >
         <div className="flex items-start gap-2">
           {isLinked ? (
@@ -516,7 +518,9 @@ function ChatbotWorkflowPageContent() {
                     ? <GitBranch className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
                     : <MessageSquare className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                   }
-                  <p className="text-sm font-medium text-gray-900 break-words min-w-0 flex-1">{question.question}</p>
+                  <p className="text-sm font-medium text-gray-900 break-words min-w-0 flex-1">
+                    {question.question}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -527,9 +531,8 @@ function ChatbotWorkflowPageContent() {
                       Linked
                     </span>
                   ) : (
-                    <span className={`px-2 py-0.5 text-xs font-medium rounded flex items-center gap-1 ${
-                      question.isActive ? 'text-blue-700 bg-blue-100' : 'text-gray-500 bg-gray-200'
-                    }`}>
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded flex items-center gap-1 ${question.isActive ? 'text-blue-700 bg-blue-100' : 'text-gray-500 bg-gray-200'
+                      }`}>
                       <ArrowDown className="h-3 w-3" />
                       {question.isActive ? `#${index + 1} Sequential` : 'Inactive'}
                     </span>
@@ -685,172 +688,172 @@ function ChatbotWorkflowPageContent() {
               </button>
             </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="loading-spinner"></div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {workflowGroups.length === 0 && !editingQuestion && (
-                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-                  <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 text-lg mb-2">No conversation flows yet</p>
-                  <p className="text-gray-400 text-sm mb-4">Create your first conversation flow to get started</p>
-                  <button
-                    onClick={handleCreateNewWorkflow}
-                    className="btn-primary"
-                  >
-                    Create Flow
-                  </button>
-                </div>
-              )}
-
-              {workflowGroups.map((group) => {
-                const questionsInWorkflow = getQuestionsForWorkflow(group._id);
-                const activeQuestionsInWorkflow = getActiveQuestionsForWorkflow(group._id);
-                const isExpanded = expandedWorkflows.has(group._id);
-                
-                return (
-                  <div 
-                    key={group._id} 
-                    data-workflow-id={group._id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-                  >
-                    {/* Workflow Header */}
-                    <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-[#00bc7d]/5 to-transparent">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 mb-1 flex-wrap">
-                            <Folder className="h-5 w-5 text-[#00bc7d] shrink-0 mt-0.5" />
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{group.rootQuestion.question}</h3>
-                            <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded shrink-0">Root</span>
-                            {!group.isActive && (
-                              <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded shrink-0">Inactive</span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 ml-7 text-xs text-gray-500">
-                            <span>{activeQuestionsInWorkflow.length} active question{activeQuestionsInWorkflow.length !== 1 ? 's' : ''}</span>
-                            {questionsInWorkflow.length > activeQuestionsInWorkflow.length && (
-                              <>
-                                <span className="text-gray-300">·</span>
-                                <span className="text-gray-400">{questionsInWorkflow.length - activeQuestionsInWorkflow.length} inactive</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          <button
-                            onClick={() => toggleExpanded(group._id)}
-                            className="btn-secondary p-2"
-                            title={isExpanded ? 'Collapse' : 'Expand'}
-                          >
-                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          </button>
-                          <button
-                            onClick={() => handleEditQuestion(group.rootQuestion)}
-                            className="btn-secondary p-2"
-                            disabled={editingQuestion !== null}
-                            title="Edit Root Question"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => { setQuestionIdToDelete(group.rootQuestion._id ?? null); setShowDeleteModal(true); }}
-                            className="btn-secondary p-2 text-red-600 hover:text-red-700"
-                            disabled={editingQuestion !== null}
-                            title="Delete Workflow"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Workflow Content */}
-                    {isExpanded && (
-                      <div className="p-4 sm:p-6">
-                        <div className="mb-4">
-                          <button
-                            onClick={() => handleAddQuestionToWorkflow(group._id)}
-                            className="btn-secondary flex items-center gap-2 text-sm w-full sm:w-auto justify-center sm:justify-start"
-                            disabled={editingQuestion !== null}
-                          >
-                            <Plus className="h-4 w-4" />
-                            Add Question to This Flow
-                          </button>
-                        </div>
-
-                        {questionsInWorkflow.length === 0 ? (
-                          <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                            <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-gray-500 text-sm">No questions in this flow yet</p>
-                          </div>
-                        ) : (
-                          <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={(event) => handleDragEnd(event, group._id)}
-                          >
-                            <SortableContext
-                              items={questionsInWorkflow.map(q => q._id || '')}
-                              strategy={verticalListSortingStrategy}
-                            >
-                              <div className="space-y-3">
-                                {(() => {
-                                  // Build a set of question IDs that are branch targets
-                                  const linkedIds = new Set<string>();
-                                  questionsInWorkflow.forEach(q => {
-                                    (q.options || []).forEach(opt => {
-                                      if (opt.nextQuestionId) linkedIds.add(opt.nextQuestionId);
-                                    });
-                                  });
-
-                                  // Build a reverse-lookup: questionId → [{questionText, optionText}]
-                                  const linkedFromMap = new Map<string, { questionText: string; optionText: string }[]>();
-                                  questionsInWorkflow.forEach(q => {
-                                    (q.options || []).forEach(opt => {
-                                      if (opt.nextQuestionId) {
-                                        const existing = linkedFromMap.get(opt.nextQuestionId) || [];
-                                        existing.push({ questionText: q.question, optionText: opt.text });
-                                        linkedFromMap.set(opt.nextQuestionId, existing);
-                                      }
-                                    });
-                                  });
-
-                                  const activeQuestions = getActiveQuestionsForWorkflow(group._id);
-                                  // Sequential questions only (not linked) for sequential index
-                                  const sequentialQuestions = activeQuestions.filter(q => !linkedIds.has(q._id || ''));
-
-                                  return questionsInWorkflow.map((question, index) => {
-                                    const isLinked = linkedIds.has(question._id || '');
-                                    const seqIndex = sequentialQuestions.findIndex(q => q._id === question._id);
-                                    const displayIndex = seqIndex >= 0 ? seqIndex : index;
-
-                                    return (
-                                      <SortableQuestionItem
-                                        key={question._id}
-                                        question={question}
-                                        index={displayIndex}
-                                        onEdit={() => handleEditQuestion(question)}
-                                        onDelete={() => { setQuestionIdToDelete(question._id ?? null); setShowDeleteModal(true); }}
-                                        disabled={editingQuestion !== null}
-                                        isLinked={isLinked}
-                                        linkedFrom={linkedFromMap.get(question._id || '')}
-                                      />
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            </SortableContext>
-                          </DndContext>
-                        )}
-                      </div>
-                    )}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="loading-spinner"></div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {workflowGroups.length === 0 && !editingQuestion && (
+                  <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                    <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg mb-2">No conversation flows yet</p>
+                    <p className="text-gray-400 text-sm mb-4">Create your first conversation flow to get started</p>
+                    <button
+                      onClick={handleCreateNewWorkflow}
+                      className="btn-primary"
+                    >
+                      Create Flow
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                )}
+
+                {workflowGroups.map((group) => {
+                  const questionsInWorkflow = getQuestionsForWorkflow(group._id);
+                  const activeQuestionsInWorkflow = getActiveQuestionsForWorkflow(group._id);
+                  const isExpanded = expandedWorkflows.has(group._id);
+
+                  return (
+                    <div
+                      key={group._id}
+                      data-workflow-id={group._id}
+                      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                    >
+                      {/* Workflow Header */}
+                      <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-[#00bc7d]/5 to-transparent">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start gap-2 mb-1 flex-wrap">
+                              <Folder className="h-5 w-5 text-[#00bc7d] shrink-0 mt-0.5" />
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{group.rootQuestion.question}</h3>
+                              <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded shrink-0">Root</span>
+                              {!group.isActive && (
+                                <span className="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded shrink-0">Inactive</span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 ml-7 text-xs text-gray-500">
+                              <span>{activeQuestionsInWorkflow.length} active question{activeQuestionsInWorkflow.length !== 1 ? 's' : ''}</span>
+                              {questionsInWorkflow.length > activeQuestionsInWorkflow.length && (
+                                <>
+                                  <span className="text-gray-300">·</span>
+                                  <span className="text-gray-400">{questionsInWorkflow.length - activeQuestionsInWorkflow.length} inactive</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              onClick={() => toggleExpanded(group._id)}
+                              className="btn-secondary p-2"
+                              title={isExpanded ? 'Collapse' : 'Expand'}
+                            >
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            <button
+                              onClick={() => handleEditQuestion(group.rootQuestion)}
+                              className="btn-secondary p-2"
+                              disabled={editingQuestion !== null}
+                              title="Edit Root Question"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => { setQuestionIdToDelete(group.rootQuestion._id ?? null); setShowDeleteModal(true); }}
+                              className="btn-secondary p-2 text-red-600 hover:text-red-700"
+                              disabled={editingQuestion !== null}
+                              title="Delete Workflow"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Workflow Content */}
+                      {isExpanded && (
+                        <div className="p-4 sm:p-6">
+                          <div className="mb-4">
+                            <button
+                              onClick={() => handleAddQuestionToWorkflow(group._id)}
+                              className="btn-secondary flex items-center gap-2 text-sm w-full sm:w-auto justify-center sm:justify-start"
+                              disabled={editingQuestion !== null}
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Question to This Flow
+                            </button>
+                          </div>
+
+                          {questionsInWorkflow.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                              <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-500 text-sm">No questions in this flow yet</p>
+                            </div>
+                          ) : (
+                            <DndContext
+                              sensors={sensors}
+                              collisionDetection={closestCenter}
+                              onDragEnd={(event) => handleDragEnd(event, group._id)}
+                            >
+                              <SortableContext
+                                items={questionsInWorkflow.map(q => q._id || '')}
+                                strategy={verticalListSortingStrategy}
+                              >
+                                <div className="space-y-3">
+                                  {(() => {
+                                    // Build a set of question IDs that are branch targets
+                                    const linkedIds = new Set<string>();
+                                    questionsInWorkflow.forEach(q => {
+                                      (q.options || []).forEach(opt => {
+                                        if (opt.nextQuestionId) linkedIds.add(opt.nextQuestionId);
+                                      });
+                                    });
+
+                                    // Build a reverse-lookup: questionId → [{questionText, optionText}]
+                                    const linkedFromMap = new Map<string, { questionText: string; optionText: string }[]>();
+                                    questionsInWorkflow.forEach(q => {
+                                      (q.options || []).forEach(opt => {
+                                        if (opt.nextQuestionId) {
+                                          const existing = linkedFromMap.get(opt.nextQuestionId) || [];
+                                          existing.push({ questionText: q.question, optionText: opt.text });
+                                          linkedFromMap.set(opt.nextQuestionId, existing);
+                                        }
+                                      });
+                                    });
+
+                                    const activeQuestions = getActiveQuestionsForWorkflow(group._id);
+                                    // Sequential questions only (not linked) for sequential index
+                                    const sequentialQuestions = activeQuestions.filter(q => !linkedIds.has(q._id || ''));
+
+                                    return questionsInWorkflow.map((question, index) => {
+                                      const isLinked = linkedIds.has(question._id || '');
+                                      const seqIndex = sequentialQuestions.findIndex(q => q._id === question._id);
+                                      const displayIndex = seqIndex >= 0 ? seqIndex : index;
+
+                                      return (
+                                        <SortableQuestionItem
+                                          key={question._id}
+                                          question={question}
+                                          index={displayIndex}
+                                          onEdit={() => handleEditQuestion(question)}
+                                          onDelete={() => { setQuestionIdToDelete(question._id ?? null); setShowDeleteModal(true); }}
+                                          disabled={editingQuestion !== null}
+                                          isLinked={isLinked}
+                                          linkedFrom={linkedFromMap.get(question._id || '')}
+                                        />
+                                      );
+                                    });
+                                  })()}
+                                </div>
+                              </SortableContext>
+                            </DndContext>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -933,18 +936,68 @@ function ChatbotWorkflowPageContent() {
 
     return (
       <div className="space-y-5">
-        {/* Question text */}
+        {/* Question text + optional emoji */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {isRoot ? 'Opening Message / Title' : 'Question'} <span className="text-red-500">*</span>
           </label>
           <textarea
+            ref={questionTextAreaRef}
             value={newQuestion.question || ''}
-            onChange={(e) => setNewQuestion({ ...newQuestion, question: e.target.value })}
+            onChange={(e) => {
+              setNewQuestion({ ...newQuestion, question: e.target.value });
+              setQuestionSelectionStart(e.currentTarget.selectionStart);
+            }}
+            onClick={(e) => setQuestionSelectionStart(e.currentTarget.selectionStart)}
+            onKeyUp={(e) => setQuestionSelectionStart(e.currentTarget.selectionStart)}
+            onSelect={(e) => setQuestionSelectionStart(e.currentTarget.selectionStart)}
             className="input-field w-full"
             rows={3}
             placeholder={isRoot ? "Enter the opening message for this flow" : "Enter the question to ask users"}
           />
+          {/* Emoji button row (optional) */}
+          <div className="mt-2 flex items-center justify-end gap-2">
+            <div className="relative inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((prev) => !prev)}
+                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00bc7d]"
+              >
+                <span aria-hidden="true">🙂</span>
+                <span>Add emoji</span>
+              </button>
+              {showEmojiPicker && (
+                <EmojiPickerPopover
+                  onSelect={(emoji) => {
+                    setNewQuestion((prev) => ({
+                      ...prev,
+                      question: (() => {
+                        const text = prev.question || '';
+                        const pos = questionSelectionStart !== null ? questionSelectionStart : text.length;
+                        const before = text.slice(0, pos);
+                        const after = text.slice(pos);
+                        return `${before}${emoji.native}${after}`;
+                      })(),
+                    }));
+                    // Move caret after inserted emoji
+                    setTimeout(() => {
+                      const el = questionTextAreaRef.current;
+                      if (el) {
+                        const text = el.value || '';
+                        const newPos = (questionSelectionStart !== null ? questionSelectionStart : text.length) + emoji.native.length;
+                        el.focus();
+                        el.setSelectionRange(newPos, newPos);
+                        setQuestionSelectionStart(newPos);
+                      }
+                    }, 0);
+                    setShowEmojiPicker(false);
+                  }}
+                  onClose={() => setShowEmojiPicker(false)}
+                  position="left"
+                />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Multiple-choice options (branching) ─────────────────────────── */}
