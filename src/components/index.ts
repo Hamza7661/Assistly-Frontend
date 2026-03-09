@@ -9,3 +9,4 @@ export { default as Logo } from './Logo';
 export { default as ConfirmModal } from './ConfirmModal';
 export { default as NoAppEmptyState } from './NoAppEmptyState';
 export { default as AppCreationProgressModal } from './AppCreationProgressModal';
+export { default as EmojiPickerPopover } from './EmojiPicker';

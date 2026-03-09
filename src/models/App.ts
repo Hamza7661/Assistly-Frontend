@@ -9,6 +9,12 @@ export interface App {
   twilioWhatsAppSenderId?: string;
   /** When true, this app is the one that receives Twilio webhooks/leads for its number (when multiple apps share the same number). */
   usesTwilioNumber?: boolean;
+  /** Facebook Page ID (stored by OAuth flow; used for Messenger routing). */
+  facebookPageId?: string;
+  /** Display name of the connected Facebook Page. */
+  facebookPageName?: string;
+  /** When the long-lived Facebook token expires (~60 days from last connect). */
+  facebookTokenExpiry?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -24,6 +30,9 @@ export class AppModel implements App {
   whatsappNumberStatus?: 'pending' | 'registered' | 'failed';
   twilioWhatsAppSenderId?: string;
   usesTwilioNumber?: boolean;
+  facebookPageId?: string;
+  facebookPageName?: string;
+  facebookTokenExpiry?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -38,6 +47,9 @@ export class AppModel implements App {
     this.whatsappNumberStatus = data.whatsappNumberStatus || undefined;
     this.twilioWhatsAppSenderId = data.twilioWhatsAppSenderId || undefined;
     this.usesTwilioNumber = !!data.usesTwilioNumber;
+    this.facebookPageId = data.facebookPageId || undefined;
+    this.facebookPageName = data.facebookPageName || undefined;
+    this.facebookTokenExpiry = data.facebookTokenExpiry || undefined;
     this.isActive = data.isActive !== undefined ? data.isActive : true;
     this.createdAt = data.createdAt || '';
     this.updatedAt = data.updatedAt || '';
@@ -54,6 +66,9 @@ export class AppModel implements App {
       whatsappNumberStatus: this.whatsappNumberStatus,
       twilioWhatsAppSenderId: this.twilioWhatsAppSenderId,
       usesTwilioNumber: this.usesTwilioNumber,
+      facebookPageId: this.facebookPageId,
+      facebookPageName: this.facebookPageName,
+      facebookTokenExpiry: this.facebookTokenExpiry,
       isActive: this.isActive,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
