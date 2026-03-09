@@ -1,8 +1,10 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useRef } from 'react';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
+import type { Theme } from 'emoji-picker-react';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 interface EmojiPickerPopoverProps {
   onSelect: (emoji: { native: string }) => void;
@@ -48,16 +50,14 @@ export default function EmojiPickerPopover({
       className={`absolute z-50 mt-2 ${positionClasses[position]}`}
     >
       <div className="rounded-xl shadow-lg border border-gray-200 bg-white overflow-hidden">
-        {/* @ts-ignore emoji-mart types are untyped in this project, keep usage narrow */}
-        <Picker
-          data={data}
-          onEmojiSelect={(emoji: any) => {
-            if (emoji?.native) {
-              onSelect({ native: emoji.native });
+        <EmojiPicker
+          theme={'light' as Theme}
+          onEmojiClick={(emojiData) => {
+            if (emojiData?.emoji) {
+              onSelect({ native: emojiData.emoji });
             }
             onClose();
           }}
-          theme="light"
         />
       </div>
     </div>
