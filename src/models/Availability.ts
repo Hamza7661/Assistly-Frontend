@@ -22,4 +22,30 @@ export interface AvailabilityBulkRequest {
   days: AvailabilityDayUTC[];
 }
 
+/** Date-based exception to weekly availability (YYYY-MM-DD). */
+export interface AvailabilityExceptionItem {
+  date: string;
+  timezone?: string;
+  allDayOff?: boolean;
+  overrideAllDay?: boolean;
+  slots?: Array<{ start: string; end: string }>;
+}
+
+export interface AvailabilityExceptionsResponse {
+  status: string;
+  data: { exceptions: AvailabilityExceptionItem[] };
+}
+
+export interface AvailabilityExceptionUpsertRequest {
+  date: string;
+  timezone?: string;
+  allDayOff?: boolean;
+  overrideAllDay?: boolean;
+  slots?: Array<{ start: string; end: string }>;
+}
+
+export interface AvailabilityExceptionsBulkRequest {
+  exceptions: AvailabilityExceptionItem[];
+}
+
 

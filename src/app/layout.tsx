@@ -4,7 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
-import { Toaster } from "@/components";
+import Toaster from "@/components/Toaster";
 
 const poppins = Poppins({ 
   subsets: ["latin"],

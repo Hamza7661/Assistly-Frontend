@@ -22,7 +22,8 @@ class IntegrationService extends HttpService {
     // Google review (per-app)
     if (settings.googleReviewEnabled !== undefined) formData.append('googleReviewEnabled', settings.googleReviewEnabled.toString());
     if (settings.googleReviewUrl !== undefined) formData.append('googleReviewUrl', settings.googleReviewUrl ?? '');
-    
+    if (settings.calendarSlotMinutes !== undefined) formData.append('calendarSlotMinutes', String(settings.calendarSlotMinutes));
+
     if (settings.preferredLanguages !== undefined) formData.append('preferredLanguages', JSON.stringify(settings.preferredLanguages));
     
     // Add leadTypeMessages if provided
@@ -40,6 +41,23 @@ class IntegrationService extends HttpService {
       body: formData,
       // Don't pass headers, let HttpService handle Authorization
     });
+  }
+
+  /** Get Google Calendar OAuth URL for connecting; frontend redirects user to this URL. */
+  async getCalendarAuthUrl(appId: string) {
+    const res = await this.request<{ status: string; data: { url: string } }>(
+      `/integration/apps/${appId}/calendar/auth-url`,
+      { method: 'GET' }
+    );
+    return res.data?.url;
+  }
+
+  /** Disconnect calendar for the app. */
+  async disconnectCalendar(appId: string) {
+    return this.request<{ status: string; data: { calendarConnected: boolean } }>(
+      `/integration/apps/${appId}/calendar`,
+      { method: 'DELETE' }
+    );
   }
 }
 
