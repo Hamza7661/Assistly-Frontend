@@ -5,6 +5,7 @@ export interface LeadTypeMessage {
   isActive: boolean;
   order: number;
   relevantServicePlans?: string[];  // Optional: service plan names to show for this lead type
+  emoji?: string;
   /** Alternate phrases/languages that match this option (e.g. ["مینو", "menü"] for Menu). Optional. */
   synonyms?: string[];
   /** Display label per language for greeting (e.g. { ur: "مینو", hi: "मेन्यू" }). Optional. */
