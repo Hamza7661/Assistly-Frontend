@@ -22,6 +22,14 @@ export interface IntegrationSettings {
   validatePhoneNumber?: boolean;
   googleReviewEnabled?: boolean;
   googleReviewUrl?: string | null;
+  /** Calendar connected for scheduling/availability (same shape for all providers). */
+  calendarConnected?: boolean;
+  /** Provider type: 'google_calendar' | 'outlook' | 'calendly'. */
+  calendarProvider?: string | null;
+  /** Email of the connected calendar account (e.g. Google). Shown in UI. */
+  calendarAccountEmail?: string | null;
+  /** Slot length in minutes for calendar (15, 30, or 60). Used when showing available slots to users. */
+  calendarSlotMinutes?: number;
   /** Preferred languages for this app (max 3). Used for labels/synonyms UI. */
   preferredLanguages?: string[];
   leadTypeMessages?: LeadTypeMessage[];

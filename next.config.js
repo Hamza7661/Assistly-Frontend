@@ -8,7 +8,7 @@ const nextConfig = {
   typescript: {
     // Allow production builds even with type errors
     ignoreBuildErrors: true,
-  }
+  },
 };
 
 module.exports = nextConfig
