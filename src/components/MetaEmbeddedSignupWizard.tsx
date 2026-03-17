@@ -129,11 +129,15 @@ export default function MetaEmbeddedSignupWizard({ phoneNumber, onSuccess, onErr
     }
     setStatus('opening');
     setErrorMessage(null);
+    // Use a fixed fallback so only one URI needs to be in Valid OAuth Redirect URIs (avoids per-page URLs)
+    const fallbackRedirect =
+      typeof window !== 'undefined' ? `${window.location.origin}/` : undefined;
     const options: Record<string, unknown> = {
       config_id: META_CONFIG_ID,
       auth_type: 'rerequest',
       response_type: 'code',
       override_default_response_type: true,
+      ...(fallbackRedirect && { fallback_redirect_uri: fallbackRedirect }),
       extras: {
         sessionInfoVersion: 3,
         featureType: 'only_waba_sharing',
