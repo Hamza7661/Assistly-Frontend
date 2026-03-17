@@ -6,7 +6,6 @@ import { Loader2, CheckCircle2, Phone, ExternalLink, Building2 } from 'lucide-re
 import { toast } from 'react-toastify';
 
 const META_BUSINESS_SUITE_URL = 'https://business.facebook.com';
-const TWILIO_WHATSAPP_SENDERS_URL = 'https://www.twilio.com/docs/whatsapp/register-senders-using-api';
 
 interface MetaSignupWizardProps {
   appId: string;
@@ -20,7 +19,7 @@ interface MetaSignupWizardProps {
 
 /**
  * Wizard for Meta WhatsApp Business setup after a number is assigned.
- * Mirrors Twilio sender-creation steps: connect business/WABA (select or create).
+ * Connect business/WABA (select or create) for WhatsApp sender setup.
  */
 export default function MetaSignupWizard({
   appId,
@@ -117,7 +116,7 @@ export default function MetaSignupWizard({
         </a>
       </div>
       <p className="text-xs text-gray-500">
-        You can also register this sender in Twilio Console (WhatsApp Senders) and complete Meta verification there.
+        You can also complete sender registration in your messaging provider console and link your WABA there.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 pt-2">

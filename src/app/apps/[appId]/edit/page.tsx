@@ -453,7 +453,7 @@ export default function EditAppPage() {
                             Use my WhatsApp number
                           </div>
                           <div className="text-sm text-gray-500">
-                            Register your existing WhatsApp number with Twilio
+                            Register your existing WhatsApp number for messaging
                           </div>
                         </div>
                       </label>
@@ -469,10 +469,10 @@ export default function EditAppPage() {
                         />
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">
-                            Get a number from Twilio
+                            Get a new number
                           </div>
                           <div className="text-sm text-gray-500">
-                            Twilio will provide a phone number for WhatsApp
+                            A phone number will be provided for WhatsApp
                           </div>
                         </div>
                       </label>
@@ -504,8 +504,8 @@ export default function EditAppPage() {
                       <p className="mt-3 text-sm text-gray-500">
                         {formData.whatsappNumber &&
                         whatsappNumberStatus === WhatsappNumberStatus.Registered
-                          ? 'Changing the number will require re-registration with Twilio.'
-                          : 'Your number will be registered with Twilio for WhatsApp messaging. Make sure the number can receive SMS or voice calls for verification.'}
+                          ? 'Changing the number will require re-registration for WhatsApp.'
+                          : 'Your number will be registered for WhatsApp messaging. Make sure the number can receive SMS or voice calls for verification.'}
                       </p>
                     </div>
                   )}
@@ -514,8 +514,8 @@ export default function EditAppPage() {
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
                         {whatsappNumberSource === 'twilio-provided'
-                          ? 'A Twilio phone number is already configured for this app.'
-                          : 'A Twilio phone number will be automatically provisioned and registered for WhatsApp when you save. The registration process may take a few minutes to complete.'}
+                          ? 'A phone number is already configured for this app.'
+                          : 'A phone number will be provisioned and registered for WhatsApp when you save. The registration process may take a few minutes to complete.'}
                       </p>
                     </div>
                   )}

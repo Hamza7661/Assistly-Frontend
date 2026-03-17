@@ -9,7 +9,8 @@ import { toast } from 'react-toastify';
 // Config (env) takes priority; fallback to defaults for App ID and Embedded Signup Config ID
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '887322600586927';
 const META_CONFIG_ID = process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID || '2393474544425955';
-const META_PARTNER_SOLUTION_ID = process.env.NEXT_PUBLIC_META_PARTNER_SOLUTION_ID || '';
+// Partner Solution ID: use env when set, otherwise fall back to the known ID
+const META_PARTNER_SOLUTION_ID = process.env.NEXT_PUBLIC_META_PARTNER_SOLUTION_ID || '1232763912378887';
 /** Can show/preview Embedded Signup (App ID + Config ID); full registration needs Partner Solution ID (Tech Provider) */
 const canShowSignup = !!(META_APP_ID && META_CONFIG_ID);
 const isMetaFullyConfigured = !!(META_APP_ID && META_CONFIG_ID && META_PARTNER_SOLUTION_ID);
@@ -27,7 +28,7 @@ interface MetaEmbeddedSignupWizardProps {
 
 /**
  * In-app wizard that launches Meta's Embedded Signup (popup): Business Portfolio, WABA.
- * After user completes, we register the sender with Twilio using phoneNumber + wabaId.
+ * After user completes, we register the WhatsApp sender using phoneNumber + wabaId.
  */
 /** Meta requires HTTPS for FB.login; see https://developers.facebook.com/blog/post/2018/06/08/enforce-https-facebook-login/ */
 function useIsHttps() {
