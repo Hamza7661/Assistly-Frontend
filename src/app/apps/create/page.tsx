@@ -227,10 +227,9 @@ export default function CreateAppPage() {
       });
 
       if (response.status === 'success' && response.data.app) {
-        toast.success('App created successfully!');
-        await switchApp(response.data.app.id);
-        await refreshApps();
-        router.push('/apps');
+        setIsLoading(false);
+        // Keep progress modal open; seed data runs in background and sends progress via WebSocket.
+        // Modal will call onComplete (handleProgressComplete) when it receives step === 'complete'.
       } else {
         setShowProgress(false);
         setError(response.message || 'Failed to create app');
