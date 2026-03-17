@@ -214,7 +214,7 @@ export default function CreateAppPage() {
             ? formData.whatsappNumber.trim()
             : undefined,
         ...(formData.whatsappOption === 'get-from-twilio' && provisionedNumber
-          ? { twilioPhoneNumber: provisionedNumber }
+          ? { twilioPhoneNumber: provisionedNumber.trim() }
           : {}),
         // Facebook OAuth tokens — backend will exchange & store (non-fatal if it fails)
         ...(fbShortLivedToken && fbSelectedPageId

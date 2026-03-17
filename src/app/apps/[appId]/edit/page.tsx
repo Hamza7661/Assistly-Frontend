@@ -8,6 +8,7 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { useAppService } from '@/services';
 import { ProtectedRoute, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
+import MetaEmbeddedSignupWizard from '@/components/MetaEmbeddedSignupWizard';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import { WhatsappNumberStatus } from '@/enums/WhatsappNumberStatus';
 import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
@@ -517,6 +518,33 @@ export default function EditAppPage() {
                           ? 'A phone number is already configured for this app.'
                           : 'A phone number will be provisioned and registered for WhatsApp when you save. The registration process may take a few minutes to complete.'}
                       </p>
+                    </div>
+                  )}
+
+                  {/* Meta Embedded Signup: register this number with WhatsApp Business (WABA) — shown when app has a number */}
+                  {formData.whatsappNumber?.trim() && (
+                    <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                        WhatsApp Business (Meta) registration
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Link this number to your WhatsApp Business Account (WABA) so you can send and receive messages.
+                      </p>
+                      <MetaEmbeddedSignupWizard
+                        phoneNumber={formData.whatsappNumber.trim()}
+                        onSuccess={async () => {
+                          await refreshApps();
+                          const appService = await useAppService();
+                          const res = await appService.getApp(appId);
+                          if (res.status === 'success' && res.data?.app) {
+                            setWhatsappNumberStatus(res.data.app.whatsappNumberStatus as WhatsappNumberStatus);
+                          }
+                        }}
+                        onError={(msg) => {
+                          setError(msg);
+                          toast.error(msg);
+                        }}
+                      />
                     </div>
                   )}
                 </div>
