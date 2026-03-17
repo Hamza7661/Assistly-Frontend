@@ -7,7 +7,7 @@ import { Loader2, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // Config (env) takes priority; fallback to defaults for App ID and Embedded Signup Config ID
-const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '887322600586927';
+const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '1687448629298833';
 const META_CONFIG_ID = process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID || '2393474544425955';
 // Partner Solution ID: use env when set, otherwise fall back to the known ID
 const META_PARTNER_SOLUTION_ID = process.env.NEXT_PUBLIC_META_PARTNER_SOLUTION_ID || '1232763912378887';

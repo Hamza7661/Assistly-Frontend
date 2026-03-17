@@ -2,8 +2,9 @@
 // Prefer reading from NEXT_PUBLIC_* env vars so they can be configured per environment,
 // with sensible defaults for local development.
 
+// Use same Meta/Facebook app as Meta Embedded Signup when set
 export const FACEBOOK_APP_ID =
-  process.env.PUBLIC_FACEBOOK_APP_ID || '1687448629298833';
+  process.env.NEXT_PUBLIC_META_APP_ID || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '1687448629298833';
 
 export const FACEBOOK_API_VERSION =
   process.env.PUBLIC_FACEBOOK_API_VERSION || 'v22.0';

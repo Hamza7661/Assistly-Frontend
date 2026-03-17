@@ -18,18 +18,10 @@ import { toast } from 'react-toastify';
 import { io, Socket } from 'socket.io-client';
 
 const NEW_NUMBER_COUNTRY_OPTIONS = [
-  { code: 'US', label: 'United States' },
-  { code: 'GB', label: 'United Kingdom' },
-  { code: 'CA', label: 'Canada' },
-  { code: 'AU', label: 'Australia' },
-  { code: 'IN', label: 'India' },
-  { code: 'DE', label: 'Germany' },
-  { code: 'FR', label: 'France' },
-  { code: 'ES', label: 'Spain' },
-  { code: 'IT', label: 'Italy' },
-  { code: 'NL', label: 'Netherlands' },
-  { code: 'BR', label: 'Brazil' },
-  { code: 'MX', label: 'Mexico' },
+  { code: 'US', label: 'United States', flag: '🇺🇸' },
+  { code: 'GB', label: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'CA', label: 'Canada', flag: '🇨🇦' },
+  { code: 'FR', label: 'France', flag: '🇫🇷' },
 ];
 
 export default function CreateAppPage() {
@@ -478,11 +470,11 @@ export default function CreateAppPage() {
                                 setNewNumberCountry(e.target.value);
                                 setAvailableNumbers([]);
                               }}
-                              className="input-field w-auto min-w-[180px]"
+                              className="input-field w-auto min-w-[200px]"
                             >
                               {NEW_NUMBER_COUNTRY_OPTIONS.map((c) => (
                                 <option key={c.code} value={c.code}>
-                                  {c.label}
+                                  {c.flag} {c.label}
                                 </option>
                               ))}
                             </select>
