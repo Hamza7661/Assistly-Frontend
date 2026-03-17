@@ -366,10 +366,7 @@ export default function EditAppPage() {
       const updateData: any = {
         name: formData.name.trim(),
         industry: formData.industry,
-        description: formData.description.trim() || undefined,
-        instagramBusinessAccountId: formData.instagramBusinessAccountId.trim() || null,
-        instagramAccessToken: formData.instagramAccessToken.trim() || null,
-        instagramUsername: formData.instagramUsername.trim() || null
+        description: formData.description.trim() || undefined
       };
 
       const response = await appService.updateApp(appId, updateData);
