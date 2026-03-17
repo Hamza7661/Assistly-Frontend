@@ -6,6 +6,12 @@ interface CreateAppRequest {
   description?: string;
   whatsappOption?: 'use-my-number' | 'get-from-twilio';
   whatsappNumber?: string;
+  /** Twilio-provisioned number (for get-from-twilio flow after number selection + Meta signup). */
+  twilioPhoneNumber?: string;
+  /** Twilio WhatsApp sender SID from registerSenderAfterMeta (Meta Embedded Signup). */
+  twilioWhatsAppSenderId?: string;
+  /** WABA ID from Meta Embedded Signup. */
+  wabaId?: string;
   /** Short-lived Facebook user access token (from FB.login). Backend will exchange + store. */
   facebookShortLivedToken?: string;
   /** Facebook Page ID selected by the user after OAuth. */
@@ -91,6 +97,50 @@ class AppService extends HttpService {
   async registerWhatsApp(appId: string): Promise<AppResponse> {
     return this.request<AppResponse>(`/apps/${appId}/whatsapp/register`, {
       method: 'POST',
+    });
+  }
+
+  /**
+   * After user completes Meta Embedded Signup (WABA), register the WhatsApp sender with Twilio.
+   * Returns senderSid for use in createApp (twilioWhatsAppSenderId).
+   */
+  async registerSenderAfterMeta(
+    phoneNumber: string,
+    wabaId: string
+  ): Promise<AppResponse & { data: { senderSid: string; phoneNumber: string } }> {
+    return this.request(`/apps/register-sender-after-meta`, {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber, wabaId }),
+    });
+  }
+
+  /**
+   * List available Twilio phone numbers for a country (for get-from-twilio flow).
+   */
+  async getAvailableNumbers(countryCode: string, limit?: number): Promise<
+    AppResponse & {
+      data: { countryCode: string; numbers: { phoneNumber: string; friendlyName?: string }[] };
+    }
+  > {
+    const params = new URLSearchParams({ countryCode: countryCode.toUpperCase() });
+    if (limit != null) params.set('limit', String(limit));
+    return this.request(`/apps/available-numbers?${params}`, { method: 'GET' });
+  }
+
+  /**
+   * Provision (purchase) a Twilio number. Optionally pass phoneNumber to buy a specific number.
+   */
+  async provisionNumber(body: {
+    countryCode: string;
+    phoneNumber?: string;
+  }): Promise<
+    AppResponse & {
+      data: { phoneNumber: string; friendlyName?: string };
+    }
+  > {
+    return this.request(`/apps/provision-number`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     });
   }
 
