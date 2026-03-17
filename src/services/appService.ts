@@ -104,13 +104,38 @@ class AppService extends HttpService {
    * After user completes Meta Embedded Signup (WABA), register the WhatsApp sender with Twilio.
    * Returns senderSid for use in createApp (twilioWhatsAppSenderId).
    */
-  async registerSenderAfterMeta(
-    phoneNumber: string,
-    wabaId: string
-  ): Promise<AppResponse & { data: { senderSid: string; phoneNumber: string } }> {
+  async registerSenderAfterMeta(body: {
+    appId: string;
+    phoneNumber: string;
+    wabaId: string;
+  }): Promise<AppResponse & { data: { senderSid: string; phoneNumber: string } }> {
     return this.request(`/apps/register-sender-after-meta`, {
       method: 'POST',
-      body: JSON.stringify({ phoneNumber, wabaId }),
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getAvailableNumbersForApp(
+    appId: string,
+    countryCode: string,
+    limit?: number
+  ): Promise<
+    AppResponse & {
+      data: { countryCode: string; numbers: { phoneNumber: string; friendlyName?: string }[] };
+    }
+  > {
+    const params = new URLSearchParams({ countryCode: countryCode.toUpperCase() });
+    if (limit != null) params.set('limit', String(limit));
+    return this.request(`/apps/${appId}/available-numbers?${params}`, { method: 'GET' });
+  }
+
+  async provisionNumberForApp(
+    appId: string,
+    body: { countryCode: string; phoneNumber?: string }
+  ): Promise<AppResponse & { data: { phoneNumber: string } }> {
+    return this.request(`/apps/${appId}/provision-number`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     });
   }
 
