@@ -18,6 +18,8 @@ const isMetaFullyConfigured = !!(META_APP_ID && META_CONFIG_ID && META_PARTNER_S
 export type MetaSignupStatus = 'idle' | 'loading_sdk' | 'ready' | 'opening' | 'completed' | 'error';
 
 interface MetaEmbeddedSignupWizardProps {
+  /** Assistly app id (used when registering the sender after Meta signup) */
+  appId: string;
   /** Provisioned phone number (E.164) */
   phoneNumber: string;
   onSuccess: (data: { senderSid: string; wabaId: string }) => void;
@@ -41,7 +43,13 @@ function useIsHttps() {
   return isHttps;
 }
 
-export default function MetaEmbeddedSignupWizard({ phoneNumber, onSuccess, onError, onSkip }: MetaEmbeddedSignupWizardProps) {
+export default function MetaEmbeddedSignupWizard({
+  appId,
+  phoneNumber,
+  onSuccess,
+  onError,
+  onSkip,
+}: MetaEmbeddedSignupWizardProps) {
   const [status, setStatus] = useState<MetaSignupStatus>(canShowSignup ? 'loading_sdk' : 'idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const listenerRef = useRef<((event: MessageEvent) => void) | null>(null);
@@ -64,7 +72,11 @@ export default function MetaEmbeddedSignupWizard({ phoneNumber, onSuccess, onErr
           setStatus('opening'); // show loading while we register sender
           try {
             const appService = await useAppService();
-            const response = await appService.registerSenderAfterMeta(phoneNumber, waba_id);
+            const response = await appService.registerSenderAfterMeta({
+              appId,
+              phoneNumber,
+              wabaId: waba_id,
+            });
             if (response.status === 'success' && response.data?.senderSid) {
               setStatus('completed');
               toast.success('WhatsApp sender registered');
@@ -97,7 +109,7 @@ export default function MetaEmbeddedSignupWizard({ phoneNumber, onSuccess, onErr
         // ignore non-JSON or other messages
       }
     },
-    [phoneNumber, onSuccess, onError]
+    [appId, phoneNumber, onSuccess, onError]
   );
 
   useEffect(() => {

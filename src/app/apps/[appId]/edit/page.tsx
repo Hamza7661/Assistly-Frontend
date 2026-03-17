@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -32,12 +32,15 @@ export default function EditAppPage() {
   const router = useRouter();
   const params = useParams();
   const appId = params.appId as string;
+  const setupWhatsAppToastRef = useRef(false);
   const { user } = useAuth();
   const { refreshApps } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingWhatsApp, setIsSavingWhatsApp] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'app' | 'whatsapp'>('app');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -54,6 +57,22 @@ export default function EditAppPage() {
     undefined
   );
   const [whatsappNumberSource, setWhatsappNumberSource] = useState<string | undefined>(undefined);
+  const [twilioSubaccountReady, setTwilioSubaccountReady] = useState<boolean | null>(null);
+  const [showWhatsAppSetupBanner, setShowWhatsAppSetupBanner] = useState(false);
+
+  const [newNumberCountry, setNewNumberCountry] = useState('US');
+  const [availableNumbers, setAvailableNumbers] = useState<
+    { phoneNumber: string; friendlyName?: string }[]
+  >([]);
+  const [loadingNumbers, setLoadingNumbers] = useState(false);
+  const [loadingProvision, setLoadingProvision] = useState(false);
+
+  const NEW_NUMBER_COUNTRY_OPTIONS = [
+    { code: 'US', label: 'United States', flag: '🇺🇸' },
+    { code: 'GB', label: 'United Kingdom', flag: '🇬🇧' },
+    { code: 'CA', label: 'Canada', flag: '🇨🇦' },
+    { code: 'FR', label: 'France', flag: '🇫🇷' },
+  ];
 
   // ── Persisted Facebook connection (loaded from API) ───────────────
   const [fbConnectedPageId, setFbConnectedPageId] = useState('');
@@ -89,7 +108,12 @@ export default function EditAppPage() {
             name: app.name || '',
             industry: app.industry || '',
             description: app.description || '',
-            whatsappOption: app.whatsappNumber ? 'use-my-number' : 'get-from-twilio',
+            whatsappOption:
+              app.whatsappNumberSource === 'twilio-provided'
+                ? 'get-from-twilio'
+                : app.whatsappNumber
+                  ? 'use-my-number'
+                  : 'get-from-twilio',
             whatsappNumber: app.whatsappNumber || '',
             instagramBusinessAccountId: app.instagramBusinessAccountId || '',
             instagramAccessToken: '', // Don't display existing token for security
@@ -97,6 +121,7 @@ export default function EditAppPage() {
           });
           setWhatsappNumberStatus(app.whatsappNumberStatus);
           setWhatsappNumberSource(app.whatsappNumberSource);
+          setTwilioSubaccountReady(!!app.twilioSubaccountReady);
           // Facebook persisted connection
           setFbConnectedPageId(app.facebookPageId || '');
           setFbConnectedPageName(app.facebookPageName || '');
@@ -123,6 +148,97 @@ export default function EditAppPage() {
       loadApp();
     }
   }, [appId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || setupWhatsAppToastRef.current) return;
+    const q = new URLSearchParams(window.location.search).get('setup');
+    if (q !== 'whatsapp') return;
+    setupWhatsAppToastRef.current = true;
+    setActiveTab('whatsapp');
+    setShowWhatsAppSetupBanner(true);
+    toast.info(
+      'Finish WhatsApp setup: get a new number below if needed, then connect Meta. You can return anytime.'
+    );
+    window.history.replaceState({}, '', window.location.pathname);
+  }, [appId]);
+
+  const reloadAppWhatsAppFields = async () => {
+    const appService = await useAppService();
+    const res = await appService.getApp(appId);
+    if (res.status === 'success' && res.data?.app) {
+      const app = res.data.app;
+      setFormData((prev) => ({
+        ...prev,
+        whatsappOption:
+          app.whatsappNumberSource === 'twilio-provided'
+            ? 'get-from-twilio'
+            : app.whatsappNumber
+              ? 'use-my-number'
+              : 'get-from-twilio',
+        whatsappNumber: app.whatsappNumber || '',
+      }));
+      setWhatsappNumberStatus(app.whatsappNumberStatus);
+      setWhatsappNumberSource(app.whatsappNumberSource);
+      setTwilioSubaccountReady(!!app.twilioSubaccountReady);
+    }
+  };
+
+  const fetchAvailableNumbersForApp = async () => {
+    if (!newNumberCountry || !appId) return;
+    setLoadingNumbers(true);
+    setAvailableNumbers([]);
+    try {
+      const appService = await useAppService();
+      const res = await appService.getAvailableNumbersForApp(appId, newNumberCountry, 20);
+      if (res.status === 'success' && res.data?.numbers) {
+        setAvailableNumbers(res.data.numbers);
+        if (res.data.numbers.length === 0) {
+          toast.info('No numbers available for this country. Try another country.');
+        }
+      } else {
+        toast.error('Could not load numbers. Try again.');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to load numbers';
+      toast.error(msg);
+    } finally {
+      setLoadingNumbers(false);
+    }
+  };
+
+  const handleBuyNumberForApp = async (phoneNumber: string) => {
+    setLoadingProvision(true);
+    try {
+      const appService = await useAppService();
+      const res = await appService.provisionNumberForApp(appId, {
+        countryCode: newNumberCountry,
+        phoneNumber,
+      });
+      if (res.status === 'success' && res.data?.phoneNumber) {
+        toast.success('Number purchased successfully');
+        await reloadAppWhatsAppFields();
+        setAvailableNumbers([]);
+      } else {
+        toast.error((res as any).message || 'Failed to purchase number');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to purchase number';
+      toast.error(msg);
+    } finally {
+      setLoadingProvision(false);
+    }
+  };
+
+  /** Show search/buy until this app has a provisioned WhatsApp number */
+  const needsHostedNumberPurchase =
+    formData.whatsappOption === 'get-from-twilio' &&
+    !(
+      whatsappNumberSource === 'twilio-provided' && !!formData.whatsappNumber?.trim()
+    );
+
+  const showMetaEmbeddedForNumber =
+    !!formData.whatsappNumber?.trim() &&
+    (formData.whatsappOption === 'use-my-number' || whatsappNumberSource === 'twilio-provided');
 
   // ── Facebook OAuth handlers ───────────────────────────────────────
 
@@ -193,17 +309,13 @@ export default function EditAppPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const validateForm = () => {
+  const validateAppForm = () => {
     if (!formData.name.trim()) {
       setError('App name is required');
       return false;
     }
     if (!formData.industry) {
       setError('Industry is required');
-      return false;
-    }
-    if (formData.whatsappOption === 'use-my-number' && !formData.whatsappNumber.trim()) {
-      setError('WhatsApp number is required when using your own number');
       return false;
     }
     return true;
@@ -245,7 +357,7 @@ export default function EditAppPage() {
     e.preventDefault();
     setError('');
 
-    if (!validateForm()) return;
+    if (!validateAppForm()) return;
 
     setIsSaving(true);
 
@@ -257,28 +369,12 @@ export default function EditAppPage() {
         description: formData.description.trim() || undefined
       };
 
-      // Handle WhatsApp number updates
-      if (formData.whatsappOption === 'use-my-number') {
-        if (formData.whatsappNumber.trim() !== formData.whatsappNumber) {
-          updateData.whatsappNumber = formData.whatsappNumber.trim();
-          updateData.whatsappNumberSource = 'user-provided';
-          updateData.whatsappNumberStatus = WhatsappNumberStatus.Pending;
-        }
-      } else if (
-        formData.whatsappOption === 'get-from-twilio' &&
-        whatsappNumberSource !== 'twilio-provided'
-      ) {
-        updateData.whatsappNumber = undefined;
-        updateData.whatsappNumberSource = 'twilio-provided';
-        updateData.whatsappNumberStatus = WhatsappNumberStatus.Pending;
-      }
-
       const response = await appService.updateApp(appId, updateData);
 
       if (response.status === 'success') {
         toast.success('App updated successfully!');
         await refreshApps();
-        router.push('/apps');
+        await reloadAppWhatsAppFields();
       } else {
         setError(response.message || 'Failed to update app');
       }
@@ -293,6 +389,56 @@ export default function EditAppPage() {
       toast.error('Failed to update app');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleWhatsAppSave = async () => {
+    setError('');
+    if (formData.whatsappOption === 'use-my-number') {
+      if (!formData.whatsappNumber.trim()) {
+        setError('WhatsApp number is required when using your own number');
+        toast.error('Enter a WhatsApp number or choose Get a new number.');
+        return;
+      }
+    }
+
+    setIsSavingWhatsApp(true);
+    try {
+      const appService = await useAppService();
+      const updateData: Record<string, unknown> = {};
+
+      if (formData.whatsappOption === 'use-my-number') {
+        updateData.whatsappNumber = formData.whatsappNumber.trim();
+        updateData.whatsappNumberSource = 'user-provided';
+        updateData.whatsappNumberStatus = WhatsappNumberStatus.Pending;
+      } else if (
+        formData.whatsappOption === 'get-from-twilio' &&
+        whatsappNumberSource !== 'twilio-provided'
+      ) {
+        updateData.whatsappNumber = undefined;
+        updateData.whatsappNumberSource = 'twilio-provided';
+        updateData.whatsappNumberStatus = WhatsappNumberStatus.Pending;
+      } else {
+        toast.info('Nothing to save — use Search/Buy or Meta below if you need a new number.');
+        setIsSavingWhatsApp(false);
+        return;
+      }
+
+      const response = await appService.updateApp(appId, updateData);
+      if (response.status === 'success') {
+        toast.success('WhatsApp settings saved');
+        await refreshApps();
+        await reloadAppWhatsAppFields();
+      } else {
+        setError(response.message || 'Failed to save');
+        toast.error(response.message || 'Failed to save');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to save';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsSavingWhatsApp(false);
     }
   };
 
@@ -337,12 +483,41 @@ export default function EditAppPage() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Edit App</h1>
-            <p className="text-gray-600 mb-8">
+            <p className="text-gray-600 mb-6">
               Update your app details. Each app has its own flows, plans, FAQs, and integrations.
             </p>
 
+            <div className="flex flex-wrap gap-1 mb-8 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => setActiveTab('app')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeTab === 'app'
+                    ? 'border-[#00bc7d] text-[#00bc7d]'
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <Building2 className="h-4 w-4" />
+                App details
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('whatsapp')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeTab === 'whatsapp'
+                    ? 'border-[#00bc7d] text-[#00bc7d]'
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp setup
+              </button>
+            </div>
+
+            {error && <div className="error-message mb-6">{error}</div>}
+
+            {activeTab === 'app' && (
             <form onSubmit={handleSubmit} className="space-y-8">
-              {error && <div className="error-message">{error}</div>}
 
               {/* ── Basic Info ── */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -411,140 +586,19 @@ export default function EditAppPage() {
                 </div>
               </div>
 
-              {/* ── WhatsApp ── */}
-              <div className="border-t border-gray-200 pt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                  WhatsApp Number Configuration
-                </h3>
-
-                {whatsappNumberStatus && formData.whatsappNumber && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Phone className="h-4 w-4" />
-                      <span className="font-medium">Current Number:</span>
-                      <span>{formData.whatsappNumber}</span>
-                      {getWhatsAppStatusBadge(
-                        whatsappNumberStatus,
-                        !!formData.whatsappNumber?.trim?.()
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Choose WhatsApp number option:
-                    </label>
-                    <div className="space-y-3">
-                      <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input
-                          type="radio"
-                          name="whatsappOption"
-                          value="use-my-number"
-                          checked={formData.whatsappOption === 'use-my-number'}
-                          onChange={(e) => handleInputChange('whatsappOption', e.target.value)}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">
-                            Use my WhatsApp number
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Register your existing WhatsApp number for messaging
-                          </div>
-                        </div>
-                      </label>
-
-                      <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input
-                          type="radio"
-                          name="whatsappOption"
-                          value="get-from-twilio"
-                          checked={formData.whatsappOption === 'get-from-twilio'}
-                          onChange={(e) => handleInputChange('whatsappOption', e.target.value)}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">
-                            Get a new number
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            A phone number will be provided for WhatsApp
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-
-                  {formData.whatsappOption === 'use-my-number' && (
-                    <div className="mt-4">
-                      <label
-                        htmlFor="whatsappNumber"
-                        className="block text-sm font-medium text-gray-700 mb-2"
-                      >
-                        WhatsApp Number <span className="text-red-500">*</span>
-                      </label>
-                      <div className="w-full">
-                        <PhoneInput
-                          international
-                          defaultCountry={
-                            (process.env.NEXT_PUBLIC_DEFAULT_COUNTRY as any) || 'GB'
-                          }
-                          value={formData.whatsappNumber}
-                          onChange={(value) =>
-                            handleInputChange('whatsappNumber', value || '')
-                          }
-                          placeholder="Enter WhatsApp number"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200"
-                        />
-                      </div>
-                      <p className="mt-3 text-sm text-gray-500">
-                        {formData.whatsappNumber &&
-                        whatsappNumberStatus === WhatsappNumberStatus.Registered
-                          ? 'Changing the number will require re-registration for WhatsApp.'
-                          : 'Your number will be registered for WhatsApp messaging. Make sure the number can receive SMS or voice calls for verification.'}
-                      </p>
-                    </div>
-                  )}
-
-                  {formData.whatsappOption === 'get-from-twilio' && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        {whatsappNumberSource === 'twilio-provided'
-                          ? 'A phone number is already configured for this app.'
-                          : 'A phone number will be provisioned and registered for WhatsApp when you save. The registration process may take a few minutes to complete.'}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Meta Embedded Signup: register this number with WhatsApp Business (WABA) — shown when app has a number */}
-                  {formData.whatsappNumber?.trim() && (
-                    <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-1">
-                        WhatsApp Business (Meta) registration
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Link this number to your WhatsApp Business Account (WABA) so you can send and receive messages.
-                      </p>
-                      <MetaEmbeddedSignupWizard
-                        phoneNumber={formData.whatsappNumber.trim()}
-                        onSuccess={async () => {
-                          await refreshApps();
-                          const appService = await useAppService();
-                          const res = await appService.getApp(appId);
-                          if (res.status === 'success' && res.data?.app) {
-                            setWhatsappNumberStatus(res.data.app.whatsappNumberStatus as WhatsappNumberStatus);
-                          }
-                        }}
-                        onError={(msg) => {
-                          setError(msg);
-                          toast.error(msg);
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-gray-600">
+                  Phone number, purchasing a new number, and Meta (WABA) are on the{' '}
+                  <strong>WhatsApp setup</strong> tab.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('whatsapp')}
+                  className="btn-secondary text-sm py-2 px-4 flex items-center gap-2 shrink-0"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Open WhatsApp setup
+                </button>
               </div>
 
               {/* ── Facebook Page OAuth ── */}
@@ -742,8 +796,6 @@ export default function EditAppPage() {
                 )}
               </div>
 
-             
-
               {/* ── Actions ── */}
               <div className="flex items-center gap-4 pt-6 border-t border-gray-200">
                 <button
@@ -770,6 +822,274 @@ export default function EditAppPage() {
                 </button>
               </div>
             </form>
+            )}
+
+            {activeTab === 'whatsapp' && (
+              <div className="space-y-8">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                    WhatsApp setup
+                  </h2>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Choose how you connect WhatsApp, get a new number for this app if needed, then
+                    link your Business Account with Meta. You can finish this anytime.
+                  </p>
+                </div>
+
+                {showWhatsAppSetupBanner && (
+                  <div className="flex items-start justify-between gap-3 p-4 bg-[#00bc7d]/10 border border-[#00bc7d]/30 rounded-lg">
+                    <p className="text-sm text-gray-800">
+                      <strong>Welcome:</strong> Search and buy a number below (if you chose a new
+                      number), then use Meta to link your WABA. You can dismiss this and return
+                      later.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowWhatsAppSetupBanner(false)}
+                      className="shrink-0 text-sm text-gray-600 hover:text-gray-900 underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {whatsappNumberStatus && formData.whatsappNumber && (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                      <Phone className="h-4 w-4" />
+                      <span className="font-medium">Current number:</span>
+                      <span className="font-mono">{formData.whatsappNumber}</span>
+                      {getWhatsAppStatusBadge(
+                        whatsappNumberStatus,
+                        !!formData.whatsappNumber?.trim?.()
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      How do you want to use WhatsApp?
+                    </label>
+                    <div className="space-y-3">
+                      <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="whatsappOption"
+                          value="use-my-number"
+                          checked={formData.whatsappOption === 'use-my-number'}
+                          onChange={(e) => handleInputChange('whatsappOption', e.target.value)}
+                          className="mr-3"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">
+                            Use my WhatsApp number
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Register your existing number, then connect with Meta
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="whatsappOption"
+                          value="get-from-twilio"
+                          checked={formData.whatsappOption === 'get-from-twilio'}
+                          onChange={(e) => handleInputChange('whatsappOption', e.target.value)}
+                          className="mr-3"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">Get a new number</div>
+                          <div className="text-sm text-gray-500">
+                            Get a new number for this app, then connect with Meta
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {formData.whatsappOption === 'use-my-number' && (
+                    <div className="mt-4">
+                      <label
+                        htmlFor="whatsappNumber"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
+                        WhatsApp number <span className="text-red-500">*</span>
+                      </label>
+                      <div className="w-full max-w-md">
+                        <PhoneInput
+                          international
+                          defaultCountry={
+                            (process.env.NEXT_PUBLIC_DEFAULT_COUNTRY as any) || 'GB'
+                          }
+                          value={formData.whatsappNumber}
+                          onChange={(value) =>
+                            handleInputChange('whatsappNumber', value || '')
+                          }
+                          placeholder="Enter WhatsApp number"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200"
+                        />
+                      </div>
+                      <p className="mt-3 text-sm text-gray-500 max-w-xl">
+                        {formData.whatsappNumber &&
+                        whatsappNumberStatus === WhatsappNumberStatus.Registered
+                          ? 'Changing the number will require re-registration.'
+                          : 'Save below, then complete Meta registration. The number must receive SMS or voice for verification.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {formData.whatsappOption === 'get-from-twilio' && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600">
+                        If you just switched from &quot;Use my number&quot;, click{' '}
+                        <strong>Save WhatsApp settings</strong> first. Then search and buy a number.
+                      </p>
+                      {twilioSubaccountReady === false && (
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-sm text-amber-900">
+                            Phone provisioning isn&apos;t ready for this app yet. Try again later or
+                            contact support.
+                          </p>
+                        </div>
+                      )}
+                      {twilioSubaccountReady === true && needsHostedNumberPurchase && (
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-800 mb-3">
+                            Search for a number, then purchase (carrier and usage charges may apply).
+                            After that, connect Meta below.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="text-sm font-medium text-gray-700">Country</label>
+                            <select
+                              value={newNumberCountry}
+                              onChange={(e) => {
+                                setNewNumberCountry(e.target.value);
+                                setAvailableNumbers([]);
+                              }}
+                              className="input-field w-auto min-w-[200px]"
+                            >
+                              {NEW_NUMBER_COUNTRY_OPTIONS.map((c) => (
+                                <option key={c.code} value={c.code}>
+                                  {c.flag} {c.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={fetchAvailableNumbersForApp}
+                              disabled={loadingNumbers}
+                              className="btn-secondary flex items-center gap-2"
+                            >
+                              {loadingNumbers ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : null}
+                              Search available numbers
+                            </button>
+                          </div>
+                          {availableNumbers.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-sm font-medium text-gray-700 mb-2">
+                                Available numbers — select one to buy
+                              </p>
+                              <ul className="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-48 overflow-y-auto bg-white">
+                                {availableNumbers.map((n) => (
+                                  <li
+                                    key={n.phoneNumber}
+                                    className="flex items-center justify-between px-4 py-3 hover:bg-gray-50"
+                                  >
+                                    <span className="font-mono text-sm text-gray-800">
+                                      {n.phoneNumber}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBuyNumberForApp(n.phoneNumber)}
+                                      disabled={loadingProvision}
+                                      className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1.5"
+                                    >
+                                      {loadingProvision ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : null}
+                                      Buy this number
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {twilioSubaccountReady === true &&
+                        !needsHostedNumberPurchase &&
+                        !!formData.whatsappNumber?.trim() && (
+                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+                            <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-semibold text-green-800">
+                                Number for this app
+                              </p>
+                              <p className="text-sm text-green-700 font-mono mt-0.5">
+                                {formData.whatsappNumber}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  )}
+
+                  {showMetaEmbeddedForNumber && (
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                        WhatsApp Business (Meta)
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Link this number to your WhatsApp Business Account (WABA).
+                      </p>
+                      <MetaEmbeddedSignupWizard
+                        appId={appId}
+                        phoneNumber={formData.whatsappNumber.trim()}
+                        onSuccess={async () => {
+                          await refreshApps();
+                          await reloadAppWhatsAppFields();
+                        }}
+                        onError={(msg) => {
+                          setError(msg);
+                          toast.error(msg);
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-4 pt-6 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppSave}
+                      disabled={isSavingWhatsApp}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      {isSavingWhatsApp ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save WhatsApp settings'
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('app')}
+                      className="btn-secondary"
+                    >
+                      Back to app details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

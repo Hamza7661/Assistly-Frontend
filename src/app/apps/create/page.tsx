@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
@@ -11,18 +11,11 @@ import Navigation from '@/components/Navigation';
 import AppCreationProgressModal from '@/components/AppCreationProgressModal';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
-import { Building2, Loader2, ChevronDown, CheckCircle2, XCircle, Phone } from 'lucide-react';
+import { Building2, Loader2, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
 import { io, Socket } from 'socket.io-client';
-
-const NEW_NUMBER_COUNTRY_OPTIONS = [
-  { code: 'US', label: 'United States', flag: '🇺🇸' },
-  { code: 'GB', label: 'United Kingdom', flag: '🇬🇧' },
-  { code: 'CA', label: 'Canada', flag: '🇨🇦' },
-  { code: 'FR', label: 'France', flag: '🇫🇷' },
-];
 
 export default function CreateAppPage() {
   const router = useRouter();
@@ -33,6 +26,8 @@ export default function CreateAppPage() {
   const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
+  const createdAppIdRef = useRef<string | null>(null);
+  const whatsappOptionAtCreateRef = useRef<'use-my-number' | 'get-from-twilio'>('use-my-number');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -41,13 +36,6 @@ export default function CreateAppPage() {
     whatsappOption: 'use-my-number' as 'use-my-number' | 'get-from-twilio',
     whatsappNumber: ''
   });
-
-  // Get a new number flow: country, available numbers, and purchased number (no provider name in UI)
-  const [newNumberCountry, setNewNumberCountry] = useState('US');
-  const [availableNumbers, setAvailableNumbers] = useState<{ phoneNumber: string; friendlyName?: string }[]>([]);
-  const [loadingNumbers, setLoadingNumbers] = useState(false);
-  const [loadingProvision, setLoadingProvision] = useState(false);
-  const [provisionedNumber, setProvisionedNumber] = useState<string | null>(null);
 
   // Cleanup WebSocket on unmount
   useEffect(() => {
@@ -113,55 +101,6 @@ export default function CreateAppPage() {
   // ── Form handlers ─────────────────────────────────────────────────
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (field === 'whatsappOption' && value === 'use-my-number') {
-      setProvisionedNumber(null);
-      setAvailableNumbers([]);
-    }
-  };
-
-  const fetchAvailableNumbers = async () => {
-    if (!newNumberCountry) return;
-    setLoadingNumbers(true);
-    setAvailableNumbers([]);
-    try {
-      const appService = await useAppService();
-      const res = await appService.getAvailableNumbers(newNumberCountry, 20);
-      if (res.status === 'success' && res.data?.numbers) {
-        setAvailableNumbers(res.data.numbers);
-        if (res.data.numbers.length === 0) {
-          toast.info('No numbers available for this country. Try another country.');
-        }
-      } else {
-        toast.error('Could not load numbers. Try again.');
-      }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to load numbers';
-      toast.error(msg);
-    } finally {
-      setLoadingNumbers(false);
-    }
-  };
-
-  const handleBuyNumber = async (phoneNumber: string) => {
-    setLoadingProvision(true);
-    try {
-      const appService = await useAppService();
-      const res = await appService.provisionNumber({
-        countryCode: newNumberCountry,
-        phoneNumber,
-      });
-      if (res.status === 'success' && res.data?.phoneNumber) {
-        setProvisionedNumber(res.data.phoneNumber);
-        toast.success('Number purchased successfully');
-      } else {
-        toast.error((res as any).message || 'Failed to purchase number');
-      }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to purchase number';
-      toast.error(msg);
-    } finally {
-      setLoadingProvision(false);
-    }
   };
 
   const validateForm = () => {
@@ -193,6 +132,7 @@ export default function CreateAppPage() {
 
     setIsLoading(true);
     setShowProgress(true);
+    whatsappOptionAtCreateRef.current = formData.whatsappOption;
 
     try {
       const appService = await useAppService();
@@ -205,9 +145,6 @@ export default function CreateAppPage() {
           formData.whatsappOption === 'use-my-number'
             ? formData.whatsappNumber.trim()
             : undefined,
-        ...(formData.whatsappOption === 'get-from-twilio' && provisionedNumber
-          ? { twilioPhoneNumber: provisionedNumber.trim() }
-          : {}),
         // Facebook OAuth tokens — backend will exchange & store (non-fatal if it fails)
         ...(fbShortLivedToken && fbSelectedPageId
           ? {
@@ -219,9 +156,8 @@ export default function CreateAppPage() {
       });
 
       if (response.status === 'success' && response.data.app) {
+        createdAppIdRef.current = response.data.app.id;
         setIsLoading(false);
-        // Keep progress modal open; seed data runs in background and sends progress via WebSocket.
-        // Modal will call onComplete (handleProgressComplete) when it receives step === 'complete'.
       } else {
         setShowProgress(false);
         setError(response.message || 'Failed to create app');
@@ -259,24 +195,27 @@ export default function CreateAppPage() {
 
   const handleProgressComplete = async () => {
     try {
-      // Disconnect socket after completion
       if (socket) {
         socket.disconnect();
         setSocket(null);
       }
-      
-      // Refresh apps and switch to the new one
+      const newId = createdAppIdRef.current;
       await refreshApps();
-      const apps = JSON.parse(localStorage.getItem('apps') || '[]');
-      if (apps.length > 0) {
-        const newestApp = apps[0]; // Assuming newest is first
-        await switchApp(newestApp.id);
+      if (newId) {
+        await switchApp(newId);
       }
       toast.success('App created successfully!');
-      router.push('/apps');
+      if (newId) {
+        const q =
+          whatsappOptionAtCreateRef.current === 'get-from-twilio' ? '?setup=whatsapp' : '';
+        router.push(`/apps/${newId}/edit${q}`);
+      } else {
+        router.push('/apps');
+      }
     } catch (error) {
       console.error('Error during progress complete:', error);
-      router.push('/apps');
+      const newId = createdAppIdRef.current;
+      router.push(newId ? `/apps/${newId}/edit` : '/apps');
     }
   };
 
@@ -417,7 +356,8 @@ export default function CreateAppPage() {
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">Get a new number</div>
                           <div className="text-sm text-gray-500">
-                            Select a country and number, then connect your Business profile and WABA
+                            After creating the app, you&apos;ll choose a number and connect WhatsApp
+                            on the next screen (or anytime from Edit App).
                           </div>
                         </div>
                       </label>
@@ -452,101 +392,12 @@ export default function CreateAppPage() {
                   )}
 
                   {formData.whatsappOption === 'get-from-twilio' && (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          Select a country and number below. After creating the app, use Meta
-                          Embedded Signup to register this number with your WhatsApp Business
-                          account (Business profile and WABA).
-                        </p>
-                      </div>
-                      {!provisionedNumber ? (
-                        <>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <label className="text-sm font-medium text-gray-700">Country</label>
-                            <select
-                              value={newNumberCountry}
-                              onChange={(e) => {
-                                setNewNumberCountry(e.target.value);
-                                setAvailableNumbers([]);
-                              }}
-                              className="input-field w-auto min-w-[200px]"
-                            >
-                              {NEW_NUMBER_COUNTRY_OPTIONS.map((c) => (
-                                <option key={c.code} value={c.code}>
-                                  {c.flag} {c.label}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={fetchAvailableNumbers}
-                              disabled={loadingNumbers}
-                              className="btn-secondary flex items-center gap-2"
-                            >
-                              {loadingNumbers ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : null}
-                              Search available numbers
-                            </button>
-                          </div>
-                          {availableNumbers.length > 0 && (
-                            <div>
-                              <p className="text-sm font-medium text-gray-700 mb-2">
-                                Available numbers — select one to purchase
-                              </p>
-                              <ul className="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-48 overflow-y-auto">
-                                {availableNumbers.map((n) => (
-                                  <li
-                                    key={n.phoneNumber}
-                                    className="flex items-center justify-between px-4 py-3 hover:bg-gray-50"
-                                  >
-                                    <span className="font-mono text-sm text-gray-800">
-                                      {n.phoneNumber}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleBuyNumber(n.phoneNumber)}
-                                      disabled={loadingProvision}
-                                      className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1.5"
-                                    >
-                                      {loadingProvision ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      ) : null}
-                                      Buy this number
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                          <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-green-800">Number purchased</p>
-                            <p className="text-sm text-green-700 flex items-center gap-1 mt-0.5">
-                              <Phone className="h-4 w-4" />
-                              {provisionedNumber}
-                            </p>
-                            <p className="text-xs text-green-600 mt-1">
-                              After creating the app, use Meta Embedded Signup to register this
-                              number with your WhatsApp Business account.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProvisionedNumber(null);
-                              setAvailableNumbers([]);
-                            }}
-                            className="text-sm text-gray-500 hover:text-gray-700 underline"
-                          >
-                            Choose different number
-                          </button>
-                        </div>
-                      )}
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">
+                      <p className="text-sm text-blue-800">
+                        You&apos;ll be redirected to <strong>Edit App</strong> after setup. There you
+                        can search for a number, buy it, and connect your WhatsApp Business
+                        account (WABA). You can also finish this later from Edit App anytime.
+                      </p>
                     </div>
                   )}
                 </div>
