@@ -1,10 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { ProtectedRoute, NoAppEmptyState } from '@/components';
 import Navigation from '@/components/Navigation';
+import CalendarAvailabilityRules from '@/components/CalendarAvailabilityRules';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { integrationService } from '@/services/integrationService';
+import { X } from 'lucide-react';
 
 const WhatsAppIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -37,6 +40,59 @@ export default function IntegrationPage() {
 
   const [copiedScript, setCopiedScript] = useState(false);
   const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
+  const [integration, setIntegration] = useState<{ calendarConnected?: boolean; calendarProvider?: string | null; calendarAccountEmail?: string | null } | null>(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
+  const [exceptionsDialogOpen, setExceptionsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (!appId) return;
+    integrationService.getSettings(appId).then((res) => {
+      setIntegration(res.data?.integration ?? null);
+    }).catch(() => setIntegration(null));
+  }, [appId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const calendar = params.get('calendar');
+    if (calendar === 'connected' || calendar === 'error') {
+      setCalendarError(calendar === 'error' ? 'Could not connect calendar.' : null);
+      if (appId) {
+        integrationService.getSettings(appId).then((res) => setIntegration(res.data?.integration ?? null)).catch(() => {});
+      }
+      if (typeof window !== 'undefined') window.history.replaceState({}, '', '/integration');
+    }
+  }, [appId]);
+
+  const handleConnectCalendar = async () => {
+    if (!appId) return;
+    setCalendarLoading(true);
+    setCalendarError(null);
+    try {
+      const url = await integrationService.getCalendarAuthUrl(appId);
+      if (url) window.location.href = url;
+      else setCalendarError('Could not get calendar auth URL.');
+    } catch (e) {
+      setCalendarError(e instanceof Error ? e.message : 'Failed to start calendar connection.');
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
+
+  const handleDisconnectCalendar = async () => {
+    if (!appId) return;
+    setCalendarLoading(true);
+    setCalendarError(null);
+    try {
+      await integrationService.disconnectCalendar(appId);
+      setIntegration((prev) => (prev ? { ...prev, calendarConnected: false, calendarProvider: null, calendarAccountEmail: null } : null));
+    } catch (e) {
+      setCalendarError(e instanceof Error ? e.message : 'Failed to disconnect.');
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
 
   const copyScript = async () => {
     try {
@@ -196,6 +252,118 @@ export default function IntegrationPage() {
                       Add a WhatsApp number to your app to generate the script.{' '}
                       <a href="/apps" className="underline font-medium hover:text-amber-900">Go to Apps →</a>
                     </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Calendar – fixed interface: same fields for all providers (Google, Outlook, Calendly) */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-8">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 shrink-0">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </span>
+                <h2 className="text-lg font-semibold text-gray-900">Calendar</h2>
+              </div>
+              <p className="text-gray-600 mb-6 ml-11">
+                Connect a calendar so the chatbot and WhatsApp can show availability and book appointments.
+              </p>
+              <div className="ml-11">
+                {calendarError && (
+                  <p className="text-sm text-red-600 mb-3">{calendarError}</p>
+                )}
+                {integration?.calendarConnected ? (
+                  <div className="space-y-4">
+                    {/* Connection status row: badge left, Disconnect right */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 py-1">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                          <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                          <span className="text-sm font-medium text-gray-900">
+                            Connected ({integration.calendarProvider === 'google_calendar' ? 'Google Calendar' : integration.calendarProvider || 'Calendar'})
+                          </span>
+                        </div>
+                        {integration.calendarAccountEmail && (
+                          <p className="text-sm text-gray-500 font-mono pl-3">{integration.calendarAccountEmail}</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDisconnectCalendar}
+                        disabled={calendarLoading}
+                        className="text-sm border border-red-200 rounded-lg px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors shrink-0"
+                      >
+                        {calendarLoading ? 'Disconnecting…' : 'Disconnect'}
+                      </button>
+                    </div>
+                    {/* Availability section: label + two actions */}
+                    <div className="pt-3 border-t border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Availability</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAvailabilityDialogOpen(true)}
+                          className="text-sm border border-blue-200 rounded-lg px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                        >
+                          Availability rules
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExceptionsDialogOpen(true)}
+                          className="text-sm border border-blue-200 rounded-lg px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                        >
+                          Date exceptions
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-gray-400" />
+                      <span className="text-sm text-gray-600">Not connected</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleConnectCalendar}
+                      disabled={calendarLoading}
+                      className="text-sm rounded-lg px-4 py-2 bg-[#00bc7d] text-white hover:bg-[#00a36d] disabled:opacity-50"
+                    >
+                      {calendarLoading ? 'Connecting…' : 'Connect Google Calendar'}
+                    </button>
+                    <span className="text-xs text-gray-500">Outlook &amp; Calendly coming soon.</span>
+                  </div>
+                )}
+              </div>
+              {availabilityDialogOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setAvailabilityDialogOpen(false)}>
+                  <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+                    <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">Availability rules</h3>
+                      <button type="button" onClick={() => setAvailabilityDialogOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" aria-label="Close">
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <div className="p-6">
+                      <CalendarAvailabilityRules appId={appId} dialogMode="availability" onClose={() => setAvailabilityDialogOpen(false)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {exceptionsDialogOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setExceptionsDialogOpen(false)}>
+                  <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative min-w-0">
+                    <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">Date exceptions</h3>
+                      <button type="button" onClick={() => setExceptionsDialogOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" aria-label="Close">
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <div className="p-6 min-w-0">
+                      <CalendarAvailabilityRules appId={appId} dialogMode="exceptions" onClose={() => setExceptionsDialogOpen(false)} />
+                    </div>
                   </div>
                 </div>
               )}

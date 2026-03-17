@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function AvailabilityRedirectPage() {
+export default function AvailabilityExceptionsRedirectPage() {
   const router = useRouter();
   useEffect(() => {
     router.replace('/integration');
