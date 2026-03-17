@@ -11,11 +11,26 @@ import Navigation from '@/components/Navigation';
 import AppCreationProgressModal from '@/components/AppCreationProgressModal';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
-import { Building2, Loader2, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
+import { Building2, Loader2, ChevronDown, CheckCircle2, XCircle, Phone } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
 import { io, Socket } from 'socket.io-client';
+
+const NEW_NUMBER_COUNTRY_OPTIONS = [
+  { code: 'US', label: 'United States' },
+  { code: 'GB', label: 'United Kingdom' },
+  { code: 'CA', label: 'Canada' },
+  { code: 'AU', label: 'Australia' },
+  { code: 'IN', label: 'India' },
+  { code: 'DE', label: 'Germany' },
+  { code: 'FR', label: 'France' },
+  { code: 'ES', label: 'Spain' },
+  { code: 'IT', label: 'Italy' },
+  { code: 'NL', label: 'Netherlands' },
+  { code: 'BR', label: 'Brazil' },
+  { code: 'MX', label: 'Mexico' },
+];
 
 export default function CreateAppPage() {
   const router = useRouter();
@@ -34,6 +49,13 @@ export default function CreateAppPage() {
     whatsappOption: 'use-my-number' as 'use-my-number' | 'get-from-twilio',
     whatsappNumber: ''
   });
+
+  // Get a new number flow: country, available numbers, and purchased number (no provider name in UI)
+  const [newNumberCountry, setNewNumberCountry] = useState('US');
+  const [availableNumbers, setAvailableNumbers] = useState<{ phoneNumber: string; friendlyName?: string }[]>([]);
+  const [loadingNumbers, setLoadingNumbers] = useState(false);
+  const [loadingProvision, setLoadingProvision] = useState(false);
+  const [provisionedNumber, setProvisionedNumber] = useState<string | null>(null);
 
   // Cleanup WebSocket on unmount
   useEffect(() => {
@@ -99,6 +121,55 @@ export default function CreateAppPage() {
   // ── Form handlers ─────────────────────────────────────────────────
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'whatsappOption' && value === 'use-my-number') {
+      setProvisionedNumber(null);
+      setAvailableNumbers([]);
+    }
+  };
+
+  const fetchAvailableNumbers = async () => {
+    if (!newNumberCountry) return;
+    setLoadingNumbers(true);
+    setAvailableNumbers([]);
+    try {
+      const appService = await useAppService();
+      const res = await appService.getAvailableNumbers(newNumberCountry, 20);
+      if (res.status === 'success' && res.data?.numbers) {
+        setAvailableNumbers(res.data.numbers);
+        if (res.data.numbers.length === 0) {
+          toast.info('No numbers available for this country. Try another country.');
+        }
+      } else {
+        toast.error('Could not load numbers. Try again.');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to load numbers';
+      toast.error(msg);
+    } finally {
+      setLoadingNumbers(false);
+    }
+  };
+
+  const handleBuyNumber = async (phoneNumber: string) => {
+    setLoadingProvision(true);
+    try {
+      const appService = await useAppService();
+      const res = await appService.provisionNumber({
+        countryCode: newNumberCountry,
+        phoneNumber,
+      });
+      if (res.status === 'success' && res.data?.phoneNumber) {
+        setProvisionedNumber(res.data.phoneNumber);
+        toast.success('Number purchased successfully');
+      } else {
+        toast.error((res as any).message || 'Failed to purchase number');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to purchase number';
+      toast.error(msg);
+    } finally {
+      setLoadingProvision(false);
+    }
   };
 
   const validateForm = () => {
@@ -142,6 +213,9 @@ export default function CreateAppPage() {
           formData.whatsappOption === 'use-my-number'
             ? formData.whatsappNumber.trim()
             : undefined,
+        ...(formData.whatsappOption === 'get-from-twilio' && provisionedNumber
+          ? { twilioPhoneNumber: provisionedNumber }
+          : {}),
         // Facebook OAuth tokens — backend will exchange & store (non-fatal if it fails)
         ...(fbShortLivedToken && fbSelectedPageId
           ? {
@@ -387,11 +461,101 @@ export default function CreateAppPage() {
                   )}
 
                   {formData.whatsappOption === 'get-from-twilio' && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        Select a country and number below, then connect your Meta Business profile
-                        and WABA to complete WhatsApp setup.
-                      </p>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          Select a country and number below. After creating the app, use Meta
+                          Embedded Signup to register this number with your WhatsApp Business
+                          account (Business profile and WABA).
+                        </p>
+                      </div>
+                      {!provisionedNumber ? (
+                        <>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="text-sm font-medium text-gray-700">Country</label>
+                            <select
+                              value={newNumberCountry}
+                              onChange={(e) => {
+                                setNewNumberCountry(e.target.value);
+                                setAvailableNumbers([]);
+                              }}
+                              className="input-field w-auto min-w-[180px]"
+                            >
+                              {NEW_NUMBER_COUNTRY_OPTIONS.map((c) => (
+                                <option key={c.code} value={c.code}>
+                                  {c.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={fetchAvailableNumbers}
+                              disabled={loadingNumbers}
+                              className="btn-secondary flex items-center gap-2"
+                            >
+                              {loadingNumbers ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : null}
+                              Search available numbers
+                            </button>
+                          </div>
+                          {availableNumbers.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 mb-2">
+                                Available numbers — select one to purchase
+                              </p>
+                              <ul className="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-48 overflow-y-auto">
+                                {availableNumbers.map((n) => (
+                                  <li
+                                    key={n.phoneNumber}
+                                    className="flex items-center justify-between px-4 py-3 hover:bg-gray-50"
+                                  >
+                                    <span className="font-mono text-sm text-gray-800">
+                                      {n.phoneNumber}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBuyNumber(n.phoneNumber)}
+                                      disabled={loadingProvision}
+                                      className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1.5"
+                                    >
+                                      {loadingProvision ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : null}
+                                      Buy this number
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-green-800">Number purchased</p>
+                            <p className="text-sm text-green-700 flex items-center gap-1 mt-0.5">
+                              <Phone className="h-4 w-4" />
+                              {provisionedNumber}
+                            </p>
+                            <p className="text-xs text-green-600 mt-1">
+                              After creating the app, use Meta Embedded Signup to register this
+                              number with your WhatsApp Business account.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProvisionedNumber(null);
+                              setAvailableNumbers([]);
+                            }}
+                            className="text-sm text-gray-500 hover:text-gray-700 underline"
+                          >
+                            Choose different number
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
