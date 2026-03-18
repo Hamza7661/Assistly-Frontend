@@ -12,7 +12,14 @@ import AppCreationProgressModal from '@/components/AppCreationProgressModal';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
 import MetaEmbeddedSignupWizard from '@/components/MetaEmbeddedSignupWizard';
-import { Building2, Loader2, ChevronDown, CheckCircle2, XCircle, MessageCircle } from 'lucide-react';
+import {
+  AppStepIcon,
+  WhatsAppStepIcon,
+  FacebookStepIcon,
+  FacebookButtonIcon,
+} from '@/components/StepperBrandIcons';
+import { Listbox } from '@headlessui/react';
+import { Building2, Loader2, ChevronDown, Check, CheckCircle2, XCircle } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
@@ -61,8 +68,23 @@ export default function CreateAppPage() {
     senderSid: '',
     wabaId: '',
   });
+  const [numberSearch, setNumberSearch] = useState('');
 
   const canOpenSetupSteps = !!createdAppId;
+
+  const COUNTRY_OPTIONS = [
+    { code: 'US', label: 'United States', flagUrl: 'https://flagcdn.com/w20/us.png' },
+    { code: 'GB', label: 'United Kingdom', flagUrl: 'https://flagcdn.com/w20/gb.png' },
+    { code: 'CA', label: 'Canada', flagUrl: 'https://flagcdn.com/w20/ca.png' },
+    { code: 'FR', label: 'France', flagUrl: 'https://flagcdn.com/w20/fr.png' },
+  ];
+  const selectedCountry =
+    COUNTRY_OPTIONS.find((c) => c.code === whatsAppData.countryCode) || COUNTRY_OPTIONS[0];
+
+  const whatsappStepDisabledHint =
+    'Create your app first. WhatsApp needs an app ID to save your number, get a new number for this app, and connect with Meta.';
+  const facebookStepDisabledHint =
+    'Create your app first. Facebook needs an app ID to securely link your Page to this app.';
 
   // Cleanup WebSocket on unmount
   useEffect(() => {
@@ -142,11 +164,11 @@ export default function CreateAppPage() {
     return true;
   };
 
-  const handleCreateApp = async () => {
+  const handleCreateApp = async (): Promise<boolean> => {
     setError('');
 
     if (!validateAppStep()) {
-      return;
+      return false;
     }
 
     // Initialize WebSocket only when user clicks submit (lazy loading for performance)
@@ -166,6 +188,7 @@ export default function CreateAppPage() {
       if (response.status === 'success' && response.data.app) {
         createdAppIdRef.current = response.data.app.id;
         setIsLoading(false);
+        return true;
       } else {
         setShowProgress(false);
         setError(response.message || 'Failed to create app');
@@ -175,6 +198,7 @@ export default function CreateAppPage() {
           socket.disconnect();
           setSocket(null);
         }
+        return false;
       }
     } catch (err: unknown) {
       setShowProgress(false);
@@ -186,6 +210,7 @@ export default function CreateAppPage() {
         socket.disconnect();
         setSocket(null);
       }
+      return false;
     }
   };
 
@@ -227,14 +252,14 @@ export default function CreateAppPage() {
     }
   };
 
-  const handleWhatsAppSave = async () => {
-    if (!createdAppId) return;
+  const handleWhatsAppSave = async (): Promise<boolean> => {
+    if (!createdAppId) return false;
     setError('');
 
     if (whatsAppData.whatsappOption === 'use-my-number' && !whatsAppData.whatsappNumber.trim()) {
       setError('WhatsApp number is required when using your own number');
       toast.error('Enter a WhatsApp number or choose Get a new number.');
-      return;
+      return false;
     }
 
     setIsLoading(true);
@@ -254,15 +279,18 @@ export default function CreateAppPage() {
       if (response.status === 'success') {
         setWhatsAppSaved(true);
         toast.success('WhatsApp settings saved');
+        return true;
       } else {
         const msg = response.message || 'Failed to save WhatsApp settings';
         setError(msg);
         toast.error(msg);
+        return false;
       }
     } catch (err: unknown) {
       const msg = getErrorMessage(err, 'Failed to save WhatsApp settings');
       setError(msg);
       toast.error(msg);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -270,15 +298,24 @@ export default function CreateAppPage() {
 
   const handleSearchTwilioNumbers = async () => {
     if (!createdAppId) return;
+    setNumberSearch('');
     setWhatsAppData((p) => ({ ...p, searching: true, availableNumbers: [], selectedTwilioNumber: '' }));
     try {
       const appService = await useAppService();
-      const res = await appService.getAvailableNumbersForApp(createdAppId, whatsAppData.countryCode, 10);
+      const res = await appService.getAvailableNumbersForApp(createdAppId, whatsAppData.countryCode, 20);
       if (res.status === 'success' && res.data?.numbers) {
+        const normalize = (s: string) => (s || '').replace(/[^\d+]/g, '').trim();
+        const seen = new Set<string>();
+        const unique = (res.data.numbers || []).filter((n) => {
+          const key = normalize(n.phoneNumber);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         setWhatsAppData((p) => ({
           ...p,
-          availableNumbers: res.data.numbers,
-          selectedTwilioNumber: res.data.numbers[0]?.phoneNumber || '',
+          availableNumbers: unique,
+          selectedTwilioNumber: unique[0]?.phoneNumber || '',
         }));
       } else {
         toast.error(res.message || 'Could not load available numbers');
@@ -289,6 +326,29 @@ export default function CreateAppPage() {
       setWhatsAppData((p) => ({ ...p, searching: false }));
     }
   };
+
+  const uniqueAvailableNumbers = (() => {
+    const seen = new Set<string>();
+    const out: { phoneNumber: string; friendlyName?: string }[] = [];
+    for (const n of whatsAppData.availableNumbers) {
+      const key = (n.phoneNumber || '').replace(/[^\d+]/g, '').trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(n);
+    }
+    return out;
+  })();
+
+  const filteredAvailableNumbers =
+    numberSearch.trim().length === 0
+      ? uniqueAvailableNumbers
+      : uniqueAvailableNumbers.filter((n) => {
+          const q = numberSearch.trim().toLowerCase();
+          return (
+            n.phoneNumber.toLowerCase().includes(q) ||
+            (n.friendlyName || '').toLowerCase().includes(q)
+          );
+        });
 
   const handleBuyTwilioNumber = async () => {
     if (!createdAppId) return;
@@ -313,11 +373,11 @@ export default function CreateAppPage() {
     }
   };
 
-  const handleFacebookSave = async () => {
-    if (!createdAppId) return;
+  const handleFacebookSave = async (): Promise<boolean> => {
+    if (!createdAppId) return false;
     if (!fbShortLivedToken || !fbSelectedPageId) {
       toast.error('Connect Facebook and select a page first');
-      return;
+      return false;
     }
     setIsLoading(true);
     try {
@@ -330,11 +390,14 @@ export default function CreateAppPage() {
       if (res.status === 'success') {
         setFacebookSaved(true);
         toast.success('Facebook page linked');
+        return true;
       } else {
         toast.error(res.message || 'Failed to link Facebook page');
+        return false;
       }
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to link Facebook page'));
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -367,41 +430,64 @@ export default function CreateAppPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-800'
                 }`}
               >
-                <Building2 className="h-4 w-4" />
+                <AppStepIcon active={activeStep === 'app'} />
                 App
                 {appSaved ? <CheckCircle2 className="h-4 w-4" /> : null}
               </button>
-              <button
-                type="button"
-                onClick={() => canOpenSetupSteps && setActiveStep('whatsapp')}
-                disabled={!canOpenSetupSteps}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  activeStep === 'whatsapp'
-                    ? 'border-[#00bc7d] text-[#00bc7d]'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                <MessageCircle className="h-4 w-4" />
-                WhatsApp
-                {whatsAppSaved ? <CheckCircle2 className="h-4 w-4" /> : null}
-              </button>
-              <button
-                type="button"
-                onClick={() => canOpenSetupSteps && setActiveStep('facebook')}
-                disabled={!canOpenSetupSteps}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  activeStep === 'facebook'
-                    ? 'border-[#00bc7d] text-[#00bc7d]'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                <div className="w-4 h-4 rounded-full bg-[#1877F2] flex items-center justify-center shrink-0">
-                  <span className="text-white font-bold text-[10px] leading-none">f</span>
-                </div>
-                Facebook
-                {facebookSaved ? <CheckCircle2 className="h-4 w-4" /> : null}
-              </button>
+              <span className="relative inline-flex">
+                <button
+                  type="button"
+                  onClick={() => canOpenSetupSteps && setActiveStep('whatsapp')}
+                  disabled={!canOpenSetupSteps}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    activeStep === 'whatsapp'
+                      ? 'border-[#00bc7d] text-[#00bc7d]'
+                      : 'border-transparent text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  <WhatsAppStepIcon className={activeStep === 'whatsapp' ? '' : 'opacity-55'} />
+                  WhatsApp
+                  {whatsAppSaved ? <CheckCircle2 className="h-4 w-4" /> : null}
+                </button>
+                {!canOpenSetupSteps && (
+                  <span
+                    className="absolute inset-0 z-[1] cursor-help"
+                    title={whatsappStepDisabledHint}
+                    aria-hidden
+                  />
+                )}
+              </span>
+              <span className="relative inline-flex">
+                <button
+                  type="button"
+                  onClick={() => canOpenSetupSteps && setActiveStep('facebook')}
+                  disabled={!canOpenSetupSteps}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    activeStep === 'facebook'
+                      ? 'border-[#00bc7d] text-[#00bc7d]'
+                      : 'border-transparent text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  <FacebookStepIcon className={activeStep === 'facebook' ? '' : 'opacity-55'} />
+                  Facebook
+                  {facebookSaved ? <CheckCircle2 className="h-4 w-4" /> : null}
+                </button>
+                {!canOpenSetupSteps && (
+                  <span
+                    className="absolute inset-0 z-[1] cursor-help"
+                    title={facebookStepDisabledHint}
+                    aria-hidden
+                  />
+                )}
+              </span>
             </div>
+            {!canOpenSetupSteps && (
+              <p className="text-xs text-gray-500 mt-1 mb-6 max-w-2xl">
+                <strong className="font-medium text-gray-600">WhatsApp</strong> and{' '}
+                <strong className="font-medium text-gray-600">Facebook</strong> unlock after you
+                create the app. Hover each step for why.
+              </p>
+            )}
 
             {error && <div className="error-message mb-6">{error}</div>}
 
@@ -467,32 +553,40 @@ export default function CreateAppPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200">
                   <button
                     type="button"
                     onClick={() => router.back()}
                     className="btn-secondary"
                     disabled={isLoading}
                   >
-                    Cancel
+                    Back
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateApp}
-                    disabled={isLoading}
-                    className="btn-primary flex items-center gap-2"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : createdAppId ? (
-                      'Created'
-                    ) : (
-                      'Create'
-                    )}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (createdAppId) {
+                          setActiveStep('whatsapp');
+                          return;
+                        }
+                        await handleCreateApp();
+                      }}
+                      disabled={isLoading}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : createdAppId ? (
+                        'Saved'
+                      ) : (
+                        'Save & Next'
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -506,9 +600,19 @@ export default function CreateAppPage() {
                 ) : (
                   <>
                     <div className="space-y-6">
+                      <div className="flex items-start gap-3">
+                        <WhatsAppStepIcon className="mt-0.5 shrink-0" />
+                        <div>
+                          <h2 className="text-lg font-semibold text-gray-900 mb-1">WhatsApp</h2>
+                          <p className="text-sm text-gray-600">
+                            Choose a WhatsApp number (use yours or buy a new one), then connect your business. You can finish anytime.
+                          </p>
+                        </div>
+                      </div>
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
-                          Choose WhatsApp number option:
+                          How do you want to use WhatsApp?
                         </label>
                         <div className="space-y-3">
                           <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
@@ -525,7 +629,7 @@ export default function CreateAppPage() {
                             <div className="flex-1">
                               <div className="font-medium text-gray-900">Use my WhatsApp number</div>
                               <div className="text-sm text-gray-500">
-                                Register your existing WhatsApp number for messaging
+                                Register your existing number
                               </div>
                             </div>
                           </label>
@@ -542,9 +646,9 @@ export default function CreateAppPage() {
                               className="mr-3"
                             />
                             <div className="flex-1">
-                              <div className="font-medium text-gray-900">Buy a new number</div>
+                              <div className="font-medium text-gray-900">Get a new number</div>
                               <div className="text-sm text-gray-500">
-                                Purchase a number and connect your WhatsApp Business Account (WABA)
+                                Get a new number for this app
                               </div>
                             </div>
                           </label>
@@ -574,74 +678,172 @@ export default function CreateAppPage() {
                             />
                           </div>
                           <p className="mt-3 text-sm text-gray-500">
-                            Make sure the number can receive SMS or voice calls for verification.
+                            This number must be able to receive a verification code (SMS or call).
                           </p>
                         </div>
                       )}
 
                       {whatsAppData.whatsappOption === 'get-from-twilio' && (
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
-                          <div className="flex flex-wrap items-end gap-3">
-                            <div>
+                          <p className="text-sm text-gray-700">
+                            Search for a number, then purchase (carrier and usage charges may apply). After that, connect WhatsApp Business below.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-[minmax(280px,1fr)_auto] items-end gap-3">
+                            <div className="min-w-0">
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Country
                               </label>
-                              <input
-                                value={whatsAppData.countryCode}
-                                onChange={(e) =>
+                              <Listbox
+                                value={selectedCountry}
+                                onChange={(c) =>
                                   setWhatsAppData((p) => ({
                                     ...p,
-                                    countryCode: e.target.value.toUpperCase().slice(0, 2),
+                                    countryCode: c.code,
+                                    availableNumbers: [],
+                                    selectedTwilioNumber: '',
                                   }))
                                 }
-                                className="input-field w-24"
-                                placeholder="GB"
-                              />
+                              >
+                                <div className="relative w-full min-w-0">
+                                  <Listbox.Button className="input-field relative w-full pr-10 h-11 flex items-center gap-2">
+                                    <img
+                                      src={selectedCountry.flagUrl}
+                                      alt=""
+                                      className="h-4 w-5 rounded-sm border border-gray-200 bg-white"
+                                    />
+                                    <span className="text-sm text-gray-800">
+                                      {selectedCountry.label} ({selectedCountry.code})
+                                    </span>
+                                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                  </Listbox.Button>
+                                  <Listbox.Options className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg focus:outline-none">
+                                    {COUNTRY_OPTIONS.map((c) => (
+                                      <Listbox.Option
+                                        key={c.code}
+                                        value={c}
+                                        className={({ active }) =>
+                                          `flex cursor-pointer items-center gap-2 px-3 py-2 text-sm ${
+                                            active ? 'bg-gray-50' : 'bg-white'
+                                          }`
+                                        }
+                                      >
+                                        {({ selected }) => (
+                                          <>
+                                            <img
+                                              src={c.flagUrl}
+                                              alt=""
+                                              className="h-4 w-5 rounded-sm border border-gray-200 bg-white"
+                                            />
+                                            <span className="flex-1 text-gray-800">
+                                              {c.label} ({c.code})
+                                            </span>
+                                            {selected ? <Check className="h-4 w-4 text-[#00bc7d]" /> : null}
+                                          </>
+                                        )}
+                                      </Listbox.Option>
+                                    ))}
+                                  </Listbox.Options>
+                                </div>
+                              </Listbox>
                             </div>
                             <button
                               type="button"
                               onClick={handleSearchTwilioNumbers}
                               disabled={whatsAppData.searching}
-                              className="btn-secondary flex items-center gap-2"
+                              className="btn-secondary flex items-center gap-2 h-11"
                             >
                               {whatsAppData.searching ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : null}
                               Search numbers
                             </button>
-                          </div>
-
-                          {whatsAppData.availableNumbers.length > 0 && !whatsAppData.provisionedNumber && (
-                            <div className="space-y-3">
-                              <div className="relative max-w-md">
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                                <select
-                                  className="input-field w-full appearance-none pr-10"
-                                  value={whatsAppData.selectedTwilioNumber}
-                                  onChange={(e) =>
-                                    setWhatsAppData((p) => ({ ...p, selectedTwilioNumber: e.target.value }))
-                                  }
-                                >
-                                  {whatsAppData.availableNumbers.map((n) => (
-                                    <option key={n.phoneNumber} value={n.phoneNumber}>
-                                      {n.friendlyName || n.phoneNumber}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleBuyTwilioNumber}
-                                disabled={whatsAppData.provisioning}
-                                className="btn-primary flex items-center gap-2"
+                            <div className="min-w-0">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Number
+                              </label>
+                              <Listbox
+                                value={whatsAppData.selectedTwilioNumber}
+                                onChange={(value) =>
+                                  setWhatsAppData((p) => ({ ...p, selectedTwilioNumber: value }))
+                                }
+                                disabled={uniqueAvailableNumbers.length === 0 || !!whatsAppData.provisionedNumber}
                               >
-                                {whatsAppData.provisioning ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : null}
-                                Buy number
-                              </button>
+                                <div className="relative w-full min-w-0">
+                                  <Listbox.Button className="input-field relative w-full pr-10 h-11 flex items-center disabled:opacity-60">
+                                    <span className="text-sm text-gray-800">
+                                      {whatsAppData.selectedTwilioNumber ? (
+                                        <span className="font-mono">{whatsAppData.selectedTwilioNumber}</span>
+                                      ) : uniqueAvailableNumbers.length === 0 ? (
+                                        'Search to load numbers'
+                                      ) : (
+                                        'Select a number'
+                                      )}
+                                    </span>
+                                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                  </Listbox.Button>
+                                  {uniqueAvailableNumbers.length > 0 && !whatsAppData.provisionedNumber && (
+                                    <Listbox.Options className="absolute z-20 bottom-full mb-2 w-full min-w-[360px] max-h-72 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg focus:outline-none">
+                                      <div className="sticky top-0 bg-white border-b border-gray-100 p-2">
+                                        <input
+                                          value={numberSearch}
+                                          onChange={(e) => setNumberSearch(e.target.value)}
+                                          placeholder="Search numbers…"
+                                          className="input-field w-full h-10 py-2 text-sm"
+                                        />
+                                      </div>
+                                      {filteredAvailableNumbers.map((n) => (
+                                        <Listbox.Option
+                                          key={n.phoneNumber}
+                                          value={n.phoneNumber}
+                                          className={({ active }) =>
+                                            `flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm ${
+                                              active ? 'bg-gray-50' : 'bg-white'
+                                            }`
+                                          }
+                                        >
+                                          {({ selected }) => (
+                                            <>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="font-mono text-gray-900 truncate">{n.phoneNumber}</div>
+                                              {(() => {
+                                                const pd = (n.phoneNumber || '').replace(/\D/g, '');
+                                                const fd = (n.friendlyName || '').replace(/\D/g, '');
+                                                const same =
+                                                  !!pd &&
+                                                  !!fd &&
+                                                  (pd === fd ||
+                                                    pd.endsWith(fd) ||
+                                                    fd.endsWith(pd));
+                                                if (!n.friendlyName || same) return null;
+                                                return (
+                                                  <div className="text-xs text-gray-500 truncate">{n.friendlyName}</div>
+                                                );
+                                              })()}
+                                              </div>
+                                              {selected ? (
+                                                <Check className="h-4 w-4 text-[#00bc7d]" />
+                                              ) : null}
+                                            </>
+                                          )}
+                                        </Listbox.Option>
+                                      ))}
+                                    </Listbox.Options>
+                                  )}
+                                </div>
+                              </Listbox>
                             </div>
-                          )}
+                            <button
+                              type="button"
+                              onClick={handleBuyTwilioNumber}
+                              disabled={whatsAppData.provisioning || !whatsAppData.selectedTwilioNumber}
+                              className="btn-primary flex items-center gap-2 h-11"
+                            >
+                              {whatsAppData.provisioning ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : null}
+                              Buy number
+                            </button>
+                          </div>
 
                           {whatsAppData.provisionedNumber && (
                             <div className="space-y-4">
@@ -649,26 +851,61 @@ export default function CreateAppPage() {
                                 <CheckCircle2 className="h-4 w-4" />
                                 Number purchased: <span className="font-medium">{whatsAppData.provisionedNumber}</span>
                               </div>
-
-                              <MetaEmbeddedSignupWizard
-                                appId={createdAppId}
-                                phoneNumber={whatsAppData.provisionedNumber}
-                                onSuccess={({ senderSid, wabaId }) => {
-                                  setWhatsAppData((p) => ({ ...p, senderSid, wabaId }));
-                                  setWhatsAppSaved(true);
-                                }}
-                                onError={(message) => setError(message)}
-                                onSkip={() => {
-                                  setWhatsAppSaved(true);
-                                }}
-                              />
                             </div>
                           )}
                         </div>
                       )}
+
+                      {/* Meta Embedded Signup (show always; enable once a number is available) */}
+                      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                          Connect WhatsApp Business
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Sign in with Facebook to connect this number to your WhatsApp business.
+                        </p>
+                        {(() => {
+                          const phoneNumber =
+                            whatsAppData.whatsappOption === 'use-my-number'
+                              ? whatsAppData.whatsappNumber?.trim()
+                              : whatsAppData.provisionedNumber?.trim();
+                          if (!phoneNumber) {
+                            return (
+                              <div className="rounded-lg border border-gray-200 bg-white p-4">
+                                <p className="text-sm text-gray-700">
+                                  Buy a number above or enter your existing number first. Then you can attach your
+                                  business and complete Meta signup here.
+                                </p>
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#1877F2] px-4 py-2.5 text-sm font-medium text-white opacity-50 cursor-not-allowed"
+                                  title="Add or buy a number to continue"
+                                >
+                                  Continue with Facebook
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <MetaEmbeddedSignupWizard
+                              appId={createdAppId}
+                              phoneNumber={phoneNumber}
+                              onSuccess={({ senderSid, wabaId }) => {
+                                setWhatsAppData((p) => ({ ...p, senderSid, wabaId }));
+                                setWhatsAppSaved(true);
+                              }}
+                              onError={(message) => setError(message)}
+                              onSkip={() => {
+                                setWhatsAppSaved(true);
+                              }}
+                            />
+                          );
+                        })()}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-4 pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200">
                       <button
                         type="button"
                         onClick={() => setActiveStep('app')}
@@ -677,29 +914,26 @@ export default function CreateAppPage() {
                       >
                         Back
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleWhatsAppSave}
-                        disabled={isLoading}
-                        className="btn-primary flex items-center gap-2"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          'Save'
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveStep('facebook')}
-                        disabled={!canOpenSetupSteps}
-                        className="btn-secondary"
-                      >
-                        Next
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const ok = await handleWhatsAppSave();
+                            if (ok) setActiveStep('facebook');
+                          }}
+                          disabled={isLoading}
+                          className="btn-primary flex items-center gap-2"
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            'Save & Next'
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -716,13 +950,11 @@ export default function CreateAppPage() {
                   <>
                     <div className="border border-gray-200 rounded-lg p-5">
                       <div className="flex items-center gap-3 mb-1">
-                        <div className="w-6 h-6 rounded-full bg-[#1877F2] flex items-center justify-center shrink-0">
-                          <span className="text-white font-bold text-sm leading-none">f</span>
-                        </div>
+                        <FacebookStepIcon className="shrink-0" />
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900">Facebook</h3>
                           <p className="text-sm text-gray-600">
-                            Link a Facebook Page to route Messenger conversations through this app.
+                            Connect your Facebook Page so Messenger conversations show up in this app.
                           </p>
                         </div>
                       </div>
@@ -742,9 +974,7 @@ export default function CreateAppPage() {
                               </>
                             ) : (
                               <>
-                                <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center shrink-0">
-                                  <span className="text-[#1877F2] font-bold text-xs leading-none">f</span>
-                                </div>
+                                <FacebookButtonIcon />
                                 Connect
                               </>
                             )}
@@ -809,9 +1039,7 @@ export default function CreateAppPage() {
                               {fbConnecting ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               ) : (
-                                <div className="w-3.5 h-3.5 rounded-full bg-[#1877F2] flex items-center justify-center shrink-0">
-                                  <span className="text-white font-bold text-[8px] leading-none">f</span>
-                                </div>
+                          <FacebookStepIcon className="scale-[0.85]" />
                               )}
                               Use a different Facebook account
                             </button>
@@ -820,10 +1048,13 @@ export default function CreateAppPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200">
                       <button
                         type="button"
-                        onClick={() => setActiveStep('whatsapp')}
+                        onClick={() => {
+                          if (fbShortLivedToken) resetFacebookSelection();
+                          setActiveStep('whatsapp');
+                        }}
                         className="btn-secondary"
                         disabled={isLoading}
                       >
@@ -831,28 +1062,25 @@ export default function CreateAppPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={handleFacebookSave}
+                        onClick={async () => {
+                          // If a page is selected, link it first, then continue to settings.
+                          if (fbShortLivedToken && fbSelectedPageId) {
+                            await handleFacebookSave();
+                          }
+                          router.push('/settings/chatbot');
+                        }}
                         disabled={isLoading}
                         className="btn-primary flex items-center gap-2"
                       >
                         {isLoading ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Saving...
+                            Working...
                           </>
                         ) : (
-                          'Save'
+                          'Go to Settings'
                         )}
                       </button>
-                      {createdAppId ? (
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/apps/${createdAppId}/edit`)}
-                          className="btn-secondary"
-                        >
-                          Open app
-                        </button>
-                      ) : null}
                     </div>
                   </>
                 )}

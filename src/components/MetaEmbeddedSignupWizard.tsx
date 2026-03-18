@@ -236,10 +236,23 @@ export default function MetaEmbeddedSignupWizard({
           Business profile and WABA in the popup. This number will then be registered as a WhatsApp sender.
         </p>
         {!isHttps && (
-          <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <strong>HTTPS required.</strong> Meta does not allow Facebook Login on HTTP pages.{' '}
-            <a href="https://developers.facebook.com/blog/post/2018/06/08/enforce-https-facebook-login/" target="_blank" rel="noopener noreferrer" className="underline">Learn more</a>.
-            Use this app over <code className="bg-amber-100 px-1 rounded">https://</code> (e.g. in production or via a local HTTPS tunnel) to use &quot;Continue with Facebook&quot;. You can still click &quot;Skip for now&quot; to create the app.
+          <div className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+            <p className="font-semibold">Use HTTPS to sign in with Facebook</p>
+            <p className="text-amber-800">
+              Meta only allows Facebook Login on secure pages. Open this site with an{' '}
+              <code className="bg-amber-100 px-1 rounded text-xs">https://</code> URL (your deployed
+              environment, or a local HTTPS tunnel), then use <strong>Continue with Facebook</strong>.
+            </p>
+            <p className="text-amber-800">
+              <a
+                href="https://developers.facebook.com/blog/post/2018/06/08/enforce-https-facebook-login/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium"
+              >
+                Why Meta requires HTTPS
+              </a>
+            </p>
           </div>
         )}
         {canShowSignup && !isMetaFullyConfigured && (
