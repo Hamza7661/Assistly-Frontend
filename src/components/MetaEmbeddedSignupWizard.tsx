@@ -272,15 +272,6 @@ export default function MetaEmbeddedSignupWizard({
             ) : null}
             {status === 'idle' || status === 'loading_sdk' ? 'Loading...' : status === 'opening' ? 'Complete signup in the popup...' : 'Continue with Facebook'}
           </button>
-          {onSkip && (
-            <button
-              type="button"
-              onClick={onSkip}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Skip for now (test)
-            </button>
-          )}
         </div>
       </div>
     </>
