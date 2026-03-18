@@ -198,7 +198,7 @@ export default function MetaEmbeddedSignupWizard({
           <CheckCircle2 className="h-5 w-5 shrink-0" />
           <div>
             <p className="font-medium">Meta signup complete</p>
-            <p className="text-sm">WhatsApp sender is registered. You can create your app.</p>
+            <p className="text-sm">WhatsApp sender is registered.</p>
           </div>
         </div>
       </div>
