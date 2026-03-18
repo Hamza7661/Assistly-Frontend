@@ -999,15 +999,12 @@ export default function CreateAppPage() {
                                   <select
                                     className="input-field w-full appearance-none pr-10"
                                     value={fbSelectedPageId}
-                                    onChange={async (e) => {
+                                    onChange={(e) => {
                                       const nextId = e.target.value;
                                       const pg = fbPages.find((p) => p.id === nextId);
                                       const nextName = pg?.name || '';
                                       setFbSelectedPageId(nextId);
                                       setFbSelectedPageName(nextName);
-                                      if (nextId) {
-                                        await handleFacebookSave(nextId, nextName);
-                                      }
                                     }}
                                   >
                                     <option value="">— choose a page —</option>
@@ -1071,27 +1068,33 @@ export default function CreateAppPage() {
                       >
                         Back
                       </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          // If a page is selected, link it first, then continue to settings.
-                          if (fbShortLivedToken && fbSelectedPageId) {
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={async () => {
                             await handleFacebookSave();
-                          }
-                          router.push('/settings/chatbot');
-                        }}
-                        disabled={isLoading}
-                        className="btn-primary flex items-center gap-2"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Working...
-                          </>
-                        ) : (
-                          'Go to Settings'
-                        )}
-                      </button>
+                          }}
+                          disabled={fbSaving || !fbShortLivedToken || !fbSelectedPageId}
+                          className="btn-secondary flex items-center gap-2"
+                        >
+                          {fbSaving ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            'Save'
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push('/settings/chatbot')}
+                          disabled={isLoading || fbSaving}
+                          className="btn-primary flex items-center gap-2"
+                        >
+                          Go to Settings
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
