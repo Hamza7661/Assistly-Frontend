@@ -902,9 +902,6 @@ export default function CreateAppPage() {
                                 setWhatsAppSaved(true);
                               }}
                               onError={(message) => setError(message)}
-                              onSkip={() => {
-                                setWhatsAppSaved(true);
-                              }}
                             />
                           );
                         })()}
