@@ -38,6 +38,7 @@ export default function CreateAppPage() {
   const { refreshApps, switchApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [isLoading, setIsLoading] = useState(false);
+  const [fbSaving, setFbSaving] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -373,19 +374,24 @@ export default function CreateAppPage() {
     }
   };
 
-  const handleFacebookSave = async (): Promise<boolean> => {
+  const handleFacebookSave = async (
+    pageIdOverride?: string,
+    pageNameOverride?: string
+  ): Promise<boolean> => {
     if (!createdAppId) return false;
-    if (!fbShortLivedToken || !fbSelectedPageId) {
+    const pageId = pageIdOverride ?? fbSelectedPageId;
+    const pageName = pageNameOverride ?? fbSelectedPageName;
+    if (!fbShortLivedToken || !pageId) {
       toast.error('Connect Facebook and select a page first');
       return false;
     }
-    setIsLoading(true);
+    setFbSaving(true);
     try {
       const appService = await useAppService();
       const res = await appService.connectFacebook(createdAppId, {
         shortLivedToken: fbShortLivedToken,
-        pageId: fbSelectedPageId,
-        pageName: fbSelectedPageName || '',
+        pageId,
+        pageName: pageName || '',
       });
       if (res.status === 'success') {
         setFacebookSaved(true);
@@ -399,7 +405,7 @@ export default function CreateAppPage() {
       toast.error(getErrorMessage(err, 'Failed to link Facebook page'));
       return false;
     } finally {
-      setIsLoading(false);
+      setFbSaving(false);
     }
   };
 
@@ -964,7 +970,7 @@ export default function CreateAppPage() {
                           <button
                             type="button"
                             onClick={handleFacebookConnect}
-                            disabled={fbConnecting || !fbSdkReady}
+                            disabled={fbConnecting || !fbSdkReady || fbSaving}
                             className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] disabled:opacity-60 text-white font-semibold rounded-lg transition-colors duration-200 text-sm"
                           >
                             {fbConnecting ? (
@@ -993,10 +999,15 @@ export default function CreateAppPage() {
                                   <select
                                     className="input-field w-full appearance-none pr-10"
                                     value={fbSelectedPageId}
-                                    onChange={(e) => {
-                                      const pg = fbPages.find((p) => p.id === e.target.value);
-                                      setFbSelectedPageId(e.target.value);
-                                      setFbSelectedPageName(pg?.name || '');
+                                    onChange={async (e) => {
+                                      const nextId = e.target.value;
+                                      const pg = fbPages.find((p) => p.id === nextId);
+                                      const nextName = pg?.name || '';
+                                      setFbSelectedPageId(nextId);
+                                      setFbSelectedPageName(nextName);
+                                      if (nextId) {
+                                        await handleFacebookSave(nextId, nextName);
+                                      }
                                     }}
                                   >
                                     <option value="">— choose a page —</option>

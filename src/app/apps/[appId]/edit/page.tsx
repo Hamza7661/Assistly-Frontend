@@ -277,8 +277,13 @@ export default function EditAppPage() {
 
   // ── Facebook OAuth handlers ───────────────────────────────────────
 
-  const handleFacebookSave = async (): Promise<boolean> => {
-    if (!fbShortLivedToken || !fbSelectedPageId) {
+  const handleFacebookSave = async (
+    pageIdOverride?: string,
+    pageNameOverride?: string
+  ): Promise<boolean> => {
+    const pageId = pageIdOverride ?? fbSelectedPageId;
+    const pageName = pageNameOverride ?? fbSelectedPageName;
+    if (!fbShortLivedToken || !pageId) {
       toast.error('Please select a Facebook page first.');
       return false;
     }
@@ -287,13 +292,13 @@ export default function EditAppPage() {
       const appService = await useAppService();
       const res = await appService.connectFacebook(appId, {
         shortLivedToken: fbShortLivedToken,
-        pageId: fbSelectedPageId,
-        pageName: fbSelectedPageName
+        pageId,
+        pageName
       });
       if (res.status === 'success') {
         const updated = res.data.app;
-        setFbConnectedPageId(updated.facebookPageId || fbSelectedPageId);
-        setFbConnectedPageName(updated.facebookPageName || fbSelectedPageName);
+        setFbConnectedPageId(updated.facebookPageId || pageId);
+        setFbConnectedPageName(updated.facebookPageName || pageName);
         setFbTokenExpiry(updated.facebookTokenExpiry || null);
         // Clear in-progress state
         resetFacebookSelection();
@@ -1111,10 +1116,15 @@ export default function EditAppPage() {
                               <select
                                 className="input-field w-full appearance-none pr-10"
                                 value={fbSelectedPageId}
-                                onChange={(e) => {
-                                  const pg = fbPages.find((p) => p.id === e.target.value);
-                                  setFbSelectedPageId(e.target.value);
-                                  setFbSelectedPageName(pg?.name || '');
+                                onChange={async (e) => {
+                                  const nextId = e.target.value;
+                                  const pg = fbPages.find((p) => p.id === nextId);
+                                  const nextName = pg?.name || '';
+                                  setFbSelectedPageId(nextId);
+                                  setFbSelectedPageName(nextName);
+                                  if (nextId) {
+                                    await handleFacebookSave(nextId, nextName);
+                                  }
                                 }}
                               >
                                 <option value="">— choose a page —</option>
