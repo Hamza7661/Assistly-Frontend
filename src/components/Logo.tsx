@@ -9,7 +9,7 @@ interface LogoProps {
   src?: string;
 }
 
-export default function Logo({ className = '', width, height, src = '/assistly-logo.png' }: LogoProps) {
+export default function Logo({ className = '', width, height, src = '/UpZilo_Logo.png' }: LogoProps) {
   const defaultWidth = width || 120;
   const defaultHeight = height || (typeof defaultWidth === 'number' ? defaultWidth * 0.3 : 36);
 
