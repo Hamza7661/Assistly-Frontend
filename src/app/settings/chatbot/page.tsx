@@ -108,6 +108,7 @@ export default function ChatbotSettingsPage() {
     primaryColor: '#00bc7d',
     validateEmail: false,
     validatePhoneNumber: false,
+    conversationStyle: false,
     googleReviewEnabled: false,
     googleReviewUrl: '',
     preferredLanguages: [],
@@ -267,6 +268,7 @@ export default function ChatbotSettingsPage() {
           primaryColor: integration?.primaryColor || '#00bc7d',
           validateEmail: integration?.validateEmail || false,
           validatePhoneNumber: integration?.validatePhoneNumber || false,
+          conversationStyle: integration?.conversationStyle || false,
           googleReviewEnabled: integration?.googleReviewEnabled || false,
           googleReviewUrl: integration?.googleReviewUrl ?? '',
           preferredLanguages: integration?.preferredLanguages?.slice(0, PREFERRED_LANGUAGES_MAX) ?? [],
@@ -372,6 +374,7 @@ export default function ChatbotSettingsPage() {
       newSettings.primaryColor !== originalSettings.primaryColor ||
       Boolean(newSettings.validateEmail) !== Boolean(originalSettings.validateEmail) ||
       Boolean(newSettings.validatePhoneNumber) !== Boolean(originalSettings.validatePhoneNumber) ||
+      Boolean(newSettings.conversationStyle) !== Boolean(originalSettings.conversationStyle) ||
       Boolean(newSettings.googleReviewEnabled) !== Boolean(originalSettings.googleReviewEnabled) ||
       (newSettings.googleReviewUrl ?? '') !== (originalSettings.googleReviewUrl ?? '') ||
       JSON.stringify(newSettings.preferredLanguages || []) !== JSON.stringify(originalSettings.preferredLanguages || []) ||
@@ -747,6 +750,24 @@ export default function ChatbotSettingsPage() {
                           className="sr-only peer"
                           checked={settings.validatePhoneNumber || false}
                           onChange={(e) => updateSettings({ ...settings, validatePhoneNumber: e.target.checked })}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <label className="text-sm font-medium text-gray-700">Conversational Style</label>
+                        <p className="text-sm text-gray-500">
+                          When enabled, the bot uses free-form conversation on web, WhatsApp, Messenger, and Instagram.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={settings.conversationStyle || false}
+                          onChange={(e) => updateSettings({ ...settings, conversationStyle: e.target.checked })}
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
                       </label>

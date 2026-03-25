@@ -20,6 +20,11 @@ export interface IntegrationSettings {
   primaryColor?: string;
   validateEmail?: boolean;
   validatePhoneNumber?: boolean;
+  /**
+   * When true, non-voice channels use a conversational/free-form style
+   * (no option buttons/numbered lists for lead type, service selection, and workflow questions).
+   */
+  conversationStyle?: boolean;
   googleReviewEnabled?: boolean;
   googleReviewUrl?: string | null;
   /** Calendar connected for scheduling/availability (same shape for all providers). */

@@ -19,6 +19,10 @@ class IntegrationService extends HttpService {
     if (settings.validateEmail !== undefined) formData.append('validateEmail', settings.validateEmail.toString());
     if (settings.validatePhoneNumber !== undefined) formData.append('validatePhoneNumber', settings.validatePhoneNumber.toString());
     
+    if (settings.conversationStyle !== undefined) {
+      formData.append('conversationStyle', settings.conversationStyle.toString());
+    }
+    
     // Google review (per-app)
     if (settings.googleReviewEnabled !== undefined) formData.append('googleReviewEnabled', settings.googleReviewEnabled.toString());
     if (settings.googleReviewUrl !== undefined) formData.append('googleReviewUrl', settings.googleReviewUrl ?? '');
