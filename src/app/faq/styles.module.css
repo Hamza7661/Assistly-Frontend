@@ -31,11 +31,11 @@
 .colActions { @apply col-span-1 md:col-span-2 flex h-full items-center justify-end; }
 
 .input {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent;
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#c01721] focus:border-transparent;
 }
 
 .textarea {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent h-28;
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#c01721] focus:border-transparent h-28;
 }
 
 .textareaError {

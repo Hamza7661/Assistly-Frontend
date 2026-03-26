@@ -174,7 +174,7 @@ function SigninContent() {
       <div className={styles.formContainer}>
         <div className={styles.header}>
           <div className={styles.logoContainer}>
-            <Logo width={140} height={42} />
+            <Logo width={220} height={66} />
           </div>
           <h1 className={styles.title}>Welcome back</h1>
           <p className={styles.subtitle}>Sign in to your Assistly account</p>
@@ -212,8 +212,8 @@ function SigninContent() {
               {error}
               {error.includes('Account not found') && (
                 <div className={styles.signupPrompt}>
-                  <a href="/signup" className={styles.signupLink}>
-                    Create an account here
+                  <a href="https://upzilo.com/book-a-demo/" target="_blank" rel="noopener noreferrer" className={styles.signupLink}>
+                    Book a demo
                   </a>
                 </div>
               )}
@@ -287,9 +287,9 @@ function SigninContent() {
 
         <div className={styles.footer}>
           <p className={styles.footerText}>
-            Don't have an account?{' '}
-            <a href="/signup" className={styles.footerLink}>
-              Sign up
+            Need access?{' '}
+            <a href="https://upzilo.com/book-a-demo/" target="_blank" rel="noopener noreferrer" className={styles.footerLink}>
+              Book a demo
             </a>
           </p>
           <p className={styles.helpText}>

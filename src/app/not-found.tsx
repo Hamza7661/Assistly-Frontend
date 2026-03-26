@@ -37,9 +37,9 @@ export default function NotFound() {
               <Link
                 key={link.name}
                 href={link.href}
-                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-[#00bc7d] hover:shadow-lg transition-all duration-200 group"
+                className="p-4 bg-white rounded-lg border border-gray-200 hover:border-[#c01721] hover:shadow-lg transition-all duration-200 group"
               >
-                <div className="w-12 h-12 bg-[#00bc7d] rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:bg-[#00a06a] transition-colors">
+                <div className="w-12 h-12 bg-[#c01721] rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:bg-[#a8141c] transition-colors">
                   <link.icon className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">{link.name}</h3>
@@ -89,7 +89,7 @@ export default function NotFound() {
             <input
               type="text"
               placeholder="Search for pages, features, or help..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200"
             />
           </div>
         </div>

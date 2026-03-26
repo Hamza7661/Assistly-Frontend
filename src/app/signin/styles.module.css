@@ -19,7 +19,7 @@
 }
 
 .logoContainer {
-  @apply mx-auto mb-4 flex items-center justify-center;
+  @apply mx-auto mb-1 inline-flex items-center justify-center bg-white px-3 py-2 rounded-md;
 }
 
 .logoText {
@@ -27,7 +27,7 @@
 }
 
 .title {
-  @apply mt-6 text-3xl font-bold text-gray-900;
+  @apply mt-2 text-3xl font-bold text-gray-900;
 }
 
 .subtitle {
@@ -47,7 +47,7 @@
 }
 
 .signupLink {
-  @apply text-[#00bc7d] hover:text-[#00a06a] font-medium underline;
+  @apply text-[#c01721] hover:text-[#a8141c] font-medium underline;
 }
 
 .formFields {
@@ -67,15 +67,15 @@
 }
 
 .inputField {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200;
 }
 
 .inputFieldWithIcon {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 pl-10;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200 pl-10;
 }
 
 .inputFieldWithPassword {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 pl-10 pr-10;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200 pl-10 pr-10;
 }
 
 .inputIcon {
@@ -87,7 +87,7 @@
 }
 
 .submitButton {
-  @apply bg-[#00bc7d] hover:bg-[#00a06a] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 w-full flex justify-center items-center;
+  @apply bg-[#c01721] hover:bg-[#a8141c] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 w-full flex justify-center items-center;
 }
 
 .submitButtonDisabled {
@@ -132,7 +132,7 @@
 }
 
 .footerLink {
-  @apply font-medium text-[#00bc7d] hover:text-[#00a06a];
+  @apply font-medium text-[#c01721] hover:text-[#a8141c];
 }
 
 .helpText {

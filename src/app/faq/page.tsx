@@ -126,7 +126,7 @@ export default function QuestionnarePage() {
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721]"></div>
                 <p className="mt-4 text-gray-600">Loading...</p>
               </div>
             </div>
@@ -209,7 +209,12 @@ export default function QuestionnarePage() {
               ))}
               <div className={styles.actionsRow}>
                 <div className="flex items-center w-full">
-                  <button onClick={addRow} className="btn-secondary">Add Row</button>
+                  <button
+                    onClick={addRow}
+                    className="bg-white border-2 border-[#00bc7d] text-[#00bc7d] hover:bg-[#00bc7d] hover:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
+                  >
+                    Add Row
+                  </button>
                   <div className="flex items-center ml-auto">
                     {hasUnsavedChanges && (
                       <div className="text-sm text-amber-600 flex items-center gap-2">
@@ -231,7 +236,13 @@ export default function QuestionnarePage() {
                         Cancel
                       </button>
                     )}
-                    <button onClick={onSave} className="btn-primary" disabled={saving || !hasUnsavedChanges}>{saving ? 'Saving...' : 'Save'}</button>
+                    <button
+                      onClick={onSave}
+                      className="bg-[#00bc7d] hover:bg-[#00a06a] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+                      disabled={saving || !hasUnsavedChanges}
+                    >
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
                   </div>
                 </div>
               </div>

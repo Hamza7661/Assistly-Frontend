@@ -57,7 +57,7 @@
 .loadingIcon {
   width: 48px;
   height: 48px;
-  color: #00bc7d;
+  color: #c01721;
   animation: spin 1s linear infinite;
 }
 
@@ -77,11 +77,11 @@
 .successIcon {
   width: 64px;
   height: 64px;
-  color: #10b981;
+  color: #c01721;
 }
 
 .dashboardButton {
-  background: linear-gradient(135deg, #00bc7d 0%, #00a870 100%);
+  background: linear-gradient(135deg, #c01721 0%, #b0151e 100%);
   color: white;
   border: none;
   padding: 0.75rem 2rem;
@@ -128,24 +128,24 @@
 }
 
 .signinButton {
-  background: #00bc7d;
+  background: #c01721;
   color: white;
-  border-color: #00bc7d;
+  border-color: #c01721;
 }
 
 .signinButton:hover {
-  background: #00a870;
-  border-color: #00a870;
+  background: #b0151e;
+  border-color: #b0151e;
 }
 
 .signupButton {
   background: transparent;
-  color: #00bc7d;
-  border-color: #00bc7d;
+  color: #c01721;
+  border-color: #c01721;
 }
 
 .signupButton:hover {
-  background: #00bc7d;
+  background: #c01721;
   color: white;
 }
 

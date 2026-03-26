@@ -249,7 +249,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
           <h4 className="text-sm font-medium text-gray-800 mb-1">Weekly schedule</h4>
           <p className="text-xs text-gray-500 mb-2">This schedule repeats every week. Use date exceptions for one-off changes.</p>
           {loading ? (
-            <div className="py-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00bc7d] border-t-transparent" /></div>
+            <div className="py-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#c01721] border-t-transparent" /></div>
           ) : (
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               {sortedDays.map((d) => {
@@ -273,7 +273,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                               <button type="button" onClick={() => removeSlot(di, si)} className="p-1.5 rounded text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors" title="Remove slot" aria-label="Remove slot"><Trash2 className="h-4 w-4" /></button>
                             </div>
                           ))}
-                          <div className="pt-1"><button type="button" onClick={() => addSlot(di)} className="text-sm text-[#00bc7d] hover:underline font-medium">+ Add slot</button></div>
+                          <div className="pt-1"><button type="button" onClick={() => addSlot(di)} className="text-sm text-[#c01721] hover:underline font-medium">+ Add slot</button></div>
                         </div>
                       )}
                     </div>
@@ -282,7 +282,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
               })}
               <div className="p-3 bg-white flex justify-end gap-2">
                 {hasPending && <span className="text-xs text-amber-600 self-center">Unsaved changes</span>}
-                <button type="button" onClick={saveAll} disabled={saving} className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a36d] disabled:opacity-50">{saving ? 'Saving…' : 'Save schedule'}</button>
+                <button type="button" onClick={saveAll} disabled={saving} className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a] disabled:opacity-50">{saving ? 'Saving…' : 'Save schedule'}</button>
                 {onClose && <button type="button" onClick={onClose} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>}
               </div>
             </div>
@@ -307,7 +307,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
             const ex = exceptions[date];
             const isSelected = selectedDate === date;
             return (
-              <button key={date} type="button" onClick={() => setSelectedDate(date)} className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#00bc7d]' : ''}`}>
+              <button key={date} type="button" onClick={() => setSelectedDate(date)} className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''}`}>
                 {day}
                 {ex && <span className="block w-1 h-1 rounded-full mx-auto mt-0.5 bg-[#00bc7d]" />}
               </button>
@@ -354,11 +354,11 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                         <button type="button" onClick={() => setCustomSlots((s) => s.filter((_, i) => i !== idx))} className="p-1.5 rounded text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0" title="Remove slot" aria-label="Remove slot"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     ))}
-                    <div className="pt-2"><button type="button" onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#00bc7d] hover:underline font-medium">+ Add slot</button></div>
+                    <div className="pt-2"><button type="button" onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#c01721] hover:underline font-medium">+ Add slot</button></div>
                   </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
-                  <button type="button" onClick={async () => { if (exceptionNotAvailable) await saveException(selectedDate, { allDayOff: true }); else if (exceptionAllDay) await saveException(selectedDate, { overrideAllDay: true }); else await saveException(selectedDate, { slots: customSlots }); loadExceptions(); }} className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a36d]">Save</button>
+                  <button type="button" onClick={async () => { if (exceptionNotAvailable) await saveException(selectedDate, { allDayOff: true }); else if (exceptionAllDay) await saveException(selectedDate, { overrideAllDay: true }); else await saveException(selectedDate, { slots: customSlots }); loadExceptions(); }} className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a]">Save</button>
                   <button type="button" onClick={() => setSelectedDate(null)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
                 </div>
               </div>
@@ -405,7 +405,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
             <h4 className="text-sm font-medium text-gray-800 mb-1">Weekly schedule</h4>
             <p className="text-xs text-gray-500 mb-2">This schedule repeats every week. Use date exceptions below for one-off changes.</p>
             {loading ? (
-              <div className="py-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00bc7d] border-t-transparent" /></div>
+              <div className="py-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-[#c01721] border-t-transparent" /></div>
             ) : (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 {sortedDays.map((d) => {
@@ -453,7 +453,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                               </div>
                             ))}
                             <div className="pt-1">
-                              <button type="button" onClick={() => addSlot(di)} className="text-sm text-[#00bc7d] hover:underline font-medium">+ Add slot</button>
+                              <button type="button" onClick={() => addSlot(di)} className="text-sm text-[#c01721] hover:underline font-medium">+ Add slot</button>
                             </div>
                           </div>
                         )}
@@ -463,7 +463,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                 })}
                 <div className="p-3 bg-white flex justify-end gap-2">
                   {hasPending && <span className="text-xs text-amber-600 self-center">Unsaved changes</span>}
-                  <button type="button" onClick={saveAll} disabled={saving} className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a36d] disabled:opacity-50">
+                  <button type="button" onClick={saveAll} disabled={saving} className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a] disabled:opacity-50">
                     {saving ? 'Saving…' : 'Save schedule'}
                   </button>
                 </div>
@@ -497,7 +497,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                         key={date}
                         type="button"
                         onClick={() => setSelectedDate(date)}
-                        className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#00bc7d]' : ''}`}
+                        className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''}`}
                       >
                         {day}
                         {ex && <span className="block w-1 h-1 rounded-full mx-auto mt-0.5 bg-[#00bc7d]" />}
@@ -569,7 +569,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                               </div>
                             ))}
                             <div className="pt-2">
-                              <button type="button" onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#00bc7d] hover:underline font-medium">+ Add slot</button>
+                              <button type="button" onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#c01721] hover:underline font-medium">+ Add slot</button>
                             </div>
                           </div>
                         )}
@@ -582,7 +582,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                               else await saveException(selectedDate, { slots: customSlots });
                               loadExceptions();
                             }}
-                            className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a36d]"
+                            className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a]"
                           >
                             Save
                           </button>

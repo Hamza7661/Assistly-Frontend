@@ -88,7 +88,7 @@ export default function Navigation() {
                 onClick={() => handleNavigation('/dashboard')}
                 className="cursor-pointer hover:opacity-80 transition-opacity flex items-center"
               >
-                <Logo width={140} height={42} />
+                <Logo width={190} height={52} className="w-auto h-auto" />
               </div>
             </div>
 
@@ -102,9 +102,9 @@ export default function Navigation() {
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00bc7d]"
+                  className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#c01721]"
                 >
-                  <div className="h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center mr-2">
+                  <div className="h-8 w-8 bg-[#c01721] rounded-full flex items-center justify-center mr-2">
                     <span className="text-sm font-bold text-white">
                       {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                     </span>
@@ -123,7 +123,7 @@ export default function Navigation() {
                         handleNavigation('/settings');
                         setIsUserMenuOpen(false);
                       }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-[#c01721]/10 hover:text-[#c01721] w-full text-left"
                     >
                       <User className="h-4 w-4 mr-2" />
                       Account Settings
@@ -133,7 +133,7 @@ export default function Navigation() {
                         handleLogout();
                         setIsUserMenuOpen(false);
                       }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-[#c01721]/10 hover:text-[#c01721] w-full text-left"
                     >
                       <LogOut className="h-4 w-4 mr-2" />
                       Sign Out

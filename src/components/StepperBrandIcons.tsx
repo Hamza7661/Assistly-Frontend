@@ -15,7 +15,7 @@ export function AppStepIcon({
   return (
     <span
       className={`${tile} border-2 ${
-        active ? 'border-[#00bc7d] bg-[#00bc7d]/10 text-[#00bc7d]' : 'border-gray-300 bg-white text-gray-500'
+        active ? 'border-[#c01721] bg-[#c01721]/10 text-[#c01721]' : 'border-gray-300 bg-white text-gray-500'
       } ${className}`}
       aria-hidden
       title="App"

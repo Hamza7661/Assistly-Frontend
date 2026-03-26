@@ -39,7 +39,7 @@
 }
 
 .textarea {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent;
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#c01721] focus:border-transparent;
 }
 
 .textareaError {

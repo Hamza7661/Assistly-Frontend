@@ -80,12 +80,12 @@ export default function ChoosePackagePage() {
                     <div
                       key={plan.id}
                       className={`border-2 rounded-lg p-6 relative ${
-                        plan.popular ? 'border-[#00bc7d] bg-green-50' : 'border-gray-200 bg-white'
+                        plan.popular ? 'border-[#c01721] bg-green-50' : 'border-gray-200 bg-white'
                       }`}
                     >
                       {plan.popular && (
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                          <span className="bg-[#00bc7d] text-white text-xs font-bold px-4 py-1 rounded-full">
+                          <span className="bg-[#c01721] text-white text-xs font-bold px-4 py-1 rounded-full">
                             MOST POPULAR
                           </span>
                         </div>
@@ -141,7 +141,7 @@ export default function ChoosePackagePage() {
                         onClick={() => window.open(CONTACT_URL, '_blank')}
                         className={`block w-full text-center py-3 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
                           plan.popular
-                            ? 'bg-[#00bc7d] text-white hover:bg-[#00a870]'
+                            ? 'bg-[#c01721] text-white hover:bg-[#b0151e]'
                             : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                         }`}
                       >

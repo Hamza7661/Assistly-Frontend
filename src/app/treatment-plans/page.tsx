@@ -504,7 +504,7 @@ export default function TreatmentPlansPage() {
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-[#00bc7d] shrink-0 mt-0.5"
+            className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-[#c01721] shrink-0 mt-0.5"
           >
             <GripVertical className="h-4 w-4" />
           </div>
@@ -513,7 +513,7 @@ export default function TreatmentPlansPage() {
           <div className="flex-1 min-w-0">
             <button
               onClick={() => workflow._id && toggleWorkflowExpansion(workflow._id)}
-              className="w-full text-left flex items-center gap-1.5 hover:text-[#00bc7d]"
+              className="w-full text-left flex items-center gap-1.5 hover:text-[#c01721]"
             >
               {isExpanded ? (
                 <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" />
@@ -643,7 +643,7 @@ export default function TreatmentPlansPage() {
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721]"></div>
                 <p className="mt-4 text-gray-600">Loading...</p>
               </div>
             </div>
@@ -742,7 +742,7 @@ export default function TreatmentPlansPage() {
                     <div className="space-y-2">
                         {/* Workflow Creation Form - HIDDEN (kept for separate workflow management) */}
                         {false && creatingWorkflowForPlan === planIdx && (
-                          <div className="bg-white rounded-lg border-2 border-[#00bc7d] p-4 mb-4">
+                          <div className="bg-white rounded-lg border-2 border-[#c01721] p-4 mb-4">
                             <div className="flex justify-between items-center mb-4">
                               <h3 className="text-lg font-semibold text-gray-900">
                                 {editingWorkflowId ? 'Edit Workflow' : 'Create New Workflow'}
@@ -857,7 +857,7 @@ export default function TreatmentPlansPage() {
 
                         {/* Workflow Selector for Attaching Existing Workflows */}
                         {showingWorkflowSelector === planIdx && (
-                          <div className="bg-white rounded-lg border-2 border-[#00bc7d] p-4 mb-4">
+                          <div className="bg-white rounded-lg border-2 border-[#c01721] p-4 mb-4">
                             <div className="flex justify-between items-center mb-4">
                               <h3 className="text-lg font-semibold text-gray-900">
                                 Attach Existing Workflow
@@ -911,7 +911,7 @@ export default function TreatmentPlansPage() {
                             No workflows attached. Click <strong>"Attach Existing Workflow"</strong> to attach one or{' '}
                             <button
                               onClick={() => router.push('/chatbot-workflow')}
-                              className="text-[#00bc7d] hover:text-[#00a86b] underline font-medium"
+                              className="text-[#c01721] hover:text-[#00a86b] underline font-medium"
                             >
                               click here
                             </button>
@@ -999,7 +999,7 @@ export default function TreatmentPlansPage() {
                         Cancel
                       </button>
                     )}
-                    <button onClick={onSave} className="btn-primary" disabled={saving || !hasUnsavedChanges}>
+                    <button onClick={onSave} className="btn-save" disabled={saving || !hasUnsavedChanges}>
                       {saving ? 'Saving...' : 'Save'}
                     </button>
                   </div>

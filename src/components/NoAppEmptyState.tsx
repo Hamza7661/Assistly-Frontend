@@ -22,8 +22,8 @@ export default function NoAppEmptyState({
         {showIllustration && (
           <div className="mb-8 flex justify-center">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#00bc7d] to-[#00a66d] rounded-full blur-2xl opacity-20 animate-pulse"></div>
-              <div className="relative bg-gradient-to-br from-[#00bc7d] to-[#00a66d] rounded-full p-8">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#c01721] to-[#00a66d] rounded-full blur-2xl opacity-20 animate-pulse"></div>
+              <div className="relative bg-gradient-to-br from-[#c01721] to-[#00a66d] rounded-full p-8">
                 <Rocket className="h-16 w-16 text-white" />
               </div>
               <div className="absolute -top-2 -right-2">
@@ -44,7 +44,7 @@ export default function NoAppEmptyState({
         <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-6 mb-8 border border-blue-100">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 mt-1">
-              <div className="h-10 w-10 rounded-full bg-[#00bc7d] flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-[#c01721] flex items-center justify-center">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
             </div>
@@ -52,19 +52,19 @@ export default function NoAppEmptyState({
               <h3 className="font-semibold text-gray-900 mb-2">What you'll get:</h3>
               <ul className="space-y-2 text-sm text-gray-700">
                 <li className="flex items-center gap-2">
-                  <span className="text-[#00bc7d]">✓</span>
+                  <span className="text-[#c01721]">✓</span>
                   <span>Industry-specific chatbot workflows and conversation flows</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-[#00bc7d]">✓</span>
+                  <span className="text-[#c01721]">✓</span>
                   <span>Pre-configured FAQs and training data</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-[#00bc7d]">✓</span>
+                  <span className="text-[#c01721]">✓</span>
                   <span>Service plans</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-[#00bc7d]">✓</span>
+                  <span className="text-[#c01721]">✓</span>
                   <span>Integration settings and widget customization</span>
                 </li>
               </ul>
