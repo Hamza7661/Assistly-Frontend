@@ -144,7 +144,7 @@
 }
 
 .quickActionButton {
-  @apply p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#00bc7d] hover:bg-[#00bc7d] hover:text-white transition-all duration-200 text-center;
+  @apply p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#c01721] hover:bg-[#c01721] hover:text-white transition-all duration-200 text-center;
 }
 
 .quickActionIcon {

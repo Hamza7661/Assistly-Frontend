@@ -16,7 +16,7 @@
 }
 
 .logoIcon {
-  @apply h-8 w-8 bg-[#00bc7d] rounded-full flex items-center justify-center;
+  @apply h-8 w-8 bg-[#c01721] rounded-full flex items-center justify-center;
 }
 
 .pageTitle {
@@ -28,7 +28,7 @@
 }
 
 .welcomeBanner {
-  @apply bg-gradient-to-r from-[#00bc7d] to-[#00a06a] text-white p-6 rounded-xl shadow-lg mb-6;
+  @apply bg-gradient-to-r from-[#c01721] to-[#a8141c] text-white p-6 rounded-xl shadow-lg mb-6;
 }
 
 .welcomeTitle {
@@ -96,7 +96,7 @@
 }
 
 .packageCard {
-  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-300 border-2 hover:border-[#00bc7d] flex flex-col relative;
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-300 border-2 hover:border-[#c01721] flex flex-col relative;
 }
 
 .currentPackageCardGrid {
@@ -105,7 +105,7 @@
 }
 
 .popularBadge {
-  @apply absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#00bc7d] text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md;
+  @apply absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#c01721] text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md;
 }
 
 .currentPackageBadgeGrid {
@@ -137,7 +137,7 @@
 }
 
 .packagePrice {
-  @apply text-4xl font-bold text-[#00bc7d] mb-2;
+  @apply text-4xl font-bold text-[#c01721] mb-2;
 }
 
 .packageBilling {
@@ -177,7 +177,7 @@
 }
 
 .featureBullet {
-  @apply w-2 h-2 bg-[#00bc7d] rounded-full mt-2 mr-3 flex-shrink-0;
+  @apply w-2 h-2 bg-[#c01721] rounded-full mt-2 mr-3 flex-shrink-0;
 }
 
 .featureText {
@@ -279,12 +279,12 @@
 }
 
 .horizontalSlider::-webkit-slider-thumb {
-  @apply appearance-none w-5 h-5 bg-[#00bc7d] rounded-full cursor-pointer;
+  @apply appearance-none w-5 h-5 bg-[#c01721] rounded-full cursor-pointer;
   -webkit-appearance: none;
 }
 
 .horizontalSlider::-moz-range-thumb {
-  @apply w-5 h-5 bg-[#00bc7d] rounded-full cursor-pointer border-0;
+  @apply w-5 h-5 bg-[#c01721] rounded-full cursor-pointer border-0;
 }
 
 .sliderValue {
@@ -304,7 +304,7 @@
 }
 
 .toggleCheckbox {
-  @apply w-5 h-5 text-[#00bc7d] bg-gray-100 border-gray-300 rounded focus:ring-[#00bc7d] focus:ring-2;
+  @apply w-5 h-5 text-[#c01721] bg-gray-100 border-gray-300 rounded focus:ring-[#c01721] focus:ring-2;
 }
 
 .toggleLabel {
@@ -332,7 +332,7 @@
 }
 
 .priceAmount {
-  @apply text-3xl font-bold text-[#00bc7d];
+  @apply text-3xl font-bold text-[#c01721];
 }
 
 .pricePeriod {

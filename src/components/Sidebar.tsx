@@ -120,8 +120,8 @@ export default function Sidebar() {
                   onClick={() => toggleMenu(item.name)}
                   className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     hasActiveSubItem 
-                      ? 'bg-green-50 text-[#00bc7d]' 
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-[#00bc7d]'
+                      ? 'bg-[#c01721]/10 text-[#c01721]' 
+                      : 'text-gray-700 hover:bg-[#c01721]/10 hover:text-[#c01721]'
                   }`}
                   title={item.name}
                 >
@@ -148,8 +148,8 @@ export default function Sidebar() {
                           onClick={() => handleNavigation(subItem.href!)}
                           className={`w-full flex items-center px-3 py-2 text-sm rounded-md transition-colors ${
                             isSubActive 
-                              ? 'bg-green-50 text-[#00bc7d] font-medium' 
-                              : 'text-gray-600 hover:bg-gray-50 hover:text-[#00bc7d]'
+                              ? 'bg-[#c01721]/10 text-[#c01721] font-medium' 
+                              : 'text-gray-600 hover:bg-[#c01721]/10 hover:text-[#c01721]'
                           }`}
                           title={subItem.name}
                         >
@@ -170,8 +170,8 @@ export default function Sidebar() {
                 onClick={() => item.href && handleNavigation(item.href)}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   isActive 
-                    ? 'bg-green-50 text-[#00bc7d]' 
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-[#00bc7d]'
+                    ? 'bg-[#c01721]/10 text-[#c01721]' 
+                    : 'text-gray-700 hover:bg-[#c01721]/10 hover:text-[#c01721]'
                 }`}
                 aria-current={isActive ? 'page' : undefined}
                 title={item.name}

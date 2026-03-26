@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         
         :root {
             --primary-color: #ffffff;
-            --secondary-color: #00bc7d;
+            --secondary-color: #c01721;
             --text-primary: #1f2937;
             --text-secondary: #6b7280;
             --border-color: #e5e7eb;
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         }
         
         .header {
-            background: linear-gradient(135deg, var(--secondary-color), #00a06a);
+            background: linear-gradient(135deg, var(--secondary-color), #a8141c);
             padding: 30px 20px;
             text-align: center;
             color: var(--primary-color);

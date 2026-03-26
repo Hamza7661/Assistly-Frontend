@@ -44,7 +44,7 @@ export default function LeadsPage() {
   const wsRef = useRef<WebSocket | null>(null);
   
   // Integration settings for button colors
-  const [primaryColor, setPrimaryColor] = useState('#00bc7d');
+  const [primaryColor, setPrimaryColor] = useState('#c01721');
 
   // Load integration settings for primary color
   useEffect(() => {
@@ -317,7 +317,7 @@ export default function LeadsPage() {
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721]"></div>
                 <p className="mt-4 text-gray-600">Loading...</p>
               </div>
             </div>

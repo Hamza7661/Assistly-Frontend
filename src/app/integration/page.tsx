@@ -118,7 +118,7 @@ export default function IntegrationPage() {
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721]"></div>
                 <p className="mt-4 text-gray-600">Loading...</p>
               </div>
             </div>
@@ -158,7 +158,7 @@ export default function IntegrationPage() {
             {/* Chatbot Widget Script */}
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-8">
               <div className="flex items-center gap-3 mb-1">
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-[#00bc7d] text-white shrink-0">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-[#c01721] text-white shrink-0">
                   <ChatbotIcon />
                 </span>
                 <h2 className="text-lg font-semibold text-gray-900">Chatbot Widget Script</h2>
@@ -329,7 +329,7 @@ export default function IntegrationPage() {
                       type="button"
                       onClick={handleConnectCalendar}
                       disabled={calendarLoading}
-                      className="text-sm rounded-lg px-4 py-2 bg-[#00bc7d] text-white hover:bg-[#00a36d] disabled:opacity-50"
+                      className="text-sm rounded-lg px-4 py-2 bg-[#c01721] text-white hover:bg-[#00a36d] disabled:opacity-50"
                     >
                       {calendarLoading ? 'Connecting…' : 'Connect Google Calendar'}
                     </button>

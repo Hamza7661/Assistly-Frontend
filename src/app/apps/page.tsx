@@ -10,7 +10,7 @@ import { useQuestionnareService } from '@/services';
 import { QuestionnareType } from '@/enums/QuestionnareType';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Building2, Phone, Power, PowerOff, LayoutList, Layers, GitBranch, Users, ExternalLink, MessageCircle, Plug, User, ClipboardList, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Building2, Phone, Power, Ban, LayoutList, Layers, GitBranch, Users, ExternalLink, MessageCircle, Plug, User, ClipboardList, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -344,7 +344,7 @@ export default function AppsPage() {
 
   // Stat card colours
   const statCards = [
-    { label: 'Lead Types',        value: appStats?.leadTypes  ?? 0, icon: LayoutList, href: '/settings/chatbot',    iconBg: 'bg-[#f0fdf9]',   iconColor: 'text-[#00bc7d]', linkLabel: 'Manage' },
+    { label: 'Lead Types',        value: appStats?.leadTypes  ?? 0, icon: LayoutList, href: '/settings/chatbot',    iconBg: 'bg-[#f0fdf9]',   iconColor: 'text-[#c01721]', linkLabel: 'Manage' },
     { label: 'Services',          value: appStats?.services   ?? 0, icon: Layers,     href: '/treatment-plans',     iconBg: 'bg-blue-50',      iconColor: 'text-blue-500',  linkLabel: 'Manage' },
     { label: 'Active Workflows',  value: appStats?.workflows  ?? 0, icon: GitBranch,  href: '/chatbot-workflow',    iconBg: 'bg-violet-50',    iconColor: 'text-violet-500',linkLabel: 'Manage' },
     { label: 'Total Leads',       value: appStats?.leads      ?? 0, icon: Users,      href: '/leads',               iconBg: 'bg-amber-50',     iconColor: 'text-amber-500', linkLabel: 'View' },
@@ -415,8 +415,8 @@ export default function AppsPage() {
                   <button
                     type="button"
                     onClick={() => setShowInactive(!showInactive)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#00bc7d] focus:ring-offset-2 ${
-                      showInactive ? 'bg-[#00bc7d]' : 'bg-gray-200'
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#c01721] focus:ring-offset-2 ${
+                      showInactive ? 'bg-[#c01721]' : 'bg-gray-200'
                     }`}
                     role="switch"
                     aria-checked={showInactive}
@@ -511,16 +511,16 @@ export default function AppsPage() {
                               <div
                                 key={app.id || app._id}
                                 className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all overflow-hidden ${
-                                  isDashboardCurrent ? 'border-[#00bc7d] border-2' : 'border-gray-200'
+                                  isDashboardCurrent ? 'border-[#c01721] border-2' : 'border-gray-200'
                                 } ${!app.isActive ? 'opacity-60' : ''}`}
                               >
                                 {/* Accent top bar */}
-                                <div className={`h-1.5 ${isDashboardCurrent ? 'bg-[#00bc7d]' : app.deletedAt ? 'bg-red-300' : !app.isActive ? 'bg-gray-300' : 'bg-gray-100'}`} />
+                                <div className={`h-1.5 ${isDashboardCurrent ? 'bg-[#c01721]' : app.deletedAt ? 'bg-red-300' : !app.isActive ? 'bg-gray-300' : 'bg-gray-100'}`} />
 
                                 <div className="p-5">
                                   {/* App avatar + name + badges */}
                                   <div className="flex items-start gap-3 mb-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shrink-0 ${isDashboardCurrent ? 'bg-[#00bc7d]' : 'bg-gray-700'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shrink-0 ${isDashboardCurrent ? 'bg-[#c01721]' : 'bg-gray-700'}`}>
                                       {initials}
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -529,7 +529,7 @@ export default function AppsPage() {
                                     </div>
                                     <div className="flex flex-col items-end gap-1 shrink-0">
                                       {isDashboardCurrent && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#00bc7d] text-white">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#c01721] text-white">
                                           Current
                                         </span>
                                       )}
@@ -592,7 +592,7 @@ export default function AppsPage() {
                                           }`}
                                           title={app.isActive ? 'Disable app' : 'Enable app'}
                                         >
-                                          {app.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                                          {app.isActive ? <Ban className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                                         </button>
                                         <button
                                           onClick={() => router.push(`/apps/${app.id}/edit`)}
@@ -628,12 +628,12 @@ export default function AppsPage() {
                   <a
                     key={href}
                     href={href}
-                    className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-[#00bc7d] hover:bg-[#f0fdf9] text-center transition-all group"
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-[#c01721] hover:bg-[#c01721]/10 text-center transition-all group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-[#dcfcef] flex items-center justify-center transition-colors">
-                      <Icon className="h-4 w-4 text-gray-500 group-hover:text-[#00bc7d] transition-colors" />
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-[#c01721]/15 flex items-center justify-center transition-colors">
+                      <Icon className="h-4 w-4 text-gray-500 group-hover:text-[#c01721] transition-colors" />
                     </div>
-                    <span className="text-xs text-gray-600 group-hover:text-[#00895c] font-medium leading-tight">{label}</span>
+                    <span className="text-xs text-gray-600 group-hover:text-[#c01721] font-medium leading-tight">{label}</span>
                   </a>
                 ))}
               </div>
@@ -670,7 +670,7 @@ export default function AppsPage() {
               <select
                 value={deleteTransferToAppId || ''}
                 onChange={(e) => setDeleteTransferToAppId(e.target.value || null)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00bc7d] focus:outline-none focus:ring-1 focus:ring-[#00bc7d]"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#c01721] focus:outline-none focus:ring-1 focus:ring-[#c01721]"
               >
                 <option value="">Select an app...</option>
                 {confirmDelete.otherAppsWithSameNumber.map((a: any) => (

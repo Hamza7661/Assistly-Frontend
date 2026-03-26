@@ -241,7 +241,7 @@ export default function SignupPage() {
                 value={formData.phoneNumber}
                 onChange={(value) => handleInputChange('phoneNumber', value || '')}
                 placeholder="Enter phone number"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200"
               />
             </div>
 

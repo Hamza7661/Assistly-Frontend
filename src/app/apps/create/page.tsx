@@ -432,7 +432,7 @@ export default function CreateAppPage() {
                 onClick={() => setActiveStep('app')}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   activeStep === 'app'
-                    ? 'border-[#00bc7d] text-[#00bc7d]'
+                    ? 'border-[#c01721] text-[#c01721]'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
                 }`}
               >
@@ -447,7 +447,7 @@ export default function CreateAppPage() {
                   disabled={!canOpenSetupSteps}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     activeStep === 'whatsapp'
-                      ? 'border-[#00bc7d] text-[#00bc7d]'
+                      ? 'border-[#c01721] text-[#c01721]'
                       : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
                 >
@@ -470,7 +470,7 @@ export default function CreateAppPage() {
                   disabled={!canOpenSetupSteps}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     activeStep === 'facebook'
-                      ? 'border-[#00bc7d] text-[#00bc7d]'
+                      ? 'border-[#c01721] text-[#c01721]'
                       : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
                 >
@@ -579,7 +579,7 @@ export default function CreateAppPage() {
                         await handleCreateApp();
                       }}
                       disabled={isLoading}
-                      className="btn-primary flex items-center gap-2"
+                      className="btn-save flex items-center gap-2"
                     >
                       {isLoading ? (
                         <>
@@ -680,7 +680,7 @@ export default function CreateAppPage() {
                                 setWhatsAppData((p) => ({ ...p, whatsappNumber: value || '' }))
                               }
                               placeholder="Enter WhatsApp number"
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200"
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200"
                             />
                           </div>
                           <p className="mt-3 text-sm text-gray-500">
@@ -743,7 +743,7 @@ export default function CreateAppPage() {
                                             <span className="flex-1 text-gray-800">
                                               {c.label} ({c.code})
                                             </span>
-                                            {selected ? <Check className="h-4 w-4 text-[#00bc7d]" /> : null}
+                                            {selected ? <Check className="h-4 w-4 text-[#c01721]" /> : null}
                                           </>
                                         )}
                                       </Listbox.Option>
@@ -827,7 +827,7 @@ export default function CreateAppPage() {
                                               })()}
                                               </div>
                                               {selected ? (
-                                                <Check className="h-4 w-4 text-[#00bc7d]" />
+                                                <Check className="h-4 w-4 text-[#c01721]" />
                                               ) : null}
                                             </>
                                           )}
@@ -925,7 +925,7 @@ export default function CreateAppPage() {
                             if (ok) setActiveStep('facebook');
                           }}
                           disabled={isLoading}
-                          className="btn-primary flex items-center gap-2"
+                          className="btn-save flex items-center gap-2"
                         >
                           {isLoading ? (
                             <>
@@ -1072,7 +1072,7 @@ export default function CreateAppPage() {
                             await handleFacebookSave();
                           }}
                           disabled={fbSaving || !fbShortLivedToken || !fbSelectedPageId}
-                          className="btn-secondary flex items-center gap-2"
+                          className="btn-save flex items-center gap-2"
                         >
                           {fbSaving ? (
                             <>

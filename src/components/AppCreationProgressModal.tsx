@@ -126,7 +126,7 @@ export default function AppCreationProgressModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#00bc7d] to-[#00a86b] p-8 text-white">
+        <div className="bg-gradient-to-r from-[#c01721] to-[#00a86b] p-8 text-white">
           <h2 className="text-3xl font-bold mb-2">Creating Your App</h2>
           <p className="text-white/90">Setting up your personalized app with industry-specific data...</p>
         </div>
@@ -135,7 +135,7 @@ export default function AppCreationProgressModal({
         <div className="px-8 pt-6">
           <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
             <div 
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#00bc7d] to-[#00a86b] transition-all duration-500 ease-out rounded-full"
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#c01721] to-[#00a86b] transition-all duration-500 ease-out rounded-full"
               style={{ width: `${percentage}%` }}
             >
               <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
@@ -143,7 +143,7 @@ export default function AppCreationProgressModal({
           </div>
           <div className="flex justify-between items-center mt-2">
             <span className="text-sm font-medium text-gray-600">{message}</span>
-            <span className="text-sm font-bold text-[#00bc7d]">{percentage}%</span>
+            <span className="text-sm font-bold text-[#c01721]">{percentage}%</span>
           </div>
         </div>
 
@@ -161,7 +161,7 @@ export default function AppCreationProgressModal({
                 step.status === 'completed' 
                   ? 'bg-green-100 text-green-600' 
                   : step.status === 'in-progress'
-                  ? 'bg-[#00bc7d] text-white animate-pulse'
+                  ? 'bg-[#c01721] text-white animate-pulse'
                   : step.status === 'error'
                   ? 'bg-red-100 text-red-600'
                   : 'bg-gray-100 text-gray-400'
@@ -183,7 +183,7 @@ export default function AppCreationProgressModal({
                   step.status === 'completed'
                     ? 'text-green-600'
                     : step.status === 'in-progress'
-                    ? 'text-[#00bc7d]'
+                    ? 'text-[#c01721]'
                     : step.status === 'error'
                     ? 'text-red-600'
                     : 'text-gray-400'

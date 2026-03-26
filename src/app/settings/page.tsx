@@ -114,7 +114,7 @@ export default function SettingsPage() {
         <div className="bg-white min-h-screen">
           <Navigation />
           <div className="content-wrapper sidebar-closed flex items-center justify-center min-h-[60vh]">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721]"></div>
           </div>
         </div>
       </ProtectedRoute>
@@ -133,7 +133,7 @@ export default function SettingsPage() {
         <div className="card mb-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <UserIcon className="h-5 w-5 mr-2 text-[#00bc7d] shrink-0" />
+              <UserIcon className="h-5 w-5 mr-2 text-[#c01721] shrink-0" />
               Profile Information
             </h2>
             {!isEditing ? (
@@ -265,7 +265,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="card">
             <div className="flex items-center mb-4">
-              <Shield className="h-5 w-5 mr-2 text-[#00bc7d]" />
+              <Shield className="h-5 w-5 mr-2 text-[#c01721]" />
               <h3 className="text-lg font-semibold text-gray-900">Security</h3>
             </div>
             <div className="space-y-3">
@@ -282,7 +282,7 @@ export default function SettingsPage() {
 
           <div className="card">
             <div className="flex items-center mb-4">
-              <Bell className="h-5 w-5 mr-2 text-[#00bc7d]" />
+              <Bell className="h-5 w-5 mr-2 text-[#c01721]" />
               <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
             </div>
             <div className="space-y-3">
@@ -299,7 +299,7 @@ export default function SettingsPage() {
 
           <div className="card">
             <div className="flex items-center mb-4">
-              <CreditCard className="h-5 w-5 mr-2 text-[#00bc7d]" />
+              <CreditCard className="h-5 w-5 mr-2 text-[#c01721]" />
               <h3 className="text-lg font-semibold text-gray-900">Billing</h3>
             </div>
             <div className="space-y-3">

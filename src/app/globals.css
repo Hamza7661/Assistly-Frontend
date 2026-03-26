@@ -6,7 +6,7 @@
 
 :root {
   --primary-color: #ffffff;
-  --secondary-color: #00bc7d;
+  --secondary-color: #c01721;
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
   --border-color: #e5e7eb;
@@ -39,11 +39,88 @@ a {
 @layer components {
   /* Global Button Classes */
   .btn-primary {
-    @apply bg-[#00bc7d] hover:bg-[#00a06a] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200;
+    @apply bg-[#c01721] hover:bg-[#a8141c] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200;
   }
   
   .btn-secondary {
-    @apply bg-white border-2 border-[#00bc7d] text-[#00bc7d] hover:bg-[#00bc7d] hover:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200;
+    @apply bg-white border-2 border-[#c01721] text-[#c01721] hover:bg-[#c01721] hover:text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200;
+  }
+
+  .btn-save {
+    @apply bg-[#00bc7d] hover:bg-[#00a06a] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200;
+  }
+
+  /* Branding state styles for selection/toggles */
+  .brand-chip-selected {
+    @apply bg-[#c01721] text-white border-[#c01721];
+  }
+
+  .brand-chip-soft {
+    @apply border-[#c01721] bg-[#c01721]/5 shadow-sm;
+  }
+
+  .brand-toggle-track {
+    position: relative;
+    width: 2.75rem;
+    height: 1.5rem;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease;
+  }
+
+  .brand-toggle-track-sm {
+    position: relative;
+    width: 2.25rem;
+    height: 1.25rem;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease;
+  }
+
+  .brand-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    transition: transform 0.2s ease;
+  }
+
+  .brand-toggle-track-sm::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 1rem;
+    height: 1rem;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    transition: transform 0.2s ease;
+  }
+
+  .peer:checked + .brand-toggle-track,
+  .peer:checked + .brand-toggle-track-sm {
+    background-color: #c01721;
+  }
+
+  .peer:checked + .brand-toggle-track::after {
+    transform: translateX(1.25rem);
+    border-color: #ffffff;
+  }
+
+  .peer:checked + .brand-toggle-track-sm::after {
+    transform: translateX(1rem);
+    border-color: #ffffff;
+  }
+
+  .peer:focus + .brand-toggle-track {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(192, 23, 33, 0.3);
   }
 
   .remove-btn{
@@ -52,7 +129,7 @@ a {
   
   /* Global Input Classes */
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200;
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200;
   }
   
   /* Global Card Class */
@@ -62,7 +139,7 @@ a {
 
   /* Global Loading Spinner */
   .loading-spinner {
-    @apply animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d];
+    @apply animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721];
   }
 
   /* Global Error Message */
@@ -93,14 +170,14 @@ a {
   /* Thin scrollbar utility for scrollable containers */
   .thin-scrollbar {
     scrollbar-width: thin; /* Firefox */
-    scrollbar-color: var(--secondary-color, #00bc7d) transparent; /* Firefox */
+    scrollbar-color: var(--secondary-color, #c01721) transparent; /* Firefox */
   }
   .thin-scrollbar::-webkit-scrollbar {
     width: 6px; /* Chrome, Safari, Edge */
     height: 6px;
   }
   .thin-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--secondary-color, #00bc7d);
+    background-color: var(--secondary-color, #c01721);
     border-radius: 9999px;
   }
   .thin-scrollbar::-webkit-scrollbar-track {

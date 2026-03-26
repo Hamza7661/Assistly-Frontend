@@ -636,7 +636,7 @@ function ChatbotWorkflowPageContent() {
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721]"></div>
                 <p className="mt-4 text-gray-600">Loading...</p>
               </div>
             </div>
@@ -720,11 +720,11 @@ function ChatbotWorkflowPageContent() {
                       className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
                     >
                       {/* Workflow Header */}
-                      <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-[#00bc7d]/5 to-transparent">
+                      <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-[#c01721]/5 to-transparent">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-2 mb-1 flex-wrap">
-                              <Folder className="h-5 w-5 text-[#00bc7d] shrink-0 mt-0.5" />
+                              <Folder className="h-5 w-5 text-[#c01721] shrink-0 mt-0.5" />
                               <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{group.rootQuestion.question}</h3>
                               <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded shrink-0">Root</span>
                               {!group.isActive && (
@@ -863,7 +863,7 @@ function ChatbotWorkflowPageContent() {
             <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex justify-between items-center rounded-t-2xl sm:rounded-t-xl">
                 <h2 className="text-base sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
-                  <Folder className="h-5 w-5 text-[#00bc7d]" />
+                  <Folder className="h-5 w-5 text-[#c01721]" />
                   Create New Conversation Flow
                 </h2>
                 <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-5 w-5" /></button>
@@ -961,7 +961,7 @@ function ChatbotWorkflowPageContent() {
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker((prev) => !prev)}
-                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00bc7d]"
+                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#c01721]"
               >
                 <span aria-hidden="true">🙂</span>
                 <span>Add emoji</span>
@@ -1174,7 +1174,7 @@ function ChatbotWorkflowPageContent() {
           <button
             onClick={handleSaveQuestion}
             disabled={saving}
-            className="btn-primary flex items-center gap-2"
+            className="btn-save flex items-center gap-2"
           >
             <Save className="h-5 w-5" />
             {saving ? 'Saving...' : 'Save'}

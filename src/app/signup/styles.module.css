@@ -56,19 +56,19 @@
 }
 
 .inputField {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200;
 }
 
 .inputFieldWithIcon {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 pl-10;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200 pl-10;
 }
 
 .inputFieldWithPassword {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 pl-10 pr-10;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200 pl-10 pr-10;
 }
 
 .textareaField {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 pl-10 resize-none;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200 pl-10 resize-none;
 }
 
 .inputIcon {
@@ -84,7 +84,7 @@
 }
 
 .packageDropdown {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200 text-left flex items-center justify-between cursor-pointer;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200 text-left flex items-center justify-between cursor-pointer;
 }
 
 .packageDropdownText {
@@ -122,7 +122,7 @@
 }
 
 .submitButton {
-  @apply bg-[#00bc7d] hover:bg-[#00a06a] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 w-full flex justify-center items-center;
+  @apply bg-[#c01721] hover:bg-[#a8141c] text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 w-full flex justify-center items-center;
 }
 
 .submitButtonDisabled {
@@ -142,7 +142,7 @@
 }
 
 .footerLink {
-  @apply font-medium text-[#00bc7d] hover:text-[#00a06a];
+  @apply font-medium text-[#c01721] hover:text-[#a8141c];
 }
 
 .passwordHint {

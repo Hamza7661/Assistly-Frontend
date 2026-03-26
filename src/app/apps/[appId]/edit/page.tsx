@@ -537,7 +537,7 @@ export default function EditAppPage() {
                 onClick={() => setActiveStep('app')}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   activeStep === 'app'
-                    ? 'border-[#00bc7d] text-[#00bc7d]'
+                    ? 'border-[#c01721] text-[#c01721]'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
                 }`}
               >
@@ -549,7 +549,7 @@ export default function EditAppPage() {
                 onClick={() => setActiveStep('whatsapp')}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   activeStep === 'whatsapp'
-                    ? 'border-[#00bc7d] text-[#00bc7d]'
+                    ? 'border-[#c01721] text-[#c01721]'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
                 }`}
               >
@@ -561,7 +561,7 @@ export default function EditAppPage() {
                 onClick={() => setActiveStep('facebook')}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   activeStep === 'facebook'
-                    ? 'border-[#00bc7d] text-[#00bc7d]'
+                    ? 'border-[#c01721] text-[#c01721]'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
                 }`}
               >
@@ -660,7 +660,7 @@ export default function EditAppPage() {
                       if (ok) setActiveStep('whatsapp');
                     }}
                     disabled={isSaving}
-                    className="btn-primary flex items-center gap-2"
+                    className="btn-save flex items-center gap-2"
                   >
                     {isSaving ? (
                       <>
@@ -689,7 +689,7 @@ export default function EditAppPage() {
                 </div>
 
                 {showWhatsAppSetupBanner && (
-                  <div className="flex items-start justify-between gap-3 p-4 bg-[#00bc7d]/10 border border-[#00bc7d]/30 rounded-lg">
+                  <div className="flex items-start justify-between gap-3 p-4 bg-[#00bc7d]/10 border border-[#c01721]/30 rounded-lg">
                     <p className="text-sm text-gray-800">
                       <strong>Welcome:</strong> Search and buy a number below (if you chose a new
                       number), then use Meta to link your WABA. You can dismiss this and return
@@ -782,7 +782,7 @@ export default function EditAppPage() {
                             handleInputChange('whatsappNumber', value || '')
                           }
                           placeholder="Enter WhatsApp number"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00bc7d] focus:border-transparent outline-none transition-all duration-200"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c01721] focus:border-transparent outline-none transition-all duration-200"
                         />
                       </div>
                       <p className="mt-3 text-sm text-gray-500 max-w-xl">
@@ -858,7 +858,7 @@ export default function EditAppPage() {
                                             <span className="flex-1 text-gray-800">
                                               {c.label} ({c.code})
                                             </span>
-                                            {selected ? <Check className="h-4 w-4 text-[#00bc7d]" /> : null}
+                                            {selected ? <Check className="h-4 w-4 text-[#c01721]" /> : null}
                                           </>
                                         )}
                                       </Listbox.Option>
@@ -936,7 +936,7 @@ export default function EditAppPage() {
                                                   );
                                                 })()}
                                               </div>
-                                              {selected ? <Check className="h-4 w-4 text-[#00bc7d]" /> : null}
+                                              {selected ? <Check className="h-4 w-4 text-[#c01721]" /> : null}
                                             </>
                                           )}
                                         </Listbox.Option>
@@ -1031,7 +1031,7 @@ export default function EditAppPage() {
                           if (ok) setActiveStep('facebook');
                         }}
                         disabled={isSavingWhatsApp}
-                        className="btn-primary flex items-center gap-2"
+                        className="btn-save flex items-center gap-2"
                       >
                         {isSavingWhatsApp ? (
                           <>
@@ -1192,7 +1192,7 @@ export default function EditAppPage() {
                         await handleFacebookSave();
                       }}
                       disabled={fbSaving || !fbShortLivedToken || !fbSelectedPageId}
-                      className="btn-secondary flex items-center gap-2"
+                      className="btn-save flex items-center gap-2"
                     >
                       {fbSaving ? (
                         <>

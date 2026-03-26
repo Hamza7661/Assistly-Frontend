@@ -67,7 +67,7 @@ function SortableServicePlanItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="inline-flex items-center gap-0.5 bg-[#00bc7d] text-white rounded pl-1.5 pr-1 py-1"
+      className="inline-flex items-center gap-0.5 bg-[#c01721] text-white rounded pl-1.5 pr-1 py-1"
     >
       <div
         {...attributes}
@@ -105,7 +105,7 @@ export default function ChatbotSettingsPage() {
     assistantName: '',
     companyName: '',
     greeting: '',
-    primaryColor: '#00bc7d',
+    primaryColor: '#c01721',
     validateEmail: false,
     validatePhoneNumber: false,
     conversationStyle: false,
@@ -265,7 +265,7 @@ export default function ChatbotSettingsPage() {
           assistantName: integration?.assistantName || '',
           companyName: integration?.companyName || '',
           greeting: greeting,
-          primaryColor: integration?.primaryColor || '#00bc7d',
+          primaryColor: integration?.primaryColor || '#c01721',
           validateEmail: integration?.validateEmail || false,
           validatePhoneNumber: integration?.validatePhoneNumber || false,
           conversationStyle: integration?.conversationStyle || false,
@@ -449,7 +449,7 @@ export default function ChatbotSettingsPage() {
           <div className={`content-wrapper ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#00bc7d]"></div>
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#c01721]"></div>
                 <p className="mt-4 text-gray-600">Loading...</p>
               </div>
             </div>
@@ -517,7 +517,7 @@ export default function ChatbotSettingsPage() {
                         onClick={() => fileInputRef.current?.click()}
                         className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors w-full h-32 flex items-center justify-center ${
                           isDragOver 
-                            ? 'border-blue-400 bg-blue-50' 
+                            ? 'border-[#c01721] bg-[#c01721]/5' 
                             : 'border-gray-300 hover:border-gray-400'
                         }`}
                       >
@@ -592,7 +592,7 @@ export default function ChatbotSettingsPage() {
                       value={settings.primaryColor || ''}
                       onChange={(e) => updateSettings({ ...settings, primaryColor: e.target.value })}
                       onClick={() => setShowColorPicker(true)}
-                      placeholder="#10B981"
+                      placeholder="#C01721"
                       readOnly
                     />
                   </div>
@@ -623,7 +623,7 @@ export default function ChatbotSettingsPage() {
                         }
                         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
                           openEmojiPicker && openEmojiPicker.type === 'greeting'
-                            ? 'border-[#00bc7d] bg-[#00bc7d]/5 shadow-sm'
+                            ? 'brand-chip-soft'
                             : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
                         }`}
                       >
@@ -657,7 +657,7 @@ export default function ChatbotSettingsPage() {
                           onClick={() => applyTemplate(template, idx)}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-md transition-colors ${
                             selectedTemplateIndex === idx
-                              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                              ? 'brand-chip-selected hover:bg-[#a8141c]'
                               : 'border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                           }`}
                         >
@@ -678,9 +678,9 @@ export default function ChatbotSettingsPage() {
                   
                   {/* Live Preview */}
                   {settings.greeting && (
-                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs font-medium text-blue-900 mb-1">Preview (how it will appear to users):</p>
-                      <p className="text-sm text-blue-800 italic">"{getGreetingPreview()}"</p>
+                    <div className="mt-3 p-3 bg-[#c01721]/5 border border-[#c01721]/20 rounded-lg">
+                      <p className="text-xs font-medium text-[#7f1219] mb-1">Preview (how it will appear to users):</p>
+                      <p className="text-sm text-[#a8141c] italic">"{getGreetingPreview()}"</p>
                     </div>
                   )}
                   
@@ -690,24 +690,24 @@ export default function ChatbotSettingsPage() {
                     <div className="space-y-1.5 text-xs text-gray-600">
                       {settings.assistantName ? (
                         <p>
-                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{assistantName}'}</span> will show as: 
+                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-[#c01721]">{'{assistantName}'}</span> will show as: 
                           <span className="font-semibold ml-1">"{settings.assistantName}"</span>
                         </p>
                       ) : (
                         <p>
-                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{assistantName}'}</span> will show as: 
+                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-[#c01721]">{'{assistantName}'}</span> will show as: 
                           <span className="font-semibold ml-1">&quot;{'{'}Your Assistant Name{'}'}&quot;</span> (fill in Assistant Name above)
                         </p>
                       )}
                       {settings.companyName ? (
                         <p>
-                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{companyName}'}</span> will show as: 
+                          • <span className="font-mono bg-white px-1 py-0.5 rounded text-[#c01721]">{'{companyName}'}</span> will show as: 
                           <span className="font-semibold ml-1">"{settings.companyName}"</span>
                         </p>
                       ) : (
                         <>
                           <p>
-                            • <span className="font-mono bg-white px-1 py-0.5 rounded text-blue-600">{'{companyName}'}</span> will show as: 
+                            • <span className="font-mono bg-white px-1 py-0.5 rounded text-[#c01721]">{'{companyName}'}</span> will show as: 
                             <span className="font-semibold ml-1">&quot;{'{'}Your Company Name{'}'}&quot;</span> (fill in Company Name above)
                           </p>
                           <p className="mt-1.5">
@@ -721,7 +721,6 @@ export default function ChatbotSettingsPage() {
 
                 {/* Validation Settings */}
                 <div className="md:col-span-2">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Validation Settings</h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
@@ -735,7 +734,7 @@ export default function ChatbotSettingsPage() {
                           checked={settings.validateEmail || false}
                           onChange={(e) => updateSettings({ ...settings, validateEmail: e.target.checked })}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                        <div className="brand-toggle-track"></div>
                       </label>
                     </div>
                     
@@ -751,7 +750,7 @@ export default function ChatbotSettingsPage() {
                           checked={settings.validatePhoneNumber || false}
                           onChange={(e) => updateSettings({ ...settings, validatePhoneNumber: e.target.checked })}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                        <div className="brand-toggle-track"></div>
                       </label>
                     </div>
 
@@ -769,7 +768,7 @@ export default function ChatbotSettingsPage() {
                           checked={settings.conversationStyle || false}
                           onChange={(e) => updateSettings({ ...settings, conversationStyle: e.target.checked })}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                        <div className="brand-toggle-track"></div>
                       </label>
                     </div>
 
@@ -787,7 +786,7 @@ export default function ChatbotSettingsPage() {
                             checked={settings.googleReviewEnabled || false}
                             onChange={(e) => updateSettings({ ...settings, googleReviewEnabled: e.target.checked })}
                           />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#00bc7d]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                          <div className="brand-toggle-track"></div>
                         </label>
                       </div>
                       {settings.googleReviewEnabled && (
@@ -812,7 +811,7 @@ export default function ChatbotSettingsPage() {
                 {/* Preferred languages (for labels / greeting options) */}
                 <div className="md:col-span-2">
                   <h3 className="text-lg font-medium text-gray-900 mb-2 flex items-center gap-2">
-                    <Globe className="h-5 w-5 text-[#00bc7d]" />
+                    <Globe className="h-5 w-5 text-[#c01721]" />
                     Preferred languages
                   </h3>
                   <div className="flex flex-wrap gap-2">
@@ -833,8 +832,8 @@ export default function ChatbotSettingsPage() {
                           disabled={atLimit}
                           className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                             selected
-                              ? 'bg-[#00bc7d] text-white border-[#00bc7d]'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-[#00bc7d] hover:text-[#00bc7d]'
+                              ? 'brand-chip-selected'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-[#c01721] hover:text-[#c01721]'
                           }`}
                         >
                           {selected && <Check className="h-4 w-4" />}
@@ -1038,7 +1037,7 @@ export default function ChatbotSettingsPage() {
                                             }
                                           }}
                                         />
-                                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00bc7d]"></div>
+                                        <div className="brand-toggle-track-sm"></div>
                                       </label>
                                       <button
                                         type="button"
@@ -1185,7 +1184,7 @@ export default function ChatbotSettingsPage() {
                               type="button"
                               disabled
                               className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                              style={{ backgroundColor: settings.primaryColor || '#00bc7d' }}
+                              style={{ backgroundColor: settings.primaryColor || '#c01721' }}
                             >
                               {leadType.emoji ? `${leadType.emoji} ${leadType.text}` : leadType.text}
                             </button>
@@ -1222,7 +1221,7 @@ export default function ChatbotSettingsPage() {
                   </button>
                 )}
                 <button
-                  className="btn-primary flex-1 sm:flex-none"
+                  className="btn-save flex-1 sm:flex-none"
                   onClick={handleSaveSettings}
                   disabled={saving || loading || !hasUnsavedChanges}
                 >
