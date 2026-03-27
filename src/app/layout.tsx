@@ -15,6 +15,14 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Assistly - Virtual Assistant Solutions",
   description: "Professional virtual assistant services including chatbots, AI voice agents, and lead generation for your business",
+  icons: {
+    icon: [
+      { url: "/assistly-favicon.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/assistly-favicon.png" }],
+  },
 };
 
 export default function RootLayout({
