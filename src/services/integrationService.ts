@@ -47,10 +47,11 @@ class IntegrationService extends HttpService {
     });
   }
 
-  /** Get Google Calendar OAuth URL for connecting; frontend redirects user to this URL. */
-  async getCalendarAuthUrl(appId: string) {
+  /** Get calendar OAuth URL for connecting selected provider; frontend redirects user to this URL. */
+  async getCalendarAuthUrl(appId: string, provider: 'google_calendar' | 'outlook' | 'calendly' = 'google_calendar') {
+    const query = provider ? `?provider=${encodeURIComponent(provider)}` : '';
     const res = await this.request<{ status: string; data: { url: string } }>(
-      `/integration/apps/${appId}/calendar/auth-url`,
+      `/integration/apps/${appId}/calendar/auth-url${query}`,
       { method: 'GET' }
     );
     return res.data?.url;
