@@ -22,6 +22,46 @@
   var widgetState = {
     isOpen: false
   };
+  var bellAudioContext = null;
+
+  function playOpenBellSound() {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+
+    try {
+      if (!bellAudioContext) {
+        bellAudioContext = new AudioCtx();
+      }
+
+      if (bellAudioContext.state === 'suspended') {
+        bellAudioContext.resume();
+      }
+
+      var now = bellAudioContext.currentTime;
+      var masterGain = bellAudioContext.createGain();
+      masterGain.gain.setValueAtTime(0.0001, now);
+      masterGain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+      masterGain.connect(bellAudioContext.destination);
+
+      // Simple bell-like stack (fundamental + harmonics with quick decay)
+      var partials = [880, 1320, 1760];
+      for (var i = 0; i < partials.length; i++) {
+        var osc = bellAudioContext.createOscillator();
+        var partialGain = bellAudioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(partials[i], now);
+        partialGain.gain.setValueAtTime(0.25 / (i + 1), now);
+        partialGain.gain.exponentialRampToValueAtTime(0.0001, now + (0.35 + i * 0.12));
+        osc.connect(partialGain);
+        partialGain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.95);
+      }
+    } catch (e) {
+      // Ignore autoplay or context errors silently in host pages.
+    }
+  }
   
   // Create iframe element
   function createIframe() {
@@ -123,7 +163,11 @@
     
     // Handle widget state changes
     if (event.data && event.data.type === 'widget-state') {
+      var wasOpen = widgetState.isOpen;
       widgetState.isOpen = event.data.isOpen;
+      if (!wasOpen && widgetState.isOpen) {
+        playOpenBellSound();
+      }
       if (iframe) {
         applyBoxShadow(iframe);
         applyMobileStyles(iframe);
