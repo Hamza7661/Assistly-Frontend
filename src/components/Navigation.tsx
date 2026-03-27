@@ -88,7 +88,7 @@ export default function Navigation() {
                 onClick={() => handleNavigation('/dashboard')}
                 className="cursor-pointer hover:opacity-80 transition-opacity flex items-center"
               >
-                <Logo width={190} height={52} className="w-auto h-auto" />
+                <Logo width={150} height={50} className="w-auto h-auto" />
               </div>
             </div>
 

@@ -174,7 +174,7 @@ function SigninContent() {
       <div className={styles.formContainer}>
         <div className={styles.header}>
           <div className={styles.logoContainer}>
-            <Logo width={220} height={66} />
+            <Logo width={150} height={50} />
           </div>
           <h1 className={styles.title}>Welcome back</h1>
           <p className={styles.subtitle}>Sign in to your Assistly account</p>
