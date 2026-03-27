@@ -40,23 +40,28 @@
       var now = bellAudioContext.currentTime;
       var masterGain = bellAudioContext.createGain();
       masterGain.gain.setValueAtTime(0.0001, now);
-      masterGain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
-      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+      masterGain.gain.exponentialRampToValueAtTime(0.62, now + 0.012);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.1);
       masterGain.connect(bellAudioContext.destination);
 
-      // Simple bell-like stack (fundamental + harmonics with quick decay)
-      var partials = [880, 1320, 1760];
-      for (var i = 0; i < partials.length; i++) {
-        var osc = bellAudioContext.createOscillator();
-        var partialGain = bellAudioContext.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(partials[i], now);
-        partialGain.gain.setValueAtTime(0.25 / (i + 1), now);
-        partialGain.gain.exponentialRampToValueAtTime(0.0001, now + (0.35 + i * 0.12));
-        osc.connect(partialGain);
-        partialGain.connect(masterGain);
-        osc.start(now);
-        osc.stop(now + 0.95);
+      // Solid single bell ring with warm, weighty harmonics.
+      var strikes = [0];
+      var harmonics = [523.25, 784.0, 1046.5, 1568.0];
+      for (var s = 0; s < strikes.length; s++) {
+        var strikeTime = now + strikes[s];
+        var strikeStrength = 1;
+        for (var i = 0; i < harmonics.length; i++) {
+          var osc = bellAudioContext.createOscillator();
+          var partialGain = bellAudioContext.createGain();
+          osc.type = i === 0 ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(harmonics[i], strikeTime);
+          partialGain.gain.setValueAtTime((0.5 / (i + 1)) * strikeStrength, strikeTime);
+          partialGain.gain.exponentialRampToValueAtTime(0.0001, strikeTime + (0.95 + i * 0.22));
+          osc.connect(partialGain);
+          partialGain.connect(masterGain);
+          osc.start(strikeTime);
+          osc.stop(strikeTime + 1.6);
+        }
       }
     } catch (e) {
       // Ignore autoplay or context errors silently in host pages.
