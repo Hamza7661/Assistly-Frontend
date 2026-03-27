@@ -74,6 +74,7 @@ export default function WidgetPage() {
     validatePhoneNumber: true
   });
   const [imageData, setImageData] = useState<string | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [countryCode, setCountryCode] = useState<string>('US');
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -126,6 +127,8 @@ export default function WidgetPage() {
         }
       } catch (e) {
         console.error('Failed to load integration settings:', e);
+      } finally {
+        setSettingsLoaded(true);
       }
     };
 
@@ -441,6 +444,7 @@ export default function WidgetPage() {
   };
 
   if (!isOpen) {
+    if (!settingsLoaded) return null;
     // Compact widget - inline message and chat button
     return (
       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 sm:gap-3">
