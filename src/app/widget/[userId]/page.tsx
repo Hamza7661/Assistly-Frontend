@@ -505,13 +505,22 @@ export default function WidgetPage() {
       {/* Header */}
       <div className="p-3 border-b text-sm sm:text-base font-medium flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {imageData && (
-            <img 
-              src={imageData} 
-              alt="Chatbot" 
-              className="w-6 h-6 rounded-full object-cover"
-            />
-          )}
+          <div
+            className="w-8 h-8 rounded-full shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0"
+            style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+          >
+            {imageData ? (
+              <img
+                src={imageData}
+                alt="Chatbot"
+                className="w-6 h-6 rounded-full object-cover"
+              />
+            ) : (
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+              </svg>
+            )}
+          </div>
           <span>{settings.assistantName}</span>
         </div>
         <button
@@ -525,7 +534,8 @@ export default function WidgetPage() {
             // Resize iframe back to compact size
             resizeIframe(100);
           }}
-          className="text-gray-400 hover:text-gray-600 text-lg"
+          className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
+          title="Close chat"
         >
           ×
         </button>
