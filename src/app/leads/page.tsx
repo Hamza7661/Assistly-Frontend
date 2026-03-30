@@ -290,6 +290,13 @@ export default function LeadsPage() {
     return source;
   };
 
+  const interactionLabel = (value?: string) => {
+    if (!value) return 'Widget Opened';
+    return value
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
   const openView = (lead: Lead) => { setViewItem(lead); setIsViewOpen(true); };
   const closeView = () => { setIsViewOpen(false); setViewItem(null); setIsSwitchHistoryOpen(false); };
 
@@ -480,7 +487,7 @@ export default function LeadsPage() {
                     <li key={l._id} className="p-4 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{l.leadName || 'Anonymous Visitor'}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{l.initialInteraction || l.title || 'Widget Opened'}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">{interactionLabel(l.initialInteraction || l.title || 'Widget Opened')}</p>
                         <div className="flex flex-wrap gap-1.5 mt-1.5">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span>
                           {activeSourceTab === 'all' && (
@@ -532,7 +539,11 @@ export default function LeadsPage() {
                         {activeSourceTab === 'all' && (
                           <td className="px-4 py-3 text-gray-600">{channelLabel(l.sourceChannel)}</td>
                         )}
-                        <td className="px-4 py-3 text-gray-600">{l.initialInteraction || l.title || 'Widget Opened'}</td>
+                        <td className="px-4 py-3 text-gray-600">
+                          <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs">
+                            {interactionLabel(l.initialInteraction || l.title || 'Widget Opened')}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-gray-600">{l.location?.country || '-'}</td>
                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{l.leadDateTime ? new Date(l.leadDateTime).toLocaleString() : '-'}</td>
                         <td className="px-4 py-3">
