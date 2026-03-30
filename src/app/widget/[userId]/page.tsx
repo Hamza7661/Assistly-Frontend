@@ -251,7 +251,8 @@ export default function WidgetPage() {
     wsRef.current.send(JSON.stringify({ 
       type: 'user', 
       content: value,
-      country: countryCode 
+      country: countryCode,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     }));
     setMessages((prev) => [...prev, { type: 'user', content: (displayText || value) }]);
     setIsTyping(true);
