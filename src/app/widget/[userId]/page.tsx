@@ -76,8 +76,43 @@ export default function WidgetPage() {
   const [imageData, setImageData] = useState<string | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [countryCode, setCountryCode] = useState<string>('US');
+  const [leadId, setLeadId] = useState<string | null>(null);
+  const [clickedItems, setClickedItems] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const createInteractionLead = async () => {
+    if (!identifier) return;
+    try {
+      const res = await fetch(`${API_BASE}/leads/public/${identifier}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId: appId || undefined,
+          status: 'interacting',
+          location: { countryCode },
+          initialInteraction: 'widget_opened',
+          clickedItems: [],
+          sourceChannel: 'web',
+        }),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const id = json?.data?.lead?._id;
+      if (id) setLeadId(id);
+    } catch {}
+  };
+
+  const updateInteractionLead = async (payload: Record<string, unknown>) => {
+    if (!identifier || !leadId) return;
+    try {
+      await fetch(`${API_BASE}/leads/public/${identifier}/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {}
+  };
 
   const fullWsUrl = useMemo(() => {
     const base = rawWs.endsWith('/ws') ? rawWs : (rawWs.endsWith('/') ? `${rawWs}ws` : `${rawWs}/ws`);
@@ -167,12 +202,14 @@ export default function WidgetPage() {
       setChatEnded(false);
       setIsTyping(false);
       setFileUploadEnabled(false);
+      setClickedItems([]);
       setIsOpen(true);
       sendWidgetState(true);
       resizeIframe(600);
+      createInteractionLead();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [settingsLoaded]);
+  }, [settingsLoaded, countryCode]);
 
   useEffect(() => {
     // Only connect when widget is opened
@@ -272,6 +309,15 @@ export default function WidgetPage() {
       country: countryCode
     }));
     setMessages((prev) => [...prev, { type: 'user', content: (displayText || value) }]);
+    if (displayText) {
+      const nextClicked = [...clickedItems, displayText];
+      setClickedItems(nextClicked);
+      updateInteractionLead({
+        initialInteraction: clickedItems.length === 0 ? displayText : undefined,
+        clickedItems: nextClicked,
+        status: 'in_progress',
+      });
+    }
     setIsTyping(true);
     // Hide the file upload button after the user sends any message — it will be re-shown
     // only if the bot explicitly asks for a file again via the enable_file_upload signal.

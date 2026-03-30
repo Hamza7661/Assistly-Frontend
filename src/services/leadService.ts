@@ -8,6 +8,7 @@ class LeadService extends HttpService {
       q?: string;
       leadType?: string;
       serviceType?: string;
+      sourceChannel?: string;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
       page?: number;
@@ -18,6 +19,7 @@ class LeadService extends HttpService {
     if (params.q) query.set('q', params.q);
     if (params.leadType) query.set('leadType', params.leadType);
     if (params.serviceType) query.set('serviceType', params.serviceType);
+    if (params.sourceChannel) query.set('sourceChannel', params.sourceChannel);
     if (params.sortBy) query.set('sortBy', params.sortBy);
     if (params.sortOrder) query.set('sortOrder', params.sortOrder);
     if (params.page) query.set('page', String(params.page));
@@ -32,6 +34,7 @@ class LeadService extends HttpService {
       q?: string;
       leadType?: string;
       serviceType?: string;
+      sourceChannel?: string;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
       page?: number;
@@ -42,6 +45,7 @@ class LeadService extends HttpService {
     if (params.q) query.set('q', params.q);
     if (params.leadType) query.set('leadType', params.leadType);
     if (params.serviceType) query.set('serviceType', params.serviceType);
+    if (params.sourceChannel) query.set('sourceChannel', params.sourceChannel);
     if (params.sortBy) query.set('sortBy', params.sortBy);
     if (params.sortOrder) query.set('sortOrder', params.sortOrder);
     if (params.page) query.set('page', String(params.page));
