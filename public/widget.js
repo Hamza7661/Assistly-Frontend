@@ -25,9 +25,20 @@
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   var bellAudioContext = null;
-  var bellQueued = false; // ring as soon as the context becomes unlocked
+  var bellQueued = false;
+  var bellQueuedAt = 0;         // timestamp when bell was queued
+  var BELL_WINDOW_MS = 4000;    // cancel if user hasn't interacted within 4 s of widget opening
+  var bellExpiryTimer = null;
+
+  function cancelBell() {
+    bellQueued = false;
+    bellQueuedAt = 0;
+    if (bellExpiryTimer) { clearTimeout(bellExpiryTimer); bellExpiryTimer = null; }
+  }
 
   function scheduleBellTones() {
+    if (!bellQueued) return;
+    cancelBell(); // clear flag + timer before playing
     try {
       var ctx = bellAudioContext;
       var now = ctx.currentTime;
@@ -50,7 +61,6 @@
         osc.start(now);
         osc.stop(now + 1.6);
       }
-      bellQueued = false;
     } catch (e) {}
   }
 
@@ -63,35 +73,40 @@
     return true;
   }
 
-  // Called on every user interaction — unlocks the context and fires a queued bell
+  // Fires on real user activation — only plays bell if still within the time window
   function onUserInteraction() {
+    if (!bellQueued) return;
     if (!ensureAudioContext()) return;
     if (bellAudioContext.state === 'suspended') {
       bellAudioContext.resume().then(function() {
-        if (bellQueued) scheduleBellTones();
+        scheduleBellTones();
       }).catch(function() {});
-    } else if (bellQueued) {
+    } else {
       scheduleBellTones();
     }
   }
 
-  // Attach to every real user-activation event Chrome recognises for AudioContext.
-  // These fire the instant the user interacts, making the queued bell feel instant.
   ['mousedown', 'pointerdown', 'click', 'touchstart', 'keydown'].forEach(function(evt) {
     document.addEventListener(evt, onUserInteraction, { passive: true });
   });
 
   function playOpenBellSound() {
     if (!ensureAudioContext()) return;
-    if (bellAudioContext.state === 'suspended') {
-      // Context locked — queue the bell; it fires on the next user interaction
-      bellQueued = true;
-      // Still attempt resume in case the browser allows it without a gesture
-      bellAudioContext.resume().then(function() {
-        if (bellQueued) scheduleBellTones();
-      }).catch(function() {});
-    } else {
+
+    bellQueued = true;
+    bellQueuedAt = Date.now();
+
+    // Auto-cancel after the window expires so the bell never fires unexpectedly late
+    if (bellExpiryTimer) clearTimeout(bellExpiryTimer);
+    bellExpiryTimer = setTimeout(cancelBell, BELL_WINDOW_MS);
+
+    // Try immediately — succeeds if AudioContext is already running
+    if (bellAudioContext.state !== 'suspended') {
       scheduleBellTones();
+    } else {
+      bellAudioContext.resume().then(function() {
+        scheduleBellTones();
+      }).catch(function() {});
     }
   }
   // ── End Audio ──────────────────────────────────────────────────────────────
