@@ -156,11 +156,16 @@ export default function WidgetPage() {
     detectCountry();
   }, [identifier, countryFromUrl]);
 
-  const playBellSound = () => {
+  const playBellSound = async () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
+
+      // Resume the context — browsers create it in a suspended state
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
 
       const createTone = (freq: number, startTime: number, duration: number, gain: number) => {
         const osc = ctx.createOscillator();
@@ -175,17 +180,18 @@ export default function WidgetPage() {
         osc.stop(startTime + duration);
       };
 
-      // Two-tone bell: high note then slightly lower
-      createTone(1046, ctx.currentTime, 1.2, 0.35);
-      createTone(880, ctx.currentTime + 0.18, 1.0, 0.2);
+      // Two-tone bell: high note then a slightly lower follow-up
+      createTone(1046, ctx.currentTime, 1.2, 0.4);
+      createTone(880, ctx.currentTime + 0.2, 1.0, 0.25);
     } catch {
       // Ignore audio errors silently
     }
   };
 
-  // Auto-open the widget when settings are loaded and play bell
+  // Auto-open the widget after a 2-second delay once settings are loaded
   useEffect(() => {
-    if (settingsLoaded) {
+    if (!settingsLoaded) return;
+    const timer = setTimeout(() => {
       setMessages([]);
       setConnected(false);
       setChatEnded(false);
@@ -195,7 +201,8 @@ export default function WidgetPage() {
       sendWidgetState(true);
       resizeIframe(600);
       playBellSound();
-    }
+    }, 2000);
+    return () => clearTimeout(timer);
   }, [settingsLoaded]);
 
   useEffect(() => {
