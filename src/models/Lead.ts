@@ -13,6 +13,23 @@ export interface Lead {
   leadEmail?: string;
   leadType?: string;
   serviceType?: string;
+  sourceChannel?: string;
+  status?: 'interacting' | 'in_progress' | 'complete';
+  location?: { country?: string; countryCode?: string };
+  initialInteraction?: string;
+  clickedItems?: string[];
+  appointmentDetails?: {
+    eventId?: string;
+    start?: string;
+    end?: string;
+    link?: string;
+    confirmed?: boolean;
+  };
+  leadTypeSwitchHistory?: Array<{
+    from?: string;
+    to?: string;
+    at?: string;
+  }>;
   leadDateTime?: string; // ISO string
   history?: ConversationMessage[];
   createdAt?: string;
