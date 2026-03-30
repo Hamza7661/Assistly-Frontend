@@ -245,7 +245,7 @@ export default function WidgetPage() {
     };
   }, []);
 
-  const sendText = (text: string) => {
+  const sendText = (text: string, displayText?: string) => {
     const value = text.trim();
     if (!value || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({ 
@@ -253,7 +253,7 @@ export default function WidgetPage() {
       content: value,
       country: countryCode 
     }));
-    setMessages((prev) => [...prev, { type: 'user', content: value }]);
+    setMessages((prev) => [...prev, { type: 'user', content: (displayText || value) }]);
     setIsTyping(true);
     // Hide the file upload button after the user sends any message — it will be re-shown
     // only if the bot explicitly asks for a file again via the enable_file_upload signal.
@@ -425,7 +425,7 @@ export default function WidgetPage() {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = settings.primaryColor || '#c01721';
             }}
-            onClick={() => sendText(clickValue)}
+            onClick={() => sendText(clickValue, innerText)}
           >
             {innerText}
           </button>
