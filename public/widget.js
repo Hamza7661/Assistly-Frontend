@@ -22,51 +22,79 @@
   var widgetState = {
     isOpen: false
   };
+
+  // ── Audio ─────────────────────────────────────────────────────────────────
   var bellAudioContext = null;
+  var bellQueued = false; // ring as soon as the context becomes unlocked
 
-  function playOpenBellSound() {
-    var AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-
+  function scheduleBellTones() {
     try {
-      if (!bellAudioContext) {
-        bellAudioContext = new AudioCtx();
-      }
-
-      if (bellAudioContext.state === 'suspended') {
-        bellAudioContext.resume();
-      }
-
-      var now = bellAudioContext.currentTime;
-      var masterGain = bellAudioContext.createGain();
+      var ctx = bellAudioContext;
+      var now = ctx.currentTime;
+      var masterGain = ctx.createGain();
       masterGain.gain.setValueAtTime(0.0001, now);
       masterGain.gain.exponentialRampToValueAtTime(0.62, now + 0.012);
       masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.1);
-      masterGain.connect(bellAudioContext.destination);
+      masterGain.connect(ctx.destination);
 
-      // Solid single bell ring with warm, weighty harmonics.
-      var strikes = [0];
       var harmonics = [523.25, 784.0, 1046.5, 1568.0];
-      for (var s = 0; s < strikes.length; s++) {
-        var strikeTime = now + strikes[s];
-        var strikeStrength = 1;
-        for (var i = 0; i < harmonics.length; i++) {
-          var osc = bellAudioContext.createOscillator();
-          var partialGain = bellAudioContext.createGain();
-          osc.type = i === 0 ? 'triangle' : 'sine';
-          osc.frequency.setValueAtTime(harmonics[i], strikeTime);
-          partialGain.gain.setValueAtTime((0.5 / (i + 1)) * strikeStrength, strikeTime);
-          partialGain.gain.exponentialRampToValueAtTime(0.0001, strikeTime + (0.95 + i * 0.22));
-          osc.connect(partialGain);
-          partialGain.connect(masterGain);
-          osc.start(strikeTime);
-          osc.stop(strikeTime + 1.6);
-        }
+      for (var i = 0; i < harmonics.length; i++) {
+        var osc = ctx.createOscillator();
+        var partialGain = ctx.createGain();
+        osc.type = i === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(harmonics[i], now);
+        partialGain.gain.setValueAtTime(0.5 / (i + 1), now);
+        partialGain.gain.exponentialRampToValueAtTime(0.0001, now + (0.95 + i * 0.22));
+        osc.connect(partialGain);
+        partialGain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 1.6);
       }
-    } catch (e) {
-      // Ignore autoplay or context errors silently in host pages.
+      bellQueued = false;
+    } catch (e) {}
+  }
+
+  function ensureAudioContext() {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return false;
+    if (!bellAudioContext) {
+      try { bellAudioContext = new AudioCtx(); } catch (e) { return false; }
+    }
+    return true;
+  }
+
+  // Called on every user interaction — unlocks the context and fires a queued bell
+  function onUserInteraction() {
+    if (!ensureAudioContext()) return;
+    if (bellAudioContext.state === 'suspended') {
+      bellAudioContext.resume().then(function() {
+        if (bellQueued) scheduleBellTones();
+      }).catch(function() {});
+    } else if (bellQueued) {
+      scheduleBellTones();
     }
   }
+
+  // Attach to every real user-activation event Chrome recognises for AudioContext.
+  // These fire the instant the user interacts, making the queued bell feel instant.
+  ['mousedown', 'pointerdown', 'click', 'touchstart', 'keydown'].forEach(function(evt) {
+    document.addEventListener(evt, onUserInteraction, { passive: true });
+  });
+
+  function playOpenBellSound() {
+    if (!ensureAudioContext()) return;
+    if (bellAudioContext.state === 'suspended') {
+      // Context locked — queue the bell; it fires on the next user interaction
+      bellQueued = true;
+      // Still attempt resume in case the browser allows it without a gesture
+      bellAudioContext.resume().then(function() {
+        if (bellQueued) scheduleBellTones();
+      }).catch(function() {});
+    } else {
+      scheduleBellTones();
+    }
+  }
+  // ── End Audio ──────────────────────────────────────────────────────────────
   
   // Create iframe element
   function createIframe() {
@@ -85,7 +113,7 @@
     }
     iframe.src = url;
     iframe.frameBorder = '0';
-    iframe.allow = 'clipboard-write; clipboard-read';
+    iframe.allow = 'clipboard-write; clipboard-read; autoplay';
     
     // Set all styling internally
     iframe.style.position = 'fixed';

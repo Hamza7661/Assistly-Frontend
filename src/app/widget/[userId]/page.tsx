@@ -156,39 +156,9 @@ export default function WidgetPage() {
     detectCountry();
   }, [identifier, countryFromUrl]);
 
-  const playBellSound = async () => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-
-      // Resume the context — browsers create it in a suspended state
-      if (ctx.state === 'suspended') {
-        await ctx.resume();
-      }
-
-      const createTone = (freq: number, startTime: number, duration: number, gain: number) => {
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.connect(g);
-        g.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
-        g.gain.setValueAtTime(gain, startTime);
-        g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-      };
-
-      // Two-tone bell: high note then a slightly lower follow-up
-      createTone(1046, ctx.currentTime, 1.2, 0.4);
-      createTone(880, ctx.currentTime + 0.2, 1.0, 0.25);
-    } catch {
-      // Ignore audio errors silently
-    }
-  };
-
-  // Auto-open the widget after a 2-second delay once settings are loaded
+  // Auto-open the widget after a 2-second delay once settings are loaded.
+  // Bell sound is handled entirely by widget.js on the parent page — it queues
+  // and fires on first real user activation (click / keydown / touch).
   useEffect(() => {
     if (!settingsLoaded) return;
     const timer = setTimeout(() => {
@@ -200,7 +170,6 @@ export default function WidgetPage() {
       setIsOpen(true);
       sendWidgetState(true);
       resizeIframe(600);
-      playBellSound();
     }, 2000);
     return () => clearTimeout(timer);
   }, [settingsLoaded]);
@@ -496,30 +465,50 @@ export default function WidgetPage() {
     if (!settingsLoaded) return null;
     // Compact widget - inline message and chat button
     return (
-      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 sm:gap-3">
-        {/* Chat message bubble - always visible in iframe */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-3 sm:p-4 max-w-sm relative">
-          <div className="text-base sm:text-lg text-gray-800 font-semibold">
-            Click here to chat
+      <>
+        <style>{`
+          @keyframes widget-ping {
+            0% { transform: scale(1); opacity: 0.7; }
+            70% { transform: scale(1.55); opacity: 0; }
+            100% { transform: scale(1.55); opacity: 0; }
+          }
+          .widget-pulse::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 9999px;
+            background: inherit;
+            animation: widget-ping 1.4s ease-out infinite;
+          }
+        `}</style>
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 sm:gap-3">
+          {/* Chat message bubble */}
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-3 sm:p-4 max-w-sm relative">
+            <div className="text-base sm:text-lg text-gray-800 font-semibold">
+              Click here to chat
+            </div>
+            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-0 h-0 border-l-4 border-t-4 border-b-4 border-l-white border-t-transparent border-b-transparent"></div>
           </div>
-          {/* Arrow pointing to the button */}
-          <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-0 h-0 border-l-4 border-t-4 border-b-4 border-l-white border-t-transparent border-b-transparent"></div>
-        </div>
-        
-        {/* Chat button */}
-        <button
-          onClick={() => {
-            setMessages([]);
-            setConnected(false);
-            setChatEnded(false);
-            setIsTyping(false);
-            setFileUploadEnabled(false);
-            setIsOpen(true);
-            sendWidgetState(true);
-            resizeIframe(600);
-          }}
-          className="w-16 h-16 sm:w-18 sm:h-18 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+
+          {/* Chat button with pulse ring */}
+          <div className="relative flex-shrink-0">
+            <div
+              className="widget-pulse w-16 h-16 sm:w-18 sm:h-18 rounded-full"
+              style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+            />
+            <button
+              onClick={() => {
+                setMessages([]);
+                setConnected(false);
+                setChatEnded(false);
+                setIsTyping(false);
+                setFileUploadEnabled(false);
+                setIsOpen(true);
+                sendWidgetState(true);
+                resizeIframe(600);
+              }}
+              className="absolute inset-0 w-full h-full rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center"
+              style={{ backgroundColor: settings.primaryColor || '#c01721' }}
           title={`Chat with ${settings.assistantName}`}
         >
           {imageData ? (
@@ -533,8 +522,10 @@ export default function WidgetPage() {
               <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
             </svg>
           )}
-        </button>
-      </div>
+            </button>
+          </div>
+        </div>
+      </>
     );
   }
 
