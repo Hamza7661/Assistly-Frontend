@@ -156,6 +156,48 @@ export default function WidgetPage() {
     detectCountry();
   }, [identifier, countryFromUrl]);
 
+  const playBellSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+
+      const createTone = (freq: number, startTime: number, duration: number, gain: number) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        g.gain.setValueAtTime(gain, startTime);
+        g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      // Two-tone bell: high note then slightly lower
+      createTone(1046, ctx.currentTime, 1.2, 0.35);
+      createTone(880, ctx.currentTime + 0.18, 1.0, 0.2);
+    } catch {
+      // Ignore audio errors silently
+    }
+  };
+
+  // Auto-open the widget when settings are loaded and play bell
+  useEffect(() => {
+    if (settingsLoaded) {
+      setMessages([]);
+      setConnected(false);
+      setChatEnded(false);
+      setIsTyping(false);
+      setFileUploadEnabled(false);
+      setIsOpen(true);
+      sendWidgetState(true);
+      resizeIframe(600);
+      playBellSound();
+    }
+  }, [settingsLoaded]);
+
   useEffect(() => {
     // Only connect when widget is opened
     if (!isOpen) return;
