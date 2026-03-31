@@ -2,6 +2,44 @@ import { HttpService } from './httpService';
 import type { IntegrationSettingsResponse } from '@/models/IntegrationSettings';
 
 class WidgetService extends HttpService {
+  private async hmacSha256Hex(secret: string, stringToSign: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(stringToSign);
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const signature = await crypto.subtle.sign('HMAC', key, messageData);
+    const hashArray = Array.from(new Uint8Array(signature));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
+  }
+
+  private async buildSignedParams(
+    method: string,
+    path: string,
+    paramName: string,
+    paramValue: string
+  ): Promise<URLSearchParams> {
+    const ts = Date.now().toString();
+    const nonce = crypto.randomUUID();
+    const secret = process.env.NEXT_PUBLIC_WIDGET_HMAC_SECRET || '';
+
+    if (!secret) {
+      throw new Error('Widget HMAC secret not configured');
+    }
+
+    const stringToSign = `${method.toUpperCase()}\n${path}\n${paramName}=${paramValue}\n${ts}\n${nonce}`;
+    const sign = await this.hmacSha256Hex(secret, stringToSign);
+
+    return new URLSearchParams({ ts, nonce, sign });
+  }
+
   private async generateHmacSignature(ts: string, nonce: string, secret: string, userId: string): Promise<string> {
     // Create the string to sign in the format expected by the backend
     const method = "GET";
@@ -59,43 +97,32 @@ class WidgetService extends HttpService {
   }
 
   async getIntegrationSettingsByApp(appId: string) {
-    const ts = Date.now().toString();
-    const nonce = crypto.randomUUID();
-    const secret = process.env.NEXT_PUBLIC_WIDGET_HMAC_SECRET || '';
-    
-    if (!secret) {
-      throw new Error('Widget HMAC secret not configured');
-    }
-    
-    // Generate HMAC signature for app-based endpoint
     const method = "GET";
     const path = `/api/v1/integration/public/apps/${appId}`;
-    const stringToSign = `${method}\n${path}\nappId=${appId}\n${ts}\n${nonce}`;
-    
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secret);
-    const messageData = encoder.encode(stringToSign);
-    
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    
-    const signature = await crypto.subtle.sign('HMAC', key, messageData);
-    const hashArray = Array.from(new Uint8Array(signature));
-    const sign = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
-    
-    const params = new URLSearchParams({
-      ts,
-      nonce,
-      sign
-    });
+    const params = await this.buildSignedParams(method, path, 'appId', appId);
     
     return this.request<IntegrationSettingsResponse>(`/integration/public/apps/${appId}?${params.toString()}`, { 
       method: 'GET' 
+    });
+  }
+
+  async createPublicLead(identifier: string, payload: Record<string, unknown>) {
+    const method = 'POST';
+    const path = `/api/v1/leads/public/${identifier}`;
+    const params = await this.buildSignedParams(method, path, 'userId', identifier);
+    return this.request<any>(`/leads/public/${identifier}?${params.toString()}`, {
+      method,
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updatePublicLead(identifier: string, leadId: string, payload: Record<string, unknown>) {
+    const method = 'PATCH';
+    const path = `/api/v1/leads/public/${identifier}/${leadId}`;
+    const params = await this.buildSignedParams(method, path, 'userId', identifier);
+    return this.request<any>(`/leads/public/${identifier}/${leadId}?${params.toString()}`, {
+      method,
+      body: JSON.stringify(payload),
     });
   }
 }
