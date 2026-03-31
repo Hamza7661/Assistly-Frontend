@@ -84,20 +84,15 @@ export default function WidgetPage() {
   const createInteractionLead = async () => {
     if (!identifier) return;
     try {
-      const res = await fetch(`${API_BASE}/leads/public/${identifier}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appId: appId || undefined,
-          status: 'interacting',
-          location: { countryCode },
-          initialInteraction: 'widget_opened',
-          clickedItems: [],
-          sourceChannel: 'web',
-        }),
+      const svc = await useWidgetService();
+      const json = await svc.createPublicLead(identifier, {
+        appId: appId || undefined,
+        status: 'interacting',
+        location: { countryCode },
+        initialInteraction: 'widget_opened',
+        clickedItems: [],
+        sourceChannel: 'web',
       });
-      if (!res.ok) return;
-      const json = await res.json();
       const id = json?.data?.lead?._id;
       if (id) setLeadId(id);
     } catch {}
@@ -106,11 +101,8 @@ export default function WidgetPage() {
   const updateInteractionLead = async (payload: Record<string, unknown>) => {
     if (!identifier || !leadId) return;
     try {
-      await fetch(`${API_BASE}/leads/public/${identifier}/${leadId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const svc = await useWidgetService();
+      await svc.updatePublicLead(identifier, leadId, payload);
     } catch {}
   };
 
@@ -125,11 +117,11 @@ export default function WidgetPage() {
     } else {
       url.searchParams.set('user_id', 'PUBLIC_USER_ID');
     }
-    // NOTE: countryCode is intentionally NOT included in the URL — the backend doesn't read it
-    // from the WebSocket query params, and including it causes unnecessary reconnects each time
-    // the country is detected, which breaks the greeting display.
+    if (countryCode) {
+      url.searchParams.set('country', countryCode.toUpperCase());
+    }
     return url.toString();
-  }, [rawWs, appId, userId]);
+  }, [rawWs, appId, userId, countryCode]);
 
   // Load integration settings and detect country
   useEffect(() => {
