@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Your Email - UpZilo</title>
+  <title>Welcome to UpZilo</title>
   <style>
     body {
-      font-family: 'Poppins', Arial, sans-serif; 
-      margin: 0; 
-      padding: 0; 
-      background-color: #f3f4f6; 
+      font-family: 'Poppins', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f3f4f6;
     }
-    .container { 
-      max-width: 600px; 
-      margin: 0 auto; 
-      background: white; 
-      border-radius: 12px; 
-      overflow: hidden; 
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     .header {
       background: #ffffff;
@@ -25,8 +25,8 @@
       text-align: center;
       border-bottom: 4px solid #a32035;
     }
-    .logo { 
-      margin-bottom: 0.5rem; 
+    .logo {
+      margin-bottom: 0.5rem;
     }
     .logoImage {
       width: 180px;
@@ -45,29 +45,44 @@
       padding: 2.25rem 2rem;
       text-align: center;
     }
-    .title { 
-      color: #1f2937; 
-      font-size: 1.5rem; 
-      font-weight: 600; 
-      margin: 0 0 1rem 0; 
+    .title {
+      color: #1f2937;
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0 0 1rem 0;
     }
-    .message { 
-      color: #6b7280; 
-      font-size: 1rem; 
-      line-height: 1.6; 
-      margin: 0 0 2rem 0; 
+    .message {
+      color: #4b5563;
+      font-size: 1rem;
+      line-height: 1.7;
+      margin: 0 0 1.5rem 0;
     }
-    .verifyButton {
+    .highlightBox {
+      background: #fff5f7;
+      border: 1px solid #f4c2cc;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0 1.75rem 0;
+      color: #7f1727;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .ctaButton {
       display: inline-block;
       background: linear-gradient(135deg, #a32035 0%, #7f1727 100%);
-      color: white !important;
+      color: #ffffff !important;
       text-decoration: none !important;
-      padding: 1rem 2rem;
+      padding: 0.95rem 2rem;
       border-radius: 10px;
       font-weight: 700;
       font-size: 1rem;
-      margin: 1rem 0;
+      margin: 0.75rem 0 0.5rem 0;
       box-shadow: 0 8px 18px rgba(127, 23, 39, 0.2);
+    }
+    .subText {
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-top: 0.75rem;
     }
     .footer {
       background: #f8fafc;
@@ -77,14 +92,8 @@
       font-size: 0.875rem;
       border-top: 1px solid #e5e7eb;
     }
-    .note {
-      background: #fff5f7;
-      border: 1px solid #f4c2cc;
-      border-radius: 8px;
-      padding: 1rem;
-      margin: 1rem 0;
-      color: #7f1727;
-      font-size: 0.875rem;
+    .footer p {
+      margin: 0.35rem 0;
     }
   </style>
 </head>
@@ -96,24 +105,23 @@
       </div>
       <p class="tagline">UpZilo - Your Virtual Assistant Platform</p>
     </div>
-    
+
     <div class="content">
-      <h1 class="title">Verify Your Email Address</h1>
+      <h1 class="title">Welcome to UpZilo, {{USER_NAME}}!</h1>
       <p class="message">
-        Hi there! Thanks for signing up with UpZilo. To complete your registration and start using our virtual assistant services, please verify your email address by clicking the button below.
+        Your email has been verified successfully and your portal is now ready.
+        We are excited to have you on board.
       </p>
-      
-      <a href="{{BASE_URL}}/verify?token={{VERIFICATION_TOKEN}}" class="verifyButton">
-        Verify Email Address
-      </a>
-      
-      <div class="note">
-        <strong>Note:</strong> This verification link will expire in 24 hours. If you didn't create an account with UpZilo, you can safely ignore this email.
+
+      <div class="highlightBox">
+        You can now access your dashboard, configure your assistant, and start managing leads and conversations from one place.
       </div>
+
+      <a href="{{DASHBOARD_URL}}" class="ctaButton">Go To Your Portal</a>
     </div>
-    
+
     <div class="footer">
-      <p>© 2025 UpZilo. All rights reserved.</p>
+      <p>© 2026 UpZilo. All rights reserved.</p>
       <p><a href="https://upzilo.com/" target="_blank" rel="noopener noreferrer">https://upzilo.com/</a></p>
       <p>Need help? Contact us at info@upzilo.com</p>
     </div>
