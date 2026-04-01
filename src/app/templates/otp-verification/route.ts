@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="${baseUrl}/assistly-logo-v3.png" alt="Assistly logo" class="logo-image">
+                <img src="https://upzilo.com/wp-content/uploads/2025/07/UpZilo_Logo-scaled.png" alt="UpZilo logo" class="logo-image">
             </div>
             <div class="company-name">UpZilo - Your Virtual Assistant Platform</div>
         </div>
