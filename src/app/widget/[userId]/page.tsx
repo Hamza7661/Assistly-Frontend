@@ -13,6 +13,7 @@ type UserFileMessage = { type: 'user'; content: string; fileInfo?: { filename: s
 type AnyMessage = BotMessage | WarnMessage | ReviewPromptMessage | UserFileMessage | { type: 'user'; content: string };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 export default function WidgetPage() {
   const params = useParams<{ userId?: string; appId?: string }>();
@@ -30,7 +31,7 @@ export default function WidgetPage() {
       document.body.style.backgroundColor = '';
     };
   }, []);
-  const rawWs = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+  const configuredWsUrl = process.env.NEXT_PUBLIC_WS_URL;
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<AnyMessage[]>([]);
   const [input, setInput] = useState('');
@@ -80,6 +81,18 @@ export default function WidgetPage() {
   const [clickedItems, setClickedItems] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [connectAttempt, setConnectAttempt] = useState(0);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  };
 
   const createInteractionLead = async () => {
     if (!identifier) return;
@@ -107,7 +120,22 @@ export default function WidgetPage() {
   };
 
   const fullWsUrl = useMemo(() => {
-    const base = rawWs.endsWith('/ws') ? rawWs : (rawWs.endsWith('/') ? `${rawWs}ws` : `${rawWs}/ws`);
+    const resolveDefaultWsBase = () => {
+      const toWsProtocol = (proto: string) => (proto === 'https:' ? 'wss:' : 'ws:');
+      if (typeof window !== 'undefined') {
+        const fromApi = process.env.NEXT_PUBLIC_API_URL;
+        if (fromApi && /^https?:\/\//i.test(fromApi)) {
+          const apiUrl = new URL(fromApi);
+          const basePath = apiUrl.pathname.replace(/\/api\/v\d+\/?$/i, '');
+          return `${toWsProtocol(apiUrl.protocol)}//${apiUrl.host}${basePath}`;
+        }
+        return `${toWsProtocol(window.location.protocol)}//${window.location.host}`;
+      }
+      return 'ws://localhost:8000';
+    };
+
+    const wsBase = configuredWsUrl || resolveDefaultWsBase();
+    const base = wsBase.endsWith('/ws') ? wsBase : (wsBase.endsWith('/') ? `${wsBase}ws` : `${wsBase}/ws`);
     const url = new URL(base);
     // Support both appId and userId for backward compatibility
     if (appId) {
@@ -121,7 +149,7 @@ export default function WidgetPage() {
       url.searchParams.set('country', countryCode.toUpperCase());
     }
     return url.toString();
-  }, [rawWs, appId, userId, countryCode]);
+  }, [configuredWsUrl, appId, userId, countryCode]);
 
   // Load integration settings and detect country
   useEffect(() => {
@@ -211,7 +239,10 @@ export default function WidgetPage() {
     try {
       ws = new WebSocket(fullWsUrl);
     } catch (e) {
-      setMessages((prev) => [...prev, { type: 'error', content: 'Failed to initialize websocket' } as WarnMessage]);
+      setConnectionError('Unable to start chat connection.');
+      setChatEnded(true);
+      setConnected(false);
+      setIsTyping(false);
       return;
     }
     wsRef.current = ws;
@@ -219,8 +250,12 @@ export default function WidgetPage() {
       // Guard: ignore events from a stale (already-replaced) WebSocket
       if (wsRef.current !== ws) return;
       isIntentionalClose.current = false;
+      reconnectAttemptsRef.current = 0;
+      clearReconnectTimer();
       setChatEnded(false);
       setConnected(true);
+      setIsReconnecting(false);
+      setConnectionError(null);
       // Show typing indicator while waiting for the initial greeting from backend
       setIsTyping(true);
     };
@@ -257,23 +292,36 @@ export default function WidgetPage() {
       // stale onclose always sees wsRef.current !== ws and skips the state update.
       if (wsRef.current !== ws) return;
       setConnected(false);
-      // Only mark chat as ended for unexpected closes, not controlled cleanup/reconnects
-      if (!isIntentionalClose.current) {
-        setChatEnded(true);
-        setIsTyping(false);
+      setIsTyping(false);
+      // Only reconnect for unexpected closes, not controlled cleanup/reconnects
+      if (!isIntentionalClose.current && isOpen) {
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttemptsRef.current += 1;
+          setIsReconnecting(true);
+          clearReconnectTimer();
+          const delay = Math.min(1000 * reconnectAttemptsRef.current, 3000);
+          reconnectTimerRef.current = setTimeout(() => {
+            setConnectAttempt((prev) => prev + 1);
+          }, delay);
+        } else {
+          setIsReconnecting(false);
+          setChatEnded(true);
+          setConnectionError('Connection lost. Please try reconnecting.');
+        }
       }
     };
     ws.onerror = () => {
       if (wsRef.current !== ws) return;
-      setMessages((prev) => [...prev, { type: 'error', content: 'WebSocket error' }]);
+      setConnectionError('Unable to connect to chat server.');
     };
 
     return () => {
       isIntentionalClose.current = true;
+      clearReconnectTimer();
       wsRef.current = null; // Clear ref BEFORE close so stale onclose is ignored
       ws?.close();
     };
-  }, [fullWsUrl, isOpen]);
+  }, [fullWsUrl, isOpen, connectAttempt]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -285,6 +333,7 @@ export default function WidgetPage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      clearReconnectTimer();
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -713,8 +762,15 @@ export default function WidgetPage() {
             {chatEnded ? (
               <>
                 <div className="text-gray-400 text-sm">Connection lost.</div>
+                {connectionError && (
+                  <div className="text-gray-500 text-xs">{connectionError}</div>
+                )}
                 <button
                   onClick={() => {
+                    clearReconnectTimer();
+                    reconnectAttemptsRef.current = 0;
+                    setIsReconnecting(false);
+                    setConnectionError(null);
                     setChatEnded(false);
                     setConnected(false);
                     setMessages([]);
@@ -730,7 +786,7 @@ export default function WidgetPage() {
             ) : (
               <div className="flex items-center gap-2 text-gray-500 text-sm sm:text-base font-medium">
                 <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: settings.primaryColor || '#c01721' }}></div>
-                Connecting to chat...
+                {isReconnecting ? 'Reconnecting to chat...' : 'Connecting to chat...'}
               </div>
             )}
           </div>
