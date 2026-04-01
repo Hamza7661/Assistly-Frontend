@@ -607,7 +607,11 @@ export default function LeadsPage() {
                   </div>
                   <div className="md:col-span-2 text-sm">
                     <div className="text-gray-700 font-medium mb-1">Initial interaction</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.initialInteraction || '-'}</div>
+                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">
+                      {viewItem.initialInteraction
+                        ? viewItem.initialInteraction.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+                        : '-'}
+                    </div>
                   </div>
                   <div className="md:col-span-2 text-sm">
                     <div className="text-gray-700 font-medium mb-1">Clicked items</div>
