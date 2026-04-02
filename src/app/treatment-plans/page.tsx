@@ -744,6 +744,7 @@ export default function TreatmentPlansPage() {
                       value={plan.postBookingNote}
                       onChange={(html) => updatePlan(planIdx, 'postBookingNote', html)}
                       maxLength={8000}
+                      placeholder="e.g. Please arrive 10 minutes early and avoid wearing makeup."
                     />
                   </div>
                   
