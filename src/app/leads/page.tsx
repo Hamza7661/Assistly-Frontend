@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera, Phone, Copy, ExternalLink, Mail, User, Monitor, MousePointerClick, CalendarCheck, Maximize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera, Phone, Copy, ExternalLink, Mail, User, Monitor, MousePointerClick, CalendarDays, CalendarCheck, Maximize2 } from 'lucide-react';
 import { ProtectedRoute, NoAppEmptyState, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -197,8 +197,20 @@ export default function LeadsPage() {
   // Format inline bullet points (•) so each starts on a new line
   const formatBulletPoints = (str: string) => str.replace(/ • /g, '\n• ');
 
+  /** Strip emoji / pictographs so labels dedupe and match one icon (shared with interactionLabel). */
+  const normalizeInteractionInput = (raw?: string | null): string => {
+    let s = String(raw ?? '')
+      .normalize('NFKC')
+      .replace(/\p{Extended_Pictographic}+/gu, ' ')
+      .replace(/[\uFE00-\uFE0F]/g, '')
+      .replace(/\u200D/g, '')
+      .trim();
+    s = s.replace(/\s+/g, ' ').trim();
+    return s;
+  };
+
   const asPlainTextLabel = (value?: string | null) => {
-    const v = (value || '').trim();
+    const v = normalizeInteractionInput(value);
     if (!v) return '—';
     return v
       .replace(/[-_]+/g, ' ')
@@ -361,12 +373,30 @@ export default function LeadsPage() {
     return source;
   };
 
+  /** Human-readable interaction / lead-type token (hyphens & underscores → spaces, title case). */
   const interactionLabel = (value?: string) => {
-    if (!value) return 'Widget Opened';
-    return value
-      .replace(/_/g, ' ')
+    const v = normalizeInteractionInput(value);
+    if (!v) return 'Widget Opened';
+    return v
+      .replace(/[-_]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
       .replace(/\b\w/g, (c) => c.toUpperCase());
   };
+
+  const isBookTreatmentLabel = (label: string) => {
+    const compact = (label || '').trim().toLowerCase().replace(/[\s\-_]+/g, '');
+    return compact === 'bookatreatment';
+  };
+
+  /** Calendar-with-grid icon for "Book A Treatment" everywhere (matches richer calendar look, not plain outline). */
+  const bookTreatmentCalendarIcon = (size: 'sm' | 'md' = 'sm') => (
+    <CalendarDays
+      className={size === 'md' ? 'h-4 w-4 shrink-0 text-sky-600' : 'h-3.5 w-3.5 shrink-0 text-sky-600'}
+      strokeWidth={2}
+      aria-hidden
+    />
+  );
 
   const interactedWithText = (l: Lead) => {
     // If a lead is confirmed, show the lead type that was confirmed (not widget opened).
@@ -379,7 +409,8 @@ export default function LeadsPage() {
 
   const interactedWithIcon = (label: string) => {
     const t = (label || '').trim().toLowerCase();
-    if (t === 'widget opened') return <MousePointerClick className="h-3.5 w-3.5" />;
+    if (t === 'widget opened') return <MousePointerClick className="h-3.5 w-3.5 shrink-0 text-amber-800/90" aria-hidden />;
+    if (isBookTreatmentLabel(label)) return bookTreatmentCalendarIcon('sm');
     return null;
   };
 
@@ -590,15 +621,23 @@ export default function LeadsPage() {
   };
 
   const interactedWithOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const l of items) set.add(interactedWithText(l));
+    // Dedupe by semantic key so mixed emoji/raw variants collapse to one row + one icon.
+    const byKey = new Map<string, string>();
+    for (const l of items) {
+      const display = interactedWithText(l);
+      const key = display.trim().toLowerCase().replace(/[\s\-_]+/g, '');
+      if (!byKey.has(key)) byKey.set(key, display);
+    }
     const priority = new Map<string, number>([
-      ['widget opened', 0],
-      ['book an appointment', 1],
+      ['widgetopened', 0],
+      ['bookanappointment', 1],
+      ['bookatreatment', 2],
     ]);
-    return Array.from(set).sort((a, b) => {
-      const ap = priority.get(a.toLowerCase());
-      const bp = priority.get(b.toLowerCase());
+    return Array.from(byKey.values()).sort((a, b) => {
+      const ak = a.trim().toLowerCase().replace(/[\s\-_]+/g, '');
+      const bk = b.trim().toLowerCase().replace(/[\s\-_]+/g, '');
+      const ap = priority.get(ak);
+      const bp = priority.get(bk);
       if (ap !== undefined || bp !== undefined) {
         if (ap === undefined) return 1;
         if (bp === undefined) return -1;
@@ -648,7 +687,11 @@ export default function LeadsPage() {
 
     return items.filter((l) => {
       if (statusFilter !== 'all' && (l.status || 'interacting') !== statusFilter) return false;
-      if (interactedWithFilter !== 'all' && interactedWithText(l) !== interactedWithFilter) return false;
+      if (interactedWithFilter !== 'all') {
+        const rowKey = interactedWithText(l).trim().toLowerCase().replace(/[\s\-_]+/g, '');
+        const filterKey = interactedWithFilter.trim().toLowerCase().replace(/[\s\-_]+/g, '');
+        if (rowKey !== filterKey) return false;
+      }
       if (locationFilter !== 'all' && countryName(l) !== locationFilter) return false;
       if (datePreset !== 'all' || (dateFrom || dateTo)) {
         if (!inDateRange(l.leadDateTime)) return false;
@@ -1211,7 +1254,10 @@ export default function LeadsPage() {
                         </div>
                         <div className="min-w-0">
                           <div className="text-[11px] uppercase tracking-wide text-gray-500">Lead type</div>
-                          <div className="mt-0.5 font-medium text-gray-900 truncate">{asPlainTextLabel(viewItem.leadType)}</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate inline-flex items-center gap-1.5 max-w-full">
+                            {viewItem.leadType?.trim() ? interactedWithIcon(asPlainTextLabel(viewItem.leadType)) : null}
+                            <span className="truncate">{asPlainTextLabel(viewItem.leadType)}</span>
+                          </div>
                         </div>
                         <div className="min-w-0">
                           <div className="text-[11px] uppercase tracking-wide text-gray-500">Service</div>
@@ -1271,7 +1317,11 @@ export default function LeadsPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div className="inline-flex items-center gap-2">
                           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
-                            <MousePointerClick className="h-4 w-4" style={{ color: primaryColor }} />
+                            {isBookTreatmentLabel(interactedWithText(viewItem)) ? (
+                              bookTreatmentCalendarIcon('md')
+                            ) : (
+                              <MousePointerClick className="h-4 w-4" style={{ color: primaryColor }} />
+                            )}
                           </span>
                           <div className="text-sm font-semibold text-gray-900">Interaction</div>
                         </div>
@@ -1279,7 +1329,10 @@ export default function LeadsPage() {
                       <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                         <div className="min-w-0">
                           <div className="text-[11px] uppercase tracking-wide text-gray-500">Initial interaction</div>
-                          <div className="mt-0.5 font-medium text-gray-900 truncate">{interactionLabel(viewItem.initialInteraction || '') || '—'}</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate inline-flex items-center gap-1.5 max-w-full">
+                            {interactedWithIcon(interactionLabel(viewItem.initialInteraction || '') || '')}
+                            <span className="truncate">{interactionLabel(viewItem.initialInteraction || '') || '—'}</span>
+                          </div>
                         </div>
                         <div className="min-w-0">
                           <div className="text-[11px] uppercase tracking-wide text-gray-500">Lead source</div>
@@ -1289,11 +1342,15 @@ export default function LeadsPage() {
                           <div className="text-[11px] uppercase tracking-wide text-gray-500">Clicked items</div>
                           {(viewItem.clickedItems || []).length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-1.5">
-                              {(viewItem.clickedItems || []).slice(0, 20).map((it, idx) => (
-                                <span key={`${it}-${idx}`} className="text-xs px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700">
-                                  {it}
-                                </span>
-                              ))}
+                              {(viewItem.clickedItems || []).slice(0, 20).map((it, idx) => {
+                                const pretty = interactionLabel(it);
+                                return (
+                                  <span key={`${it}-${idx}`} className="text-xs px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700 inline-flex items-center gap-1">
+                                    {interactedWithIcon(pretty)}
+                                    {pretty}
+                                  </span>
+                                );
+                              })}
                             </div>
                           ) : (
                             <div className="mt-0.5 font-medium text-gray-900">—</div>
@@ -1524,16 +1581,30 @@ export default function LeadsPage() {
                   <button className="text-gray-500" onClick={() => setIsSwitchHistoryOpen(false)}>✕</button>
                 </div>
                 <div className="space-y-2">
-                  {(viewItem.leadTypeSwitchHistory || []).map((entry, idx) => (
+                  {(viewItem.leadTypeSwitchHistory || []).map((entry, idx) => {
+                    const fromPretty = (entry.from || '').trim()
+                      ? interactionLabel(entry.from)
+                      : 'Unknown';
+                    const toPretty = (entry.to || '').trim() ? interactionLabel(entry.to) : 'Unknown';
+                    return (
                     <div key={`${entry.at || 'switch'}-${idx}`} className="border border-gray-200 rounded px-3 py-2 bg-gray-50 text-sm">
-                      <div className="font-medium text-gray-800">
-                        {(entry.from || 'Unknown')} {'->'} {(entry.to || 'Unknown')}
+                      <div className="font-medium text-gray-800 inline-flex flex-wrap items-center gap-1">
+                        <span className="inline-flex items-center gap-1">
+                          {fromPretty !== 'Unknown' ? interactedWithIcon(fromPretty) : null}
+                          {fromPretty}
+                        </span>
+                        <span className="text-gray-400">→</span>
+                        <span className="inline-flex items-center gap-1">
+                          {toPretty !== 'Unknown' ? interactedWithIcon(toPretty) : null}
+                          {toPretty}
+                        </span>
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {entry.at ? new Date(entry.at).toLocaleString() : 'Time unavailable'}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="mt-4 flex justify-end">
                   <button className="btn-secondary" onClick={() => setIsSwitchHistoryOpen(false)}>Close</button>
