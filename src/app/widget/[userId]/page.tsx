@@ -10,7 +10,13 @@ type BotMessage = { type: 'bot'; content: string; step?: string };
 type WarnMessage = { type: 'warn' | 'error'; content: string };
 type ReviewPromptMessage = { type: 'review_prompt'; content: string; reviewUrl: string };
 type UserFileMessage = { type: 'user'; content: string; fileInfo?: { filename: string; fileId: string; contentType: string } };
-type AnyMessage = BotMessage | WarnMessage | ReviewPromptMessage | UserFileMessage | { type: 'user'; content: string };
+type AnyMessage =
+  | BotMessage
+  | WarnMessage
+  | ReviewPromptMessage
+  | UserFileMessage
+  | { type: 'user'; content: string }
+  | { type: 'user_replay'; content: string };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -87,6 +93,22 @@ export default function WidgetPage() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
+  const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
+  const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!resumeStorageKey || typeof window === 'undefined') return;
+    let id = sessionStorage.getItem(resumeStorageKey);
+    if (!id) {
+      id =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      sessionStorage.setItem(resumeStorageKey, id);
+    }
+    setWidgetSessionId(id);
+  }, [resumeStorageKey]);
+
   const clearReconnectTimer = () => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
@@ -148,8 +170,11 @@ export default function WidgetPage() {
     if (countryCode) {
       url.searchParams.set('country', countryCode.toUpperCase());
     }
+    if (widgetSessionId) {
+      url.searchParams.set('resume', widgetSessionId);
+    }
     return url.toString();
-  }, [configuredWsUrl, appId, userId, countryCode]);
+  }, [configuredWsUrl, appId, userId, countryCode, widgetSessionId]);
 
   // Load integration settings and detect country
   useEffect(() => {
@@ -215,7 +240,7 @@ export default function WidgetPage() {
   // Bell sound is handled entirely by widget.js on the parent page — it queues
   // and fires on first real user activation (click / keydown / touch).
   useEffect(() => {
-    if (!settingsLoaded) return;
+    if (!settingsLoaded || !widgetSessionId) return;
     const timer = setTimeout(() => {
       setMessages([]);
       setConnected(false);
@@ -229,7 +254,7 @@ export default function WidgetPage() {
       createInteractionLead();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [settingsLoaded, countryCode]);
+  }, [settingsLoaded, countryCode, widgetSessionId]);
 
   useEffect(() => {
     // Only connect when widget is opened
@@ -272,6 +297,10 @@ export default function WidgetPage() {
           return;
         }
 
+        if (msgType === 'user_replay') {
+          setMessages((prev) => [...prev, { type: 'user_replay', content: String((msg as { content?: string }).content || '') }]);
+          return;
+        }
         setMessages((prev) => [...prev, msg]);
         if (msgType === 'warn' || msgType === 'error') {
           setIsTyping(false);
@@ -321,7 +350,7 @@ export default function WidgetPage() {
       wsRef.current = null; // Clear ref BEFORE close so stale onclose is ignored
       ws?.close();
     };
-  }, [fullWsUrl, isOpen, connectAttempt]);
+  }, [fullWsUrl, isOpen, connectAttempt, widgetSessionId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -443,7 +472,30 @@ export default function WidgetPage() {
   // Format inline bullet points (•) so each starts on a new line
   const formatBulletPoints = (str: string) => str.replace(/ • /g, '\n• ');
 
-  // Render text with URLs as clickable links (opens in new tab)
+  const renderBoldSegments = (text: string, keyBase: string): React.ReactNode => {
+    const re = /\*\*([^*]+)\*\*/g;
+    const out: React.ReactNode[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let i = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) {
+        out.push(<span key={`${keyBase}-t-${i++}`}>{text.slice(last, m.index)}</span>);
+      }
+      out.push(
+        <strong key={`${keyBase}-b-${i++}`} className="font-semibold">
+          {m[1]}
+        </strong>
+      );
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) {
+      out.push(<span key={`${keyBase}-t-${i++}`}>{text.slice(last)}</span>);
+    }
+    return out.length > 0 ? out : text;
+  };
+
+  // Render **bold**, bullets, and URLs as clickable links
   const renderTextWithLinks = (str: string, keyPrefix: string): React.ReactNode => {
     const formatted = formatBulletPoints(str);
     const urlRegex = /https?:\/\/[^\s]+/g;
@@ -452,7 +504,11 @@ export default function WidgetPage() {
     let urlMatch: RegExpExecArray | null;
     while ((urlMatch = urlRegex.exec(formatted)) !== null) {
       if (urlMatch.index > lastIndex) {
-        parts.push(formatted.slice(lastIndex, urlMatch.index));
+        parts.push(
+          <span key={`${keyPrefix}-pre-${urlMatch.index}`} className="whitespace-pre-wrap">
+            {renderBoldSegments(formatted.slice(lastIndex, urlMatch.index), `${keyPrefix}-b-${urlMatch.index}`)}
+          </span>
+        );
       }
       const rawUrl = urlMatch[0];
       const href = rawUrl.replace(/[.,;?!)]+$/, '');
@@ -470,10 +526,24 @@ export default function WidgetPage() {
       lastIndex = urlMatch.index + rawUrl.length;
     }
     if (lastIndex < formatted.length) {
-      parts.push(formatted.slice(lastIndex));
+      parts.push(
+        <span key={`${keyPrefix}-tail`} className="whitespace-pre-wrap">
+          {renderBoldSegments(formatted.slice(lastIndex), `${keyPrefix}-tail`)}
+        </span>
+      );
     }
-    if (parts.length === 0) return formatted;
-    return <span key={keyPrefix} className="whitespace-pre-wrap">{parts}</span>;
+    if (parts.length === 0) {
+      return (
+        <span key={keyPrefix} className="whitespace-pre-wrap">
+          {renderBoldSegments(formatted, `${keyPrefix}-only`)}
+        </span>
+      );
+    }
+    return (
+      <span key={keyPrefix} className="whitespace-pre-wrap">
+        {parts}
+      </span>
+    );
   };
 
   const renderBotContent = (text: string) => {
@@ -674,11 +744,13 @@ export default function WidgetPage() {
       
       {/* Messages */}
       <div className="flex-1 p-3 sm:p-4 overflow-auto custom-scrollbar space-y-4 text-sm sm:text-base">
-        {messages.map((m, idx) => (
-          <div key={idx} className={`flex items-start gap-3 ${m.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+        {messages.map((m, idx) => {
+          const isUserBubble = m.type === 'user' || m.type === 'user_replay';
+          return (
+          <div key={idx} className={`flex items-start gap-3 ${isUserBubble ? 'flex-row-reverse' : 'flex-row'}`}>
             {/* Avatar */}
-            <div className={`flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden ${m.type === 'user' ? 'w-9 h-9' : 'w-8 h-8'}`}>
-              {m.type === 'user' ? (
+            <div className={`flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden ${isUserBubble ? 'w-9 h-9' : 'w-8 h-8'}`}>
+              {isUserBubble ? (
                 <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: settings.primaryColor || '#c01721' }}>
                   <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -704,13 +776,13 @@ export default function WidgetPage() {
             {/* Message bubble */}
             <div 
               className={`inline-block px-3 sm:px-4 py-2 sm:py-3 max-w-[85%] break-words relative ${
-                m.type === 'user' 
+                isUserBubble
                   ? 'text-white rounded-lg' 
                   : (m.type === 'bot' || m.type === 'review_prompt'
                     ? 'bg-gray-100 text-gray-800 rounded-lg' 
                     : 'bg-yellow-50 text-yellow-800 rounded-lg')
               }`}
-              style={m.type === 'user' ? { backgroundColor: settings.primaryColor || '#c01721' } : {}}
+              style={isUserBubble ? { backgroundColor: settings.primaryColor || '#c01721' } : {}}
             >
               {m.type === 'bot'
                 ? renderBotContent(m.content)
@@ -730,12 +802,12 @@ export default function WidgetPage() {
                         </a>
                       </div>
                     )
-                  : (m.type === 'user'
-                    ? m.content
-                    : `${m.type.toUpperCase()}: ${m.content}`)}
+                  : isUserBubble
+                    ? renderTextWithLinks(m.content, `u-${idx}`)
+                    : `${m.type.toUpperCase()}: ${m.content}`}
               
               {/* Speech bubble tail */}
-              {m.type === 'user' ? (
+              {isUserBubble ? (
                 <div 
                   className="absolute -right-2 top-2 w-0 h-0"
                   style={{ 
@@ -748,7 +820,7 @@ export default function WidgetPage() {
                 <div 
                   className="absolute -left-2 top-2 w-0 h-0"
                   style={{ 
-                    borderRight: '12px solid ' + (m.type === 'bot' || m.type === 'review_prompt' ? '#f3f4f6' : '#fef3c7'),
+                    borderRight: '12px solid ' + ((m.type === 'bot' || m.type === 'review_prompt') ? '#f3f4f6' : '#fef3c7'),
                     borderTop: '12px solid transparent',
                     borderBottom: '12px solid transparent'
                   }}
@@ -756,7 +828,8 @@ export default function WidgetPage() {
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
         {!messages.length && (
           <div className="flex flex-col items-center gap-2 text-center">
             {chatEnded ? (

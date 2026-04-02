@@ -33,6 +33,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import PostBookingNoteEditor from '@/components/PostBookingNoteEditor';
 
 type PlanItem = {
   _id?: string;
@@ -739,17 +740,11 @@ export default function TreatmentPlansPage() {
                       Post-Booking Instructions <span className="text-gray-400 font-normal normal-case">(optional)</span>
                     </label>
                     <p className="text-xs text-gray-400 mb-2">Shown to the customer in chat after booking and included in their confirmation email.</p>
-                    <textarea
+                    <PostBookingNoteEditor
                       value={plan.postBookingNote}
-                      onChange={(e) => updatePlan(planIdx, 'postBookingNote', e.target.value)}
-                      className={styles.textarea}
-                      placeholder="e.g. Please arrive 10 minutes early and avoid wearing makeup."
-                      rows={2}
-                      maxLength={1000}
+                      onChange={(html) => updatePlan(planIdx, 'postBookingNote', html)}
+                      maxLength={8000}
                     />
-                    {plan.postBookingNote.length > 0 && (
-                      <div className="text-right text-xs text-gray-400 mt-1">{plan.postBookingNote.length}/1000</div>
-                    )}
                   </div>
                   
                   {/* Workflows Section */}
