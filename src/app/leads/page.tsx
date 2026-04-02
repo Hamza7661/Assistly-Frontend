@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera, Phone, Copy, ExternalLink, Mail, User, Monitor, MousePointerClick, CalendarCheck, Maximize2 } from 'lucide-react';
 import { ProtectedRoute, NoAppEmptyState, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,9 +10,12 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { useLeadService, useIntegrationService } from '@/services';
 import type { Lead } from '@/models/Lead';
 import { toast } from 'react-toastify';
+import { COUNTRY_INFO, getCountryInfo } from '@/enums/Region';
 
 export default function LeadsPage() {
-  type SourceTab = 'all' | 'web' | 'whatsapp' | 'instagram' | 'facebook';
+  type SourceTab = 'all' | 'web' | 'whatsapp' | 'instagram' | 'facebook' | 'voice';
+  type StatusFilter = 'all' | 'interacting' | 'in_progress' | 'confirmed' | 'complete';
+  type DatePreset = 'all' | 'today' | 'last7' | 'thisMonth' | 'custom';
   const { user } = useAuth();
   const { currentApp, isLoading: isLoadingApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
@@ -26,6 +29,7 @@ export default function LeadsPage() {
     whatsapp: 1,
     instagram: 1,
     facebook: 1,
+    voice: 1,
   });
   const [limit, setLimit] = useState(10);
   const [totalByTab, setTotalByTab] = useState<Record<SourceTab, number | null>>({
@@ -34,6 +38,7 @@ export default function LeadsPage() {
     whatsapp: null,
     instagram: null,
     facebook: null,
+    voice: null,
   });
 
   const [q, setQ] = useState('');
@@ -42,10 +47,19 @@ export default function LeadsPage() {
   const [serviceType] = useState('');
   const [sortBy] = useState('leadDateTime');
   const [sortOrder] = useState<'asc' | 'desc'>('desc');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [interactedWithFilter, setInteractedWithFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [dateFrom, setDateFrom] = useState(''); // yyyy-mm-dd
+  const [dateTo, setDateTo] = useState(''); // yyyy-mm-dd
 
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [viewItem, setViewItem] = useState<Lead | null>(null);
   const [isSwitchHistoryOpen, setIsSwitchHistoryOpen] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [isConversationMaximized, setIsConversationMaximized] = useState(false);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<Lead | null>(null);
@@ -181,6 +195,57 @@ export default function LeadsPage() {
   // Format inline bullet points (•) so each starts on a new line
   const formatBulletPoints = (str: string) => str.replace(/ • /g, '\n• ');
 
+  const asPlainTextLabel = (value?: string | null) => {
+    const v = (value || '').trim();
+    if (!v) return '—';
+    return v
+      .replace(/[-_]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const prettifyLeadTypeInText = (text?: string | null, leadType?: string | null) => {
+    const t = (text || '');
+    const lt = (leadType || '').trim();
+    if (!t || !lt) return t;
+
+    const pretty = asPlainTextLabel(lt);
+    const variants = Array.from(new Set([
+      lt,
+      lt.replace(/\s+/g, '-'),
+      lt.replace(/\s+/g, '_'),
+    ].filter(Boolean)));
+
+    return variants.reduce((acc, v) => {
+      const re = new RegExp(`\\b${escapeRegExp(v)}\\b`, 'gi');
+      return acc.replace(re, pretty);
+    }, t);
+  };
+
+  const hexToRgba = (hex: string, alpha: number) => {
+    const raw = (hex || '').trim().replace('#', '');
+    const expanded =
+      raw.length === 3 ? raw.split('').map((c) => c + c).join('') :
+      raw.length === 6 ? raw :
+      '';
+    if (!expanded) return `rgba(0,0,0,${alpha})`;
+    const r = parseInt(expanded.slice(0, 2), 16);
+    const g = parseInt(expanded.slice(2, 4), 16);
+    const b = parseInt(expanded.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${Math.min(1, Math.max(0, alpha))})`;
+  };
+
+  const dialogBg = useMemo(() => {
+    const a = hexToRgba(primaryColor, 0.08);
+    const b = hexToRgba(primaryColor, 0.05);
+    // Mostly-white surface with a subtle brand wash (avoids noisy tinted gaps).
+    return `radial-gradient(1100px 520px at 0% 0%, ${a} 0%, transparent 62%),
+            radial-gradient(900px 460px at 100% 8%, ${b} 0%, transparent 58%),
+            #ffffff`;
+  }, [primaryColor]);
+
   // Render text with URLs as clickable links (opens in new tab)
   const renderTextWithLinks = (str: string, keyPrefix: string): React.ReactNode => {
     const formatted = formatBulletPoints(str);
@@ -270,12 +335,15 @@ export default function LeadsPage() {
   };
 
   const statusLabel = (status?: string) => {
+    if (status === 'confirmed') return 'Confirmed';
     if (status === 'complete') return 'Complete';
     if (status === 'in_progress') return 'In Progress';
     return 'Interacting';
   };
 
+
   const statusClass = (status?: string) => {
+    if (status === 'confirmed') return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
     if (status === 'complete') return 'bg-green-100 text-green-700';
     if (status === 'in_progress') return 'bg-blue-100 text-blue-700';
     return 'bg-yellow-100 text-yellow-700';
@@ -287,6 +355,7 @@ export default function LeadsPage() {
     if (source === 'whatsapp') return 'WhatsApp';
     if (source === 'instagram') return 'Instagram';
     if (source === 'facebook' || source === 'messenger') return 'Facebook';
+    if (source === 'voice') return 'Voice';
     return source;
   };
 
@@ -297,8 +366,141 @@ export default function LeadsPage() {
       .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  const openView = (lead: Lead) => { setViewItem(lead); setIsViewOpen(true); };
-  const closeView = () => { setIsViewOpen(false); setViewItem(null); setIsSwitchHistoryOpen(false); };
+  const interactedWithText = (l: Lead) => {
+    // If a lead is confirmed, show the lead type that was confirmed (not widget opened).
+    if (l.status === 'confirmed') {
+      return interactionLabel(l.leadType || l.initialInteraction || l.title || 'Widget Opened');
+    }
+    return interactionLabel(l.initialInteraction || l.title || 'Widget Opened');
+  };
+
+
+  const interactedWithIcon = (label: string) => {
+    const t = (label || '').trim().toLowerCase();
+    if (t === 'widget opened') return <MousePointerClick className="h-3.5 w-3.5" />;
+    return null;
+  };
+
+  const parseCountry = (lead: Lead) => {
+    const rawCountry = (lead.location?.country || '').trim();
+    const rawCountryCode = (lead.location?.countryCode || '').trim().toUpperCase();
+    const compactCountry = rawCountry.replace(/\s+/g, ' ').trim();
+    const firstToken = (compactCountry.split(' ')[0] || '').replace(/[^A-Za-z]/g, '');
+    const tokenCode = firstToken.length === 2 ? firstToken.toUpperCase() : '';
+    const strippedName =
+      tokenCode
+        ? compactCountry.replace(new RegExp(`^${tokenCode}[\\s,\\-_/]*`, 'i'), '').trim()
+        : compactCountry;
+
+    let code = '';
+    if (rawCountryCode && COUNTRY_INFO[rawCountryCode]) code = rawCountryCode;
+    else if (tokenCode && COUNTRY_INFO[tokenCode]) code = tokenCode;
+    else if (compactCountry.length === 2 && COUNTRY_INFO[compactCountry.toUpperCase()]) code = compactCountry.toUpperCase();
+    else {
+      const lower = strippedName.toLowerCase();
+      for (const [k, v] of Object.entries(COUNTRY_INFO)) {
+        if ((v.name || '').toLowerCase() === lower) {
+          code = k;
+          break;
+        }
+      }
+    }
+
+    let name = '-';
+    if (code && COUNTRY_INFO[code]) name = getCountryInfo(code).name;
+    else if (strippedName) name = strippedName;
+    else if (compactCountry) name = compactCountry;
+    else if (rawCountryCode) name = rawCountryCode;
+
+    return { code, name };
+  };
+
+  const countryName = (lead: Lead) => parseCountry(lead).name;
+
+  const countryCode = (lead: Lead) => parseCountry(lead).code;
+
+  const countryFlag = (lead: Lead) => {
+    const code = countryCode(lead);
+    if (!code || !/^[A-Z]{2}$/.test(code)) return '';
+    return String.fromCodePoint(...code.split('').map((ch) => 127397 + ch.charCodeAt(0)));
+  };
+
+  const countryDisplay = (lead: Lead) => {
+    const name = countryName(lead);
+    if (!name || name === '-' || name === '—') return name || '-';
+    return name;
+  };
+
+  const countryFlagUrl = (code?: string) => {
+    if (!code || !/^[A-Z]{2}$/.test(code)) return '';
+    return `https://flagcdn.com/w20/${code.toLowerCase()}.png`;
+  };
+
+  const browserNameOnly = (lead: Lead) => {
+    const cc = lead.clientContext || {};
+    if (cc.browserName) return cc.browserName;
+    const ua = (cc.userAgent || '').toString();
+    if (!ua) return '-';
+    if (/Edg\//i.test(ua)) return 'Edge';
+    if (/OPR\//i.test(ua) || /Opera/i.test(ua)) return 'Opera';
+    if (/Brave/i.test(ua)) return 'Brave';
+    if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) return 'Chrome';
+    if (/Firefox\//i.test(ua)) return 'Firefox';
+    // Safari often includes "Safari" + "Version" and doesn't include Chrome token.
+    if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) return 'Safari';
+    if (/Chromium/i.test(ua)) return 'Chromium';
+    return 'Browser';
+  };
+
+  const deviceTypeLabel = (lead: Lead) => {
+    const ua = ((lead.clientContext || {}).userAgent || '').toString();
+    if (!ua) return '-';
+    if (/iPad|Tablet/i.test(ua)) return 'Tablet';
+    if (/Mobi|Android|iPhone|iPod/i.test(ua)) return 'Mobile';
+    return 'Desktop';
+  };
+
+  const browserDeviceLabel = (lead: Lead) => {
+    const b = browserNameOnly(lead);
+    const d = deviceTypeLabel(lead);
+    if (!b || b === '-') return '-';
+    if (!d || d === '-') return b;
+    return `${b} / ${d}`;
+  };
+
+  const copyText = async (text?: string | null) => {
+    const t = (text || '').trim();
+    if (!t) return;
+    try {
+      await navigator.clipboard.writeText(t);
+      toast.success('Copied');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const formatDateTime = (iso?: string) => {
+    if (!iso) return '-';
+    try {
+      return new Date(iso).toLocaleString();
+    } catch {
+      return iso;
+    }
+  };
+
+  const openView = (lead: Lead) => {
+    setViewItem(lead);
+    setIsViewOpen(true);
+    setShowHistory(true);
+  };
+  const closeView = () => {
+    setIsViewOpen(false);
+    setViewItem(null);
+    setIsSwitchHistoryOpen(false);
+    setShowFullDescription(false);
+    setShowHistory(false);
+    setIsConversationMaximized(false);
+  };
 
   const openEdit = (lead: Lead) => { setEditItem(lead); setIsEditOpen(true); };
   const closeEdit = () => { setIsEditOpen(false); setEditItem(null); };
@@ -369,6 +571,105 @@ export default function LeadsPage() {
     }
   };
 
+  const interactedWithOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of items) set.add(interactedWithText(l));
+    const priority = new Map<string, number>([
+      ['widget opened', 0],
+      ['book an appointment', 1],
+    ]);
+    return Array.from(set).sort((a, b) => {
+      const ap = priority.get(a.toLowerCase());
+      const bp = priority.get(b.toLowerCase());
+      if (ap !== undefined || bp !== undefined) {
+        if (ap === undefined) return 1;
+        if (bp === undefined) return -1;
+        return ap - bp;
+      }
+      return a.localeCompare(b);
+    });
+  }, [items]);
+
+  const locationOptions = useMemo(() => {
+    const map = new Map<string, { code: string; name: string; display: string; flagUrl: string }>();
+    for (const l of items) {
+      const name = countryName(l);
+      if (!name || name === '-' || name === '—') continue;
+      // Prefer ISO2 code key when available to avoid duplicates.
+      const key = countryCode(l) || name;
+      const code = countryCode(l);
+      map.set(key, { code, name, display: countryDisplay(l), flagUrl: countryFlagUrl(code) });
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLast7 = new Date(startOfToday);
+    startOfLast7.setDate(startOfLast7.getDate() - 6);
+
+    const inDateRange = (iso?: string) => {
+      if (!iso) return false;
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return false;
+
+      if (datePreset === 'all') return true;
+      if (datePreset === 'today') return d >= startOfToday;
+      if (datePreset === 'last7') return d >= startOfLast7;
+      if (datePreset === 'thisMonth') return d >= startOfMonth;
+
+      // custom
+      const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+      const to = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
+      if (from && !Number.isNaN(from.getTime()) && d < from) return false;
+      if (to && !Number.isNaN(to.getTime()) && d > to) return false;
+      return true;
+    };
+
+    return items.filter((l) => {
+      if (statusFilter !== 'all' && (l.status || 'interacting') !== statusFilter) return false;
+      if (interactedWithFilter !== 'all' && interactedWithText(l) !== interactedWithFilter) return false;
+      if (locationFilter !== 'all' && countryName(l) !== locationFilter) return false;
+      if (datePreset !== 'all' || (dateFrom || dateTo)) {
+        if (!inDateRange(l.leadDateTime)) return false;
+      }
+      return true;
+    });
+  }, [items, statusFilter, interactedWithFilter, locationFilter, datePreset, dateFrom, dateTo]);
+
+  const interactedWithDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [isInteractedWithOpen, setIsInteractedWithOpen] = useState(false);
+  const countryDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [isCountryOpen, setIsCountryOpen] = useState(false);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target instanceof Node)) return;
+      if (isInteractedWithOpen) {
+        const interactedEl = interactedWithDropdownRef.current;
+        if (interactedEl && !interactedEl.contains(e.target)) setIsInteractedWithOpen(false);
+      }
+      if (isCountryOpen) {
+        const countryEl = countryDropdownRef.current;
+        if (countryEl && !countryEl.contains(e.target)) setIsCountryOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsInteractedWithOpen(false);
+        setIsCountryOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isInteractedWithOpen, isCountryOpen]);
+
   // Show loading spinner while apps are loading
   if (isLoadingApp) {
     return (
@@ -419,11 +720,199 @@ export default function LeadsPage() {
           </div>
 
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-4">
-            <div className="grid grid-cols-1 gap-3 items-end">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Search</label>
-                <input className="w-full border border-gray-300 rounded px-3 py-2" placeholder="e.g. implant" value={q} onChange={(e) => { setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 })); setQ(e.target.value); }} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+              <div className="lg:col-span-2">
+                <label className="block text-xs text-gray-600 mb-1">Search visitor name</label>
+                <input
+                  className="w-full border border-gray-300 rounded px-3 py-2"
+                  placeholder=""
+                  value={q}
+                  onChange={(e) => {
+                    setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 }));
+                    setQ(e.target.value);
+                  }}
+                />
               </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Status</label>
+                <select
+                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                  value={statusFilter}
+                  onChange={(e) => { setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 })); setStatusFilter(e.target.value as StatusFilter); }}
+                >
+                  <option value="all">All</option>
+                  <option value="interacting">Interacting</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="complete">Complete</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Channel</label>
+                <select
+                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                  value={activeSourceTab}
+                  onChange={(e) => {
+                    const next = e.target.value as SourceTab;
+                    setPageByTab(prev => ({ ...prev, [next]: 1 }));
+                    setActiveSourceTab(next);
+                  }}
+                >
+                  <option value="all">All</option>
+                  <option value="web">Web</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="voice">Voice</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Interacted with</label>
+                <div className="relative" ref={interactedWithDropdownRef}>
+                  <button
+                    type="button"
+                    className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-left inline-flex items-center justify-between gap-2"
+                    onClick={() => setIsInteractedWithOpen(v => !v)}
+                  >
+                    <span className="inline-flex items-center gap-2 min-w-0">
+                      {interactedWithFilter !== 'all' ? interactedWithIcon(interactedWithFilter) : null}
+                      <span className="truncate">
+                        {interactedWithFilter === 'all' ? 'All' : interactedWithFilter}
+                      </span>
+                    </span>
+                    <span className="text-gray-500">▾</span>
+                  </button>
+                  {isInteractedWithOpen && (
+                    <div className="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
+                      <button
+                        type="button"
+                        className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 ${interactedWithFilter === 'all' ? 'bg-gray-50' : ''}`}
+                        onClick={() => {
+                          setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 }));
+                          setInteractedWithFilter('all');
+                          setIsInteractedWithOpen(false);
+                        }}
+                      >
+                        All
+                      </button>
+                      <div className="max-h-60 overflow-y-auto">
+                        {interactedWithOptions.map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 inline-flex items-center gap-2 ${interactedWithFilter === v ? 'bg-gray-50' : ''}`}
+                            onClick={() => {
+                              setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 }));
+                              setInteractedWithFilter(v);
+                              setIsInteractedWithOpen(false);
+                            }}
+                          >
+                            {interactedWithIcon(v)}
+                            <span className="truncate">{v}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Country</label>
+                <div className="relative" ref={countryDropdownRef}>
+                  <button
+                    type="button"
+                    className="w-full border border-gray-300 rounded px-3 py-2 bg-white text-left inline-flex items-center justify-between gap-2"
+                    onClick={() => setIsCountryOpen(v => !v)}
+                  >
+                    <span className="inline-flex items-center gap-2 min-w-0">
+                      {locationFilter !== 'all' && (() => {
+                        const selected = locationOptions.find((c) => c.name === locationFilter);
+                        return selected?.flagUrl ? (
+                          <img src={selected.flagUrl} alt="" className="h-3.5 w-5 rounded-sm border border-gray-200 bg-white" />
+                        ) : null;
+                      })()}
+                      <span className="truncate">
+                        {locationFilter === 'all' ? 'All' : locationFilter}
+                      </span>
+                    </span>
+                    <span className="text-gray-500">▾</span>
+                  </button>
+                  {isCountryOpen && (
+                    <div className="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
+                      <button
+                        type="button"
+                        className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 ${locationFilter === 'all' ? 'bg-gray-50' : ''}`}
+                        onClick={() => {
+                          setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 }));
+                          setLocationFilter('all');
+                          setIsCountryOpen(false);
+                        }}
+                      >
+                        All
+                      </button>
+                      <div className="max-h-60 overflow-y-auto">
+                        {locationOptions.map((c) => (
+                          <button
+                            key={`${c.code}-${c.name}`}
+                            type="button"
+                            className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 inline-flex items-center gap-2 ${locationFilter === c.name ? 'bg-gray-50' : ''}`}
+                            onClick={() => {
+                              setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 }));
+                              setLocationFilter(c.name);
+                              setIsCountryOpen(false);
+                            }}
+                          >
+                            {c.flagUrl ? <img src={c.flagUrl} alt="" className="h-3.5 w-5 rounded-sm border border-gray-200 bg-white" /> : null}
+                            <span className="truncate">{c.display}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Date</label>
+                <select
+                  className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                  value={datePreset}
+                  onChange={(e) => { setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 })); setDatePreset(e.target.value as DatePreset); }}
+                >
+                  <option value="all">Any time</option>
+                  <option value="today">Today</option>
+                  <option value="last7">Last 7 days</option>
+                  <option value="thisMonth">This month</option>
+                  <option value="custom">Custom range</option>
+                </select>
+              </div>
+
+              {datePreset === 'custom' && (
+                <>
+                  <div className="lg:col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">From</label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                      value={dateFrom}
+                      onChange={(e) => { setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 })); setDateFrom(e.target.value); }}
+                    />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">To</label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                      value={dateTo}
+                      onChange={(e) => { setPageByTab(prev => ({ ...prev, [activeSourceTab]: 1 })); setDateTo(e.target.value); }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -435,13 +924,14 @@ export default function LeadsPage() {
                 { id: 'whatsapp', label: 'WhatsApp', icon: Globe, iconBg: 'bg-gradient-to-r from-green-500 to-emerald-600' },
                 { id: 'instagram', label: 'Instagram', icon: Camera, iconBg: 'bg-gradient-to-r from-fuchsia-500 via-pink-500 to-orange-400' },
                 { id: 'facebook', label: 'Facebook', icon: Globe, iconBg: 'bg-gradient-to-r from-blue-600 to-indigo-700' },
+                { id: 'voice', label: 'Voice Call', icon: Phone, iconBg: 'bg-gradient-to-r from-rose-500 to-red-600' },
               ] as const).map((tab) => {
                 const Icon = tab.icon;
                 const active = activeSourceTab === tab.id;
                 return (
                   <button
                     key={tab.id}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs sm:text-sm transition ${
+                    className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs sm:text-sm font-medium transition ${
                       active
                         ? 'text-white border-transparent'
                         : 'text-gray-700 border-gray-300 hover:bg-gray-50'
@@ -451,18 +941,21 @@ export default function LeadsPage() {
                       setActiveSourceTab(tab.id);
                     }}
                   >
-                    <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-white shadow-sm ${tab.iconBg}`}>
+                    <span
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-white shadow ${tab.iconBg}`}
+                      style={{ boxShadow: active ? '0 6px 16px rgba(0,0,0,0.18)' : undefined }}
+                    >
                       {tab.id === 'whatsapp' ? (
-                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
                           <path d="M12.02 2a9.94 9.94 0 0 0-8.51 15.11L2 22l5-1.46a9.97 9.97 0 1 0 5.02-18.54Zm0 17.98a7.98 7.98 0 0 1-4.07-1.11l-.29-.17-2.97.87.8-2.89-.19-.3a7.98 7.98 0 1 1 6.72 3.6Z" />
                           <path d="M17.47 14.38c-.27-.13-1.6-.79-1.84-.88-.25-.09-.43-.13-.61.13-.18.25-.7.88-.85 1.06-.16.18-.31.2-.58.07-.27-.13-1.12-.41-2.14-1.31-.79-.7-1.33-1.57-1.48-1.83-.16-.27-.02-.41.11-.54.12-.12.27-.31.4-.47.13-.16.18-.27.27-.45.09-.18.04-.34-.02-.47-.07-.13-.61-1.47-.84-2.01-.22-.53-.44-.45-.61-.46h-.52c-.18 0-.47.07-.71.34-.25.27-.95.93-.95 2.27s.98 2.64 1.11 2.82c.13.18 1.9 2.9 4.6 4.07.64.28 1.14.45 1.53.58.64.2 1.22.17 1.68.1.51-.08 1.6-.65 1.82-1.28.22-.63.22-1.17.16-1.28-.07-.11-.25-.18-.52-.31Z" />
                         </svg>
                       ) : tab.id === 'facebook' ? (
-                        <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
                           <path d="M24 12a12 12 0 10-13.88 11.86v-8.39H7.08V12h3.04V9.36c0-3 1.79-4.66 4.53-4.66 1.31 0 2.68.23 2.68.23v2.95h-1.5c-1.48 0-1.94.92-1.94 1.86V12h3.3l-.53 3.47h-2.77v8.39A12 12 0 0024 12z" />
                         </svg>
                       ) : (
-                        <Icon className="h-3 w-3" />
+                        <Icon className="h-3.5 w-3.5" />
                       )}
                     </span>
                     {tab.label}
@@ -477,25 +970,33 @@ export default function LeadsPage() {
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
             {loading ? (
               <div className="p-6 flex items-center justify-center"><div className="loading-spinner"></div></div>
-            ) : items.length === 0 ? (
+            ) : filteredItems.length === 0 ? (
               <div className="p-10 text-center text-gray-400 text-sm">No leads found</div>
             ) : (
               <>
                 {/* ── Mobile card list ── */}
                 <ul className="divide-y divide-gray-100 sm:hidden">
-                  {items.map(l => (
+                  {filteredItems.map(l => (
                     <li key={l._id} className="p-4 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{l.leadName || 'Anonymous Visitor'}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{interactionLabel(l.initialInteraction || l.title || 'Widget Opened')}</p>
+                        <p className="inline-flex items-center gap-1 text-xs text-gray-500 mt-0.5 truncate">
+                          {interactedWithIcon(interactedWithText(l))}
+                          {interactedWithText(l)}
+                        </p>
                         <div className="flex flex-wrap gap-1.5 mt-1.5">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span>
                           {activeSourceTab === 'all' && (
                             <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{channelLabel(l.sourceChannel)}</span>
                           )}
-                          {l.location?.country && (
-                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{l.location.country}</span>
-                          )}
+                          <span className="inline-flex items-center gap-1.5 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                            {countryFlagUrl(countryCode(l)) ? <img src={countryFlagUrl(countryCode(l))} alt="" className="h-3 w-4 rounded-sm border border-gray-200 bg-white" /> : null}
+                            {countryDisplay(l)}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-1">
+                          <p className="text-[11px] text-gray-500 truncate"><span className="text-gray-400">IP:</span> {l.clientContext?.ipAddress || '-'}</p>
+                          <p className="text-[11px] text-gray-500 truncate"><span className="text-gray-400">Browser:</span> {browserDeviceLabel(l)}</p>
                         </div>
                         {l.leadDateTime && (
                           <p className="text-xs text-gray-400 mt-1">{new Date(l.leadDateTime).toLocaleDateString()}</p>
@@ -517,34 +1018,52 @@ export default function LeadsPage() {
                 </ul>
 
                 {/* ── Desktop table ── */}
-                <table className="hidden sm:table w-full text-sm">
+                <table className="hidden sm:table w-full table-fixed text-sm">
                   <thead>
                     <tr className="text-left border-b bg-gray-50">
-                      <th className="px-4 py-3 font-medium text-gray-600">Visitor</th>
-                      <th className="px-4 py-3 font-medium text-gray-600">Status</th>
+                      <th className="px-4 py-3 font-medium text-gray-600 w-[170px]">Visitor</th>
+                      <th className="px-4 py-3 font-medium text-gray-600 w-[95px]">Status</th>
                       {activeSourceTab === 'all' && (
                         <th className="px-4 py-3 font-medium text-gray-600">Channel</th>
                       )}
-                      <th className="px-4 py-3 font-medium text-gray-600">Interacted With</th>
-                      <th className="px-4 py-3 font-medium text-gray-600">Location</th>
+                      <th className="px-4 py-3 font-medium text-gray-600 min-w-[170px]">Interaction</th>
+                      <th className="px-4 py-3 font-medium text-gray-600 min-w-[220px]">Country / Location</th>
                       <th className="px-4 py-3 font-medium text-gray-600">Date</th>
                       <th className="px-4 py-3 w-32"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map(l => (
+                    {filteredItems.map(l => (
                       <tr key={l._id} className="border-b last:border-b-0 hover:bg-gray-50/50">
-                        <td className="px-4 py-3 max-w-[200px] truncate">{l.leadName || 'Anonymous Visitor'}</td>
-                        <td className="px-4 py-3 text-gray-600"><span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span></td>
+                        <td className="px-4 py-3 w-[170px]">
+                          <div className="truncate" title={l.leadName || 'Anonymous Visitor'}>
+                            {l.leadName || 'Anonymous Visitor'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 w-[95px]"><span className={`inline-flex whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span></td>
                         {activeSourceTab === 'all' && (
                           <td className="px-4 py-3 text-gray-600">{channelLabel(l.sourceChannel)}</td>
                         )}
-                        <td className="px-4 py-3 text-gray-600">
-                          <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs">
-                            {interactionLabel(l.initialInteraction || l.title || 'Widget Opened')}
+                        <td className="px-4 py-3 text-gray-600 align-top">
+                          <span className="inline-flex items-start gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs max-w-[170px] whitespace-normal break-words leading-snug">
+                            {interactedWithIcon(interactedWithText(l))}
+                            <span>{interactedWithText(l)}</span>
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{l.location?.country || '-'}</td>
+                        <td className="px-4 py-3 text-gray-600 align-top">
+                          <div className="max-w-[240px]">
+                            <div className="inline-flex items-start gap-1.5 whitespace-normal break-words leading-snug">
+                              {countryFlagUrl(countryCode(l)) ? <img src={countryFlagUrl(countryCode(l))} alt="" className="h-3.5 w-5 rounded-sm border border-gray-200 bg-white mt-0.5 flex-shrink-0" /> : null}
+                              <span>{countryDisplay(l)}</span>
+                            </div>
+                            <div className="mt-1 text-[11px] text-gray-500">
+                              <span className="text-gray-400">IP:</span> <span className="font-mono">{l.clientContext?.ipAddress || '-'}</span>
+                            </div>
+                            <div className="text-[11px] text-gray-500 truncate" title={browserDeviceLabel(l)}>
+                              <span className="text-gray-400">Browser:</span> {browserDeviceLabel(l)}
+                            </div>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{l.leadDateTime ? new Date(l.leadDateTime).toLocaleString() : '-'}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1.5">
@@ -591,138 +1110,381 @@ export default function LeadsPage() {
           {isViewOpen && viewItem && (
             <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
               <div className="absolute inset-0 bg-black/30" onClick={closeView}></div>
-              <div className="relative bg-white w-full sm:max-w-3xl rounded-t-2xl sm:rounded-xl shadow-lg border border-gray-200 p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold">Lead details</h2>
-                  <button className="text-gray-500" onClick={closeView}>✕</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Status</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50"><span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(viewItem.status)}`}>{statusLabel(viewItem.status)}</span></div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Location</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.location?.country || viewItem.location?.countryCode || '-'}</div>
-                  </div>
-                  <div className="md:col-span-2 text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Initial interaction</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">
-                      {viewItem.initialInteraction
-                        ? viewItem.initialInteraction.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-                        : '-'}
-                    </div>
-                  </div>
-                  <div className="md:col-span-2 text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Clicked items</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.clickedItems && viewItem.clickedItems.length > 0 ? viewItem.clickedItems.join(' → ') : '-'}</div>
-                  </div>
-                  {viewItem.appointmentDetails && (
-                    <div className="md:col-span-2 text-sm">
-                      <div className="text-gray-700 font-medium mb-1">Appointment details</div>
-                      <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">
-                        <div>Event: {viewItem.appointmentDetails.eventId || '-'}</div>
-                        <div>Start: {viewItem.appointmentDetails.start ? new Date(viewItem.appointmentDetails.start).toLocaleString() : '-'}</div>
-                        <div>End: {viewItem.appointmentDetails.end ? new Date(viewItem.appointmentDetails.end).toLocaleString() : '-'}</div>
-                        <div>Confirmed: {viewItem.appointmentDetails.confirmed ? 'Yes' : 'No'}</div>
-                        {viewItem.appointmentDetails.link && (
-                          <a href={viewItem.appointmentDetails.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Open calendar event</a>
-                        )}
+              <div
+                className="relative w-full sm:max-w-4xl rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-200 max-h-[92vh] overflow-y-auto"
+                style={{ background: dialogBg }}
+              >
+                <div className="p-4 sm:p-6">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                          {viewItem.leadName?.trim() || 'Anonymous Visitor'}
+                        </h2>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(viewItem.status)}`}>{statusLabel(viewItem.status)}</span>
+                        <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full">
+                          {channelLabel(viewItem.sourceChannel)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-0.5 rounded-full">
+                          {interactedWithIcon(interactedWithText(viewItem))}
+                          {interactedWithText(viewItem)}
+                        </span>
+                        <span className="text-xs bg-gray-50 text-gray-700 border border-gray-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          Lead date: {formatDateTime(viewItem.leadDateTime)}
+                        </span>
                       </div>
                     </div>
-                  )}
-                  <div className="md:col-span-2 text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Title</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.title}</div>
+                    <button className="inline-flex items-center justify-center rounded-lg border border-gray-200 h-9 w-9 text-gray-600 hover:bg-gray-50" onClick={closeView} aria-label="Close">
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Lead name</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadName || 'Not provided'}</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Lead phone</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadPhoneNumber || 'Not provided'}</div>
-                  </div>
-                  <div className="text-sm md:col-span-2">
-                    <div className="text-gray-700 font-medium mb-1">Lead email</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadEmail || 'Not provided'}</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Lead type</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadType || '-'}</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Service type</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.serviceType || '-'}</div>
-                  </div>
-                  <div className="md:col-span-2 text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Lead type switch history</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50 flex items-center justify-between gap-3">
-                      <span className="text-gray-600">
-                        {viewItem.leadTypeSwitchHistory && viewItem.leadTypeSwitchHistory.length > 0
-                          ? `${viewItem.leadTypeSwitchHistory.length} switch event(s)`
-                          : 'No switch history'}
-                      </span>
-                      <button
-                        type="button"
-                        className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => setIsSwitchHistoryOpen(true)}
-                        disabled={!viewItem.leadTypeSwitchHistory || viewItem.leadTypeSwitchHistory.length === 0}
-                      >
-                        View Switch History
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Lead source</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.sourceChannel || '-'}</div>
-                  </div>
-                  <div className="md:col-span-2 text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Summary</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50 whitespace-pre-wrap">{viewItem.summary || '-'}</div>
-                  </div>
-                  <div className="md:col-span-2 text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Description</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50 whitespace-pre-wrap">{viewItem.description || '-'}</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-700 font-medium mb-1">Lead date</div>
-                    <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50">{viewItem.leadDateTime ? new Date(viewItem.leadDateTime).toLocaleString() : '-'}</div>
-                  </div>
-                  {viewItem.history && viewItem.history.length > 0 && (
-                    <div className="md:col-span-2 text-sm">
-                      <div className="text-gray-700 font-medium mb-2">Conversation History</div>
-                      <div className="border border-gray-200 rounded-lg bg-gray-50 p-4 max-h-96 overflow-y-auto pb-6">
-                        <div className="space-y-3">
-                          {viewItem.history.map((message, index) => (
-                            <div
-                              key={index}
-                              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div
-                                className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                                  message.role === 'user'
-                                    ? 'text-white'
-                                    : 'bg-white text-gray-800 border border-gray-200'
-                                }`}
-                                style={message.role === 'user' ? { backgroundColor: primaryColor } : {}}
-                              >
-                                <div className="text-xs font-semibold mb-1 opacity-80">
-                                  {message.role === 'user' ? 'Customer' : 'Assistant'}
-                                </div>
-                                {message.role === 'assistant'
-                                  ? renderBotContent(message.content)
-                                  : <div className="whitespace-pre-wrap text-sm">{message.content}</div>}
-                              </div>
-                            </div>
-                          ))}
+
+                  {/* Grid */}
+                  <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Contact */}
+                    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                      <div
+                        className="absolute inset-x-0 top-0 h-1"
+                        style={{ background: `linear-gradient(90deg, ${primaryColor} 0%, ${primaryColor}55 70%, transparent 100%)` }}
+                      />
+                      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-rose-50 to-transparent" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
+                            <User className="h-4 w-4" style={{ color: primaryColor }} />
+                          </span>
+                          <div className="text-sm font-semibold text-gray-900">Contact</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div className="col-span-2 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] uppercase tracking-wide text-gray-500">Email</div>
+                            <div className="mt-0.5 font-medium text-gray-900 truncate">{viewItem.leadEmail || '—'}</div>
+                          </div>
+                          <button
+                            className="inline-flex items-center gap-1 text-xs border border-gray-200 bg-white px-2 py-1 rounded-md hover:bg-gray-50 disabled:opacity-40"
+                            disabled={!viewItem.leadEmail}
+                            onClick={() => copyText(viewItem.leadEmail)}
+                          >
+                            <Mail className="h-3.5 w-3.5" /> Copy
+                          </button>
+                        </div>
+                        <div className="col-span-2 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] uppercase tracking-wide text-gray-500">Phone</div>
+                            <div className="mt-0.5 font-medium text-gray-900 truncate">{viewItem.leadPhoneNumber || '—'}</div>
+                          </div>
+                          <button
+                            className="inline-flex items-center gap-1 text-xs border border-gray-200 bg-white px-2 py-1 rounded-md hover:bg-gray-50 disabled:opacity-40"
+                            disabled={!viewItem.leadPhoneNumber}
+                            onClick={() => copyText(viewItem.leadPhoneNumber)}
+                          >
+                            <Copy className="h-3.5 w-3.5" /> Copy
+                          </button>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Lead type</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate">{asPlainTextLabel(viewItem.leadType)}</div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Service</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate">{viewItem.serviceType || '—'}</div>
                         </div>
                       </div>
                     </div>
-                  )}
+
+                    {/* Client / Device */}
+                    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500 via-sky-400 to-transparent" />
+                      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-sky-50 to-transparent" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
+                            <Monitor className="h-4 w-4" style={{ color: primaryColor }} />
+                          </span>
+                          <div className="text-sm font-semibold text-gray-900">Country</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Country</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate inline-flex items-center gap-1.5">
+                            {countryFlagUrl(countryCode(viewItem)) ? <img src={countryFlagUrl(countryCode(viewItem))} alt="" className="h-3.5 w-5 rounded-sm border border-gray-200 bg-white" /> : null}
+                            {countryDisplay(viewItem)}
+                          </div>
+                        </div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[11px] uppercase tracking-wide text-gray-500">IP address</div>
+                            <div className="mt-0.5 font-medium text-gray-900 font-mono text-xs truncate">{viewItem.clientContext?.ipAddress || '—'}</div>
+                          </div>
+                          <button
+                            className="inline-flex items-center gap-1 text-xs border border-gray-200 bg-white px-2 py-1 rounded-md hover:bg-gray-50 disabled:opacity-40"
+                            disabled={!viewItem.clientContext?.ipAddress}
+                            onClick={() => copyText(viewItem.clientContext?.ipAddress)}
+                          >
+                            <Copy className="h-3.5 w-3.5" /> Copy
+                          </button>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Browser</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate">{browserNameOnly(viewItem)}</div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Device</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate">{deviceTypeLabel(viewItem)}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interaction */}
+                    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-500 via-amber-400 to-transparent" />
+                      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-amber-50 to-transparent" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
+                            <MousePointerClick className="h-4 w-4" style={{ color: primaryColor }} />
+                          </span>
+                          <div className="text-sm font-semibold text-gray-900">Interaction</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Initial interaction</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate">{interactionLabel(viewItem.initialInteraction || '') || '—'}</div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Lead source</div>
+                          <div className="mt-0.5 font-medium text-gray-900 truncate">{channelLabel(viewItem.sourceChannel)}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Clicked items</div>
+                          {(viewItem.clickedItems || []).length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {(viewItem.clickedItems || []).slice(0, 20).map((it, idx) => (
+                                <span key={`${it}-${idx}`} className="text-xs px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700">
+                                  {it}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="mt-0.5 font-medium text-gray-900">—</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Appointment */}
+                    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-transparent" />
+                      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-emerald-50 to-transparent" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
+                            <CalendarCheck className="h-4 w-4" style={{ color: primaryColor }} />
+                          </span>
+                          <div className="text-sm font-semibold text-gray-900">Appointment</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-sm">
+                        {viewItem.appointmentDetails ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="min-w-0">
+                              <div className="text-[11px] uppercase tracking-wide text-gray-500">Confirmed</div>
+                              <div className="mt-0.5 font-medium text-gray-900">{viewItem.appointmentDetails.confirmed ? 'Yes' : 'No'}</div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[11px] uppercase tracking-wide text-gray-500">Start</div>
+                              <div className="mt-0.5 font-medium text-gray-900 truncate">
+                                {viewItem.appointmentDetails.start ? new Date(viewItem.appointmentDetails.start).toLocaleString() : '—'}
+                              </div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[11px] uppercase tracking-wide text-gray-500">End</div>
+                              <div className="mt-0.5 font-medium text-gray-900 truncate">
+                                {viewItem.appointmentDetails.end ? new Date(viewItem.appointmentDetails.end).toLocaleString() : '—'}
+                              </div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[11px] uppercase tracking-wide text-gray-500">Service</div>
+                              <div className="mt-0.5 font-medium text-gray-900 truncate">
+                                {viewItem.serviceType || '—'}
+                              </div>
+                            </div>
+                            {viewItem.appointmentDetails.link ? (
+                              <div className="col-span-2 pt-1">
+                                <a href={viewItem.appointmentDetails.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-700 hover:underline">
+                                  <ExternalLink className="h-4 w-4" /> Open calendar event
+                                </a>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="text-gray-700">—</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Summary / Description */}
+                    <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-gray-900">Summary</div>
+                        <div className="text-xs text-gray-500">Lead date: {formatDateTime(viewItem.leadDateTime)}</div>
+                      </div>
+                      <div className="mt-2 text-sm text-gray-800 whitespace-pre-wrap">
+                        {prettifyLeadTypeInText(viewItem.summary || '—', viewItem.leadType)}
+                      </div>
+                      <div className="mt-4 text-sm font-semibold text-gray-900">Description</div>
+                      {(() => {
+                        const desc = prettifyLeadTypeInText(viewItem.description || '', viewItem.leadType).trim();
+                        if (!desc) return <div className="mt-2 text-sm text-gray-800">—</div>;
+                        const shouldClamp = desc.length > 260;
+                        const shown = showFullDescription || !shouldClamp ? desc : `${desc.slice(0, 260)}…`;
+                        return (
+                          <div className="mt-2">
+                            <div className="text-sm text-gray-800 whitespace-pre-wrap">{shown}</div>
+                            {shouldClamp && (
+                              <button className="mt-2 text-xs font-medium text-blue-700 hover:underline" onClick={() => setShowFullDescription(v => !v)}>
+                                {showFullDescription ? 'Show less' : 'Show more'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Conversation history */}
+                    {viewItem.history && viewItem.history.length > 0 && (
+                      <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold text-gray-900">Conversation</div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-200 rounded-md px-3 py-1.5 hover:bg-gray-50"
+                              onClick={() => setIsConversationMaximized(true)}
+                              title="Open in a larger view"
+                            >
+                              <Maximize2 className="h-3.5 w-3.5" />
+                              Maximize
+                            </button>
+                            <button className="text-xs font-medium text-gray-700 border border-gray-200 rounded-md px-3 py-1.5 hover:bg-gray-50" onClick={() => setShowHistory(v => !v)}>
+                              {showHistory ? 'Hide' : `Show (${viewItem.history.length})`}
+                            </button>
+                          </div>
+                        </div>
+                        {showHistory && (
+                          <div className="mt-3 border border-gray-200 rounded-lg bg-gray-50 p-4 max-h-96 overflow-y-auto">
+                            <div className="space-y-3">
+                              {viewItem.history.map((message, index) => (
+                                <div
+                                  key={index}
+                                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                >
+                                  <div
+                                    className={`max-w-[85%] rounded-lg px-4 py-2 ${
+                                      message.role === 'user'
+                                        ? 'text-white'
+                                        : 'bg-white text-gray-800 border border-gray-200'
+                                    }`}
+                                    style={message.role === 'user' ? { backgroundColor: primaryColor } : {}}
+                                  >
+                                    <div className="text-[11px] font-semibold mb-1 opacity-80">
+                                      {message.role === 'user' ? 'Customer' : 'Assistant'}
+                                    </div>
+                                    {message.role === 'assistant'
+                                      ? renderBotContent(message.content)
+                                      : <div className="whitespace-pre-wrap text-sm">{message.content}</div>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Switch history shortcut */}
+                    <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-gray-900">Lead type switch history</div>
+                        <button
+                          type="button"
+                          className="inline-flex items-center rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => setIsSwitchHistoryOpen(true)}
+                          disabled={!viewItem.leadTypeSwitchHistory || viewItem.leadTypeSwitchHistory.length === 0}
+                        >
+                          View ({viewItem.leadTypeSwitchHistory?.length || 0})
+                        </button>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-600">
+                        {viewItem.leadTypeSwitchHistory && viewItem.leadTypeSwitchHistory.length > 0 ? 'Lead type was changed during the conversation.' : 'No switches recorded.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button className="btn-secondary" onClick={closeView}>Close</button>
+                  </div>
                 </div>
-                <div className="mt-4 flex justify-end">
-                  <button className="btn-secondary" onClick={closeView}>Close</button>
+              </div>
+            </div>
+          )}
+
+          {/* Maximized conversation dialog */}
+          {isViewOpen && isConversationMaximized && viewItem?.history && viewItem.history.length > 0 && (
+            <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+              <div
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setIsConversationMaximized(false)}
+              />
+              <div className="relative w-full sm:max-w-5xl md:max-w-6xl rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-200 max-h-[92vh] overflow-hidden bg-white">
+                <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-gray-200 bg-white">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-gray-900 truncate">Conversation</div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {viewItem.leadName?.trim() || 'Anonymous Visitor'} • {viewItem.history.length} messages
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-200 h-9 w-9 text-gray-600 hover:bg-gray-50"
+                    onClick={() => setIsConversationMaximized(false)}
+                    aria-label="Close conversation"
+                    title="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="p-4 sm:p-6 bg-gray-50 h-[78vh] overflow-y-auto">
+                  <div className="space-y-3">
+                    {viewItem.history.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[85%] rounded-lg px-4 py-2 ${
+                            message.role === 'user'
+                              ? 'text-white'
+                              : 'bg-white text-gray-800 border border-gray-200'
+                          }`}
+                          style={message.role === 'user' ? { backgroundColor: primaryColor } : {}}
+                        >
+                          <div className="text-[11px] font-semibold mb-1 opacity-80">
+                            {message.role === 'user' ? 'Customer' : 'Assistant'}
+                          </div>
+                          {message.role === 'assistant'
+                            ? renderBotContent(message.content)
+                            : <div className="whitespace-pre-wrap text-sm">{message.content}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

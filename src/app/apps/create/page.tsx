@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { useAppService } from '@/services';
+import { useAppService, useIntegrationService } from '@/services';
 import { ProtectedRoute } from '@/components';
 import Navigation from '@/components/Navigation';
 import AppCreationProgressModal from '@/components/AppCreationProgressModal';
@@ -54,6 +54,12 @@ export default function CreateAppPage() {
     name: '',
     industry: '',
     description: '',
+  });
+
+  const [leadCaptureSettings, setLeadCaptureSettings] = useState({
+    validateEmail: true,
+    validatePhoneNumber: true,
+    conversationStyle: false,
   });
 
   const [whatsAppData, setWhatsAppData] = useState({
@@ -234,6 +240,20 @@ export default function CreateAppPage() {
         setActiveStep('whatsapp');
       }
       setShowProgress(false);
+
+      // Persist app-level lead capture settings (kept in Integration settings).
+      if (newId) {
+        try {
+          const integrationSvc = await useIntegrationService();
+          await integrationSvc.updateSettings(newId, {
+            validateEmail: !!leadCaptureSettings.validateEmail,
+            validatePhoneNumber: !!leadCaptureSettings.validatePhoneNumber,
+            conversationStyle: !!leadCaptureSettings.conversationStyle,
+          });
+        } catch (e: any) {
+          toast.error(e?.message || 'Failed to save lead capture settings');
+        }
+      }
     } catch (error) {
       console.error('Error during progress complete:', error);
       setShowProgress(false);
@@ -556,6 +576,73 @@ export default function CreateAppPage() {
                       value={formData.description}
                       onChange={(e) => handleInputChange('description', e.target.value)}
                     />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Lead capture rules</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        These settings apply across Web, WhatsApp, Messenger, and Instagram for this app.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">Validate Email</div>
+                          <div className="text-xs text-gray-600 mt-1">Require valid email when users provide email addresses.</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={leadCaptureSettings.validateEmail}
+                            onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, validateEmail: e.target.checked }))}
+                          />
+                          <div className="brand-toggle-track"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">Validate Phone Number</div>
+                          <div className="text-xs text-gray-600 mt-1">Require valid phone number when users provide phone numbers.</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={leadCaptureSettings.validatePhoneNumber}
+                            onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, validatePhoneNumber: e.target.checked }))}
+                          />
+                          <div className="brand-toggle-track"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">Conversational Style</div>
+                          <div className="text-xs text-gray-600 mt-1">When enabled, the bot uses free-form conversation.</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={leadCaptureSettings.conversationStyle}
+                            onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, conversationStyle: e.target.checked }))}
+                          />
+                          <div className="brand-toggle-track"></div>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

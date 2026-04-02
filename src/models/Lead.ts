@@ -14,8 +14,16 @@ export interface Lead {
   leadType?: string;
   serviceType?: string;
   sourceChannel?: string;
-  status?: 'interacting' | 'in_progress' | 'complete';
+  status?: 'interacting' | 'in_progress' | 'complete' | 'confirmed';
   location?: { country?: string; countryCode?: string };
+  clientContext?: {
+    ipAddress?: string;
+    userAgent?: string;
+    browserName?: string;
+    browserVersion?: string;
+    osName?: string;
+    deviceType?: string;
+  };
   initialInteraction?: string;
   clickedItems?: string[];
   appointmentDetails?: {
