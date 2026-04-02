@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useChatbotWorkflowService } from '@/services';
-import { ChatbotWorkflow, WorkflowGroup, WorkflowOption, formatQuestionType } from '@/models/ChatbotWorkflow';
+import { ChatbotWorkflow, WorkflowGroup, WorkflowOption } from '@/models/ChatbotWorkflow';
 import { useQuestionTypeService } from '@/services';
 import type { QuestionTypeItem } from '@/models/QuestionType';
 import { toast } from 'react-toastify';
@@ -194,10 +194,17 @@ function ChatbotWorkflowPageContent() {
         return;
       }
 
+      const resolvedQuestionTypeId =
+        newQuestion.questionTypeId && newQuestion.questionTypeId > 0
+          ? newQuestion.questionTypeId
+          : questionTypes.length > 0
+            ? questionTypes[0].id
+            : 0;
+
       const questionData = {
         ...newQuestion,
         title: newQuestion.title?.trim() || newQuestion.question.trim().substring(0, 100),
-        questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0
+        questionTypeId: resolvedQuestionTypeId,
       };
 
       let savedWorkflowId: string | null = null;
@@ -284,9 +291,16 @@ function ChatbotWorkflowPageContent() {
   };
 
   const handleEditQuestion = (question: ChatbotWorkflow) => {
+    const typeId =
+      question.questionTypeId && question.questionTypeId > 0
+        ? question.questionTypeId
+        : questionTypes.length > 0
+          ? questionTypes[0].id
+          : 0;
     setNewQuestion({
       ...question,
-      questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0
+      questionTypeId: typeId,
+      options: ensureChoiceTypeHasButtonRow(typeId, question.options),
     });
     setPendingAttachmentFile(null);
     setRemovingAttachment(false);
@@ -421,6 +435,17 @@ function ChatbotWorkflowPageContent() {
       const opts = (prev.options || []).filter((_, i) => i !== idx);
       return { ...prev, options: opts };
     });
+  };
+
+  /** Single / multiple choice questions need at least one row for chat button labels. */
+  const ensureChoiceTypeHasButtonRow = (typeId: number, existing: WorkflowOption[] | undefined): WorkflowOption[] => {
+    const qt = questionTypes.find((q) => q.id === typeId);
+    const isChoice = qt?.code === 'single_choice' || qt?.code === 'multiple_choice';
+    const opts = [...(existing || [])];
+    if (isChoice && opts.length === 0) {
+      opts.push({ text: '', nextQuestionId: null, isTerminal: false, order: 0 });
+    }
+    return opts;
   };
 
   // Attachment handler
@@ -933,6 +958,12 @@ function ChatbotWorkflowPageContent() {
     const options = newQuestion.options || [];
     const linkableQuestions = getLinkableQuestions();
     const hasExistingAttachment = newQuestion.attachment?.hasFile && !removingAttachment;
+    const selectedQuestionType = questionTypes.find(
+      (qt) => qt.id === (newQuestion.questionTypeId || questionTypes[0]?.id)
+    );
+    const isChoiceQuestionType =
+      selectedQuestionType?.code === 'single_choice' ||
+      selectedQuestionType?.code === 'multiple_choice';
 
     return (
       <div className="space-y-5">
@@ -1000,55 +1031,101 @@ function ChatbotWorkflowPageContent() {
           </div>
         </div>
 
-        {/* ── Multiple-choice options (branching) ─────────────────────────── */}
+        {questionTypes.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Question type
+            </label>
+            <select
+              value={newQuestion.questionTypeId || questionTypes[0].id}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setNewQuestion((prev) => ({
+                  ...prev,
+                  questionTypeId: val,
+                  options: ensureChoiceTypeHasButtonRow(val, prev.options),
+                }));
+              }}
+              className="input-field w-full"
+              disabled={saving}
+            >
+              {questionTypes.map((qt) => (
+                <option key={qt.id} value={qt.id}>
+                  {qt.value}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* ── Chat buttons / options & branching ─────────────────────────── */}
         <div className="border border-gray-200 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-purple-600" />
-                  Multiple-Choice Options (Branching)
+                  {isChoiceQuestionType ? 'Chat buttons & branching' : 'Options & branching (optional)'}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Add options so users can choose a scenario. Each option can lead to a different next question.
+                  {isChoiceQuestionType
+                    ? selectedQuestionType?.code === 'single_choice'
+                      ? 'Each row is one chat button shown with your question. The guest taps exactly one. You can branch each button to a different next step.'
+                      : 'Each row is one chat button shown with your question. The guest may select several where the channel supports it. You can branch each button to a different next step.'
+                    : 'Add optional quick-reply style buttons, or leave empty for a typed reply only. Each row can branch to a different next question.'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={addOption}
-                className="btn-secondary text-xs px-2 py-1 flex items-center gap-1"
+                className="btn-secondary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
+                aria-label={isChoiceQuestionType ? 'Add another chat button' : 'Add option'}
               >
                 <Plus className="h-3 w-3" />
-                Add Option
+                {isChoiceQuestionType ? 'Add button' : 'Add option'}
               </button>
             </div>
 
             {options.length === 0 && (
               <p className="text-xs text-gray-400 italic">
-                No options yet — the chatbot will expect a free-text reply. Add options to offer clickable choices.
+                {isChoiceQuestionType
+                  ? 'No button labels yet. Click “Add button” and enter the text that will appear on each button in chat (e.g. “Yes”, “Talk to sales”).'
+                  : 'No options yet — the chatbot will expect a free-text reply. Add options to offer clickable choices.'}
               </p>
             )}
 
             {options.map((opt, idx) => (
               <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold flex items-center justify-center shrink-0">
+                <div className="flex gap-2 items-end">
+                  <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-bold flex items-center justify-center shrink-0 mb-0.5">
                     {idx + 1}
                   </span>
-                  <input
-                    type="text"
-                    className="input-field flex-1 text-sm py-1"
-                    placeholder="Option text (e.g. I'm a job seeker)"
-                    value={opt.text}
-                    onChange={(e) => updateOption(idx, 'text', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeOption(idx)}
-                    className="text-red-400 hover:text-red-600 p-1 shrink-0"
-                    title="Remove option"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <label className="block text-xs font-medium text-gray-600">
+                      {isChoiceQuestionType ? 'Button label (shown in chat)' : 'Option label'}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        className="input-field flex-1 min-w-0 text-sm py-1"
+                        placeholder={
+                          isChoiceQuestionType
+                            ? 'e.g. Book a consultation, Not now, Speak to human'
+                            : "Option text (e.g. I'm a job seeker)"
+                        }
+                        value={opt.text}
+                        onChange={(e) => updateOption(idx, 'text', e.target.value)}
+                        aria-label={isChoiceQuestionType ? `Button label ${idx + 1}` : `Option ${idx + 1}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeOption(idx)}
+                        className="text-red-400 hover:text-red-600 p-1 shrink-0"
+                        title={isChoiceQuestionType ? 'Remove button' : 'Remove option'}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="ml-7 flex flex-col sm:flex-row gap-2">
