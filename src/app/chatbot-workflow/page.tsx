@@ -1001,8 +1001,7 @@ function ChatbotWorkflowPageContent() {
         </div>
 
         {/* ── Multiple-choice options (branching) ─────────────────────────── */}
-        {!isRoot && (
-          <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="border border-gray-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
@@ -1082,8 +1081,7 @@ function ChatbotWorkflowPageContent() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
+        </div>
 
         {/* ── File attachment (PDF, Word, etc.) ───────────────────────────── */}
         {!isRoot && (

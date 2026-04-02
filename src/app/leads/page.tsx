@@ -55,6 +55,7 @@ export default function LeadsPage() {
   const [dateTo, setDateTo] = useState(''); // yyyy-mm-dd
 
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isViewVisible, setIsViewVisible] = useState(false);
   const [viewItem, setViewItem] = useState<Lead | null>(null);
   const [isSwitchHistoryOpen, setIsSwitchHistoryOpen] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
@@ -71,6 +72,7 @@ export default function LeadsPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [newLeadNotification, setNewLeadNotification] = useState<Lead | null>(null);
   const wsRef = useRef<any>(null);
+  const viewCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Integration settings for button colors
   const [primaryColor, setPrimaryColor] = useState('#c01721');
@@ -489,18 +491,34 @@ export default function LeadsPage() {
   };
 
   const openView = (lead: Lead) => {
+    if (viewCloseTimerRef.current) {
+      clearTimeout(viewCloseTimerRef.current);
+      viewCloseTimerRef.current = null;
+    }
     setViewItem(lead);
     setIsViewOpen(true);
     setShowHistory(true);
+    requestAnimationFrame(() => setIsViewVisible(true));
   };
   const closeView = () => {
-    setIsViewOpen(false);
-    setViewItem(null);
-    setIsSwitchHistoryOpen(false);
-    setShowFullDescription(false);
-    setShowHistory(false);
-    setIsConversationMaximized(false);
+    setIsViewVisible(false);
+    if (viewCloseTimerRef.current) clearTimeout(viewCloseTimerRef.current);
+    viewCloseTimerRef.current = setTimeout(() => {
+      setIsViewOpen(false);
+      setViewItem(null);
+      setIsSwitchHistoryOpen(false);
+      setShowFullDescription(false);
+      setShowHistory(false);
+      setIsConversationMaximized(false);
+      viewCloseTimerRef.current = null;
+    }, 220);
   };
+
+  useEffect(() => {
+    return () => {
+      if (viewCloseTimerRef.current) clearTimeout(viewCloseTimerRef.current);
+    };
+  }, []);
 
   const openEdit = (lead: Lead) => { setEditItem(lead); setIsEditOpen(true); };
   const closeEdit = () => { setIsEditOpen(false); setEditItem(null); };
@@ -1024,7 +1042,7 @@ export default function LeadsPage() {
                       <th className="px-4 py-3 font-medium text-gray-600 w-[170px]">Visitor</th>
                       <th className="px-4 py-3 font-medium text-gray-600 w-[95px]">Status</th>
                       {activeSourceTab === 'all' && (
-                        <th className="px-4 py-3 font-medium text-gray-600">Channel</th>
+                        <th className="px-4 py-3 font-medium text-gray-600 w-[90px]">Channel</th>
                       )}
                       <th className="px-4 py-3 font-medium text-gray-600 min-w-[170px]">Interaction</th>
                       <th className="px-4 py-3 font-medium text-gray-600 min-w-[220px]">Country / Location</th>
@@ -1042,10 +1060,10 @@ export default function LeadsPage() {
                         </td>
                         <td className="px-4 py-3 text-gray-600 w-[95px]"><span className={`inline-flex whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span></td>
                         {activeSourceTab === 'all' && (
-                          <td className="px-4 py-3 text-gray-600">{channelLabel(l.sourceChannel)}</td>
+                          <td className="px-4 py-3 text-gray-600 w-[90px] whitespace-nowrap">{channelLabel(l.sourceChannel)}</td>
                         )}
-                        <td className="px-4 py-3 text-gray-600 align-top">
-                          <span className="inline-flex items-start gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs max-w-[170px] whitespace-normal break-words leading-snug">
+                        <td className="px-4 py-3 text-gray-600">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs max-w-[170px] whitespace-normal break-words leading-snug">
                             {interactedWithIcon(interactedWithText(l))}
                             <span>{interactedWithText(l)}</span>
                           </span>
@@ -1109,9 +1127,16 @@ export default function LeadsPage() {
 
           {isViewOpen && viewItem && (
             <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-              <div className="absolute inset-0 bg-black/30" onClick={closeView}></div>
               <div
-                className="relative w-full sm:max-w-4xl rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-200 max-h-[92vh] overflow-y-auto"
+                className={`absolute inset-0 bg-black/30 transition-opacity duration-200 ${isViewVisible ? 'opacity-100' : 'opacity-0'}`}
+                onClick={closeView}
+              ></div>
+              <div
+                className={`relative w-full sm:max-w-4xl rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-200 max-h-[92vh] overflow-y-auto transition-all duration-200 ease-out ${
+                  isViewVisible
+                    ? 'opacity-100 translate-y-0 sm:scale-100'
+                    : 'opacity-0 translate-y-4 sm:translate-y-2 sm:scale-[0.985]'
+                }`}
                 style={{ background: dialogBg }}
               >
                 <div className="p-4 sm:p-6">
@@ -1526,14 +1551,38 @@ export default function LeadsPage() {
                   <button className="text-gray-500" onClick={closeEdit}>✕</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input className="border border-gray-300 rounded px-3 py-2 md:col-span-2" placeholder="Title" value={editItem.title} onChange={(e) => setEditItem({ ...editItem, title: e.target.value })} />
-                  <input className="border border-gray-300 rounded px-3 py-2" placeholder="Lead name" value={editItem.leadName || ''} onChange={(e) => setEditItem({ ...editItem, leadName: e.target.value })} />
-                  <input className="border border-gray-300 rounded px-3 py-2" placeholder="Lead phone number" value={editItem.leadPhoneNumber || ''} onChange={(e) => setEditItem({ ...editItem, leadPhoneNumber: e.target.value })} />
-                  <input className="border border-gray-300 rounded px-3 py-2 md:col-span-2" placeholder="Lead email" value={editItem.leadEmail || ''} onChange={(e) => setEditItem({ ...editItem, leadEmail: e.target.value })} />
-                  <input className="border border-gray-300 rounded px-3 py-2" placeholder="Lead type" value={editItem.leadType || ''} onChange={(e) => setEditItem({ ...editItem, leadType: e.target.value })} />
-                  <input className="border border-gray-300 rounded px-3 py-2" placeholder="Service type" value={editItem.serviceType || ''} onChange={(e) => setEditItem({ ...editItem, serviceType: e.target.value })} />
-                  <textarea className="w-full border border-gray-300 rounded px-3 py-2 md:col-span-2" rows={3} placeholder="Summary" value={editItem.summary || ''} onChange={(e) => setEditItem({ ...editItem, summary: e.target.value })}></textarea>
-                  <textarea className="w-full border border-gray-300 rounded px-3 py-2 md:col-span-2" rows={4} placeholder="Description" value={editItem.description || ''} onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}></textarea>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+                    <input className="w-full border border-gray-300 rounded px-3 py-2" placeholder="Title" value={editItem.title} onChange={(e) => setEditItem({ ...editItem, title: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Lead name</label>
+                    <input className="w-full border border-gray-300 rounded px-3 py-2" placeholder="Lead name" value={editItem.leadName || ''} onChange={(e) => setEditItem({ ...editItem, leadName: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Lead phone number</label>
+                    <input className="w-full border border-gray-300 rounded px-3 py-2" placeholder="Lead phone number" value={editItem.leadPhoneNumber || ''} onChange={(e) => setEditItem({ ...editItem, leadPhoneNumber: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Lead email</label>
+                    <input className="w-full border border-gray-300 rounded px-3 py-2" placeholder="Lead email" value={editItem.leadEmail || ''} onChange={(e) => setEditItem({ ...editItem, leadEmail: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Lead type</label>
+                    <input className="w-full border border-gray-300 rounded px-3 py-2" placeholder="Lead type" value={editItem.leadType || ''} onChange={(e) => setEditItem({ ...editItem, leadType: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Service type</label>
+                    <input className="w-full border border-gray-300 rounded px-3 py-2" placeholder="Service type" value={editItem.serviceType || ''} onChange={(e) => setEditItem({ ...editItem, serviceType: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Summary</label>
+                    <textarea className="w-full border border-gray-300 rounded px-3 py-2" rows={3} placeholder="Summary" value={editItem.summary || ''} onChange={(e) => setEditItem({ ...editItem, summary: e.target.value })}></textarea>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                    <textarea className="w-full border border-gray-300 rounded px-3 py-2" rows={4} placeholder="Description" value={editItem.description || ''} onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}></textarea>
+                  </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <button className="btn-secondary" onClick={closeEdit}>Cancel</button>
