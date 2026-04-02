@@ -372,9 +372,7 @@ export default function ChatbotSettingsPage() {
       newSettings.companyName !== originalSettings.companyName ||
       newSettings.greeting !== originalSettings.greeting ||
       newSettings.primaryColor !== originalSettings.primaryColor ||
-      Boolean(newSettings.validateEmail) !== Boolean(originalSettings.validateEmail) ||
-      Boolean(newSettings.validatePhoneNumber) !== Boolean(originalSettings.validatePhoneNumber) ||
-      Boolean(newSettings.conversationStyle) !== Boolean(originalSettings.conversationStyle) ||
+      // validateEmail/validatePhoneNumber/conversationStyle are managed at App creation level
       Boolean(newSettings.googleReviewEnabled) !== Boolean(originalSettings.googleReviewEnabled) ||
       (newSettings.googleReviewUrl ?? '') !== (originalSettings.googleReviewUrl ?? '') ||
       JSON.stringify(newSettings.preferredLanguages || []) !== JSON.stringify(originalSettings.preferredLanguages || []) ||
@@ -719,61 +717,10 @@ export default function ChatbotSettingsPage() {
                   </div>
                 </div>
 
-                {/* Validation Settings */}
+                {/* Google Review (after lead creation) */}
                 <div className="md:col-span-2">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <label className="text-sm font-medium text-gray-700">Validate Email</label>
-                        <p className="text-sm text-gray-500">Require valid email when users provide email addresses</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={settings.validateEmail || false}
-                          onChange={(e) => updateSettings({ ...settings, validateEmail: e.target.checked })}
-                        />
-                        <div className="brand-toggle-track"></div>
-                      </label>
-                    </div>
-                    
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <label className="text-sm font-medium text-gray-700">Validate Phone Number</label>
-                        <p className="text-sm text-gray-500">Require valid phone number when users provide phone numbers</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={settings.validatePhoneNumber || false}
-                          onChange={(e) => updateSettings({ ...settings, validatePhoneNumber: e.target.checked })}
-                        />
-                        <div className="brand-toggle-track"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <label className="text-sm font-medium text-gray-700">Conversational Style</label>
-                        <p className="text-sm text-gray-500">
-                          When enabled, the bot uses free-form conversation on web, WhatsApp, Messenger, and Instagram.
-                        </p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={settings.conversationStyle || false}
-                          onChange={(e) => updateSettings({ ...settings, conversationStyle: e.target.checked })}
-                        />
-                        <div className="brand-toggle-track"></div>
-                      </label>
-                    </div>
-
-                    {/* Google Review (after lead creation) */}
-                    <div className="pt-4 border-t border-gray-200 mt-4">
+                    <div className="pt-0 border-t-0 border-gray-200 mt-0">
                       <div className="flex items-center justify-between gap-4 mb-3">
                         <div className="min-w-0">
                           <label className="text-sm font-medium text-gray-700">Ask for Google review after lead creation</label>
