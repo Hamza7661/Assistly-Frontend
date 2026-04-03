@@ -58,7 +58,6 @@ export default function LeadsPage() {
   const [isViewVisible, setIsViewVisible] = useState(false);
   const [viewItem, setViewItem] = useState<Lead | null>(null);
   const [isSwitchHistoryOpen, setIsSwitchHistoryOpen] = useState(false);
-  const [isServiceSwitchHistoryOpen, setIsServiceSwitchHistoryOpen] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [isConversationMaximized, setIsConversationMaximized] = useState(false);
@@ -1507,23 +1506,6 @@ export default function LeadsPage() {
                         {viewItem.leadTypeSwitchHistory && viewItem.leadTypeSwitchHistory.length > 0 ? 'Lead type was changed during the conversation.' : 'No switches recorded.'}
                       </div>
                     </div>
-                    {/* Service switch history */}
-                    <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-gray-900">Service switches</div>
-                        <button
-                          type="button"
-                          className="inline-flex items-center rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => setIsServiceSwitchHistoryOpen(true)}
-                          disabled={!viewItem.serviceSwitchHistory || viewItem.serviceSwitchHistory.length === 0}
-                        >
-                          View ({viewItem.serviceSwitchHistory?.length || 0})
-                        </button>
-                      </div>
-                      <div className="mt-2 text-xs text-gray-600">
-                        {viewItem.serviceSwitchHistory && viewItem.serviceSwitchHistory.length > 0 ? 'Service was changed during the conversation.' : 'No service switches recorded.'}
-                      </div>
-                    </div>
                   </div>
 
                   <div className="mt-5 flex justify-end gap-2">
@@ -1626,38 +1608,6 @@ export default function LeadsPage() {
                 </div>
                 <div className="mt-4 flex justify-end">
                   <button className="btn-secondary" onClick={() => setIsSwitchHistoryOpen(false)}>Close</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {isViewOpen && isServiceSwitchHistoryOpen && viewItem && (
-            <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-              <div className="absolute inset-0 bg-black/40" onClick={() => setIsServiceSwitchHistoryOpen(false)}></div>
-              <div className="relative bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-xl shadow-lg border border-gray-200 p-4 sm:p-5 max-h-[85vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Service Switch History</h3>
-                  <button className="text-gray-500" onClick={() => setIsServiceSwitchHistoryOpen(false)}>✕</button>
-                </div>
-                <div className="space-y-2">
-                  {(viewItem.serviceSwitchHistory || []).length === 0 && (
-                    <p className="text-sm text-gray-500">No service switches recorded for this conversation.</p>
-                  )}
-                  {(viewItem.serviceSwitchHistory || []).map((entry, idx) => (
-                    <div key={`${entry.at || 'svc-switch'}-${idx}`} className="border border-gray-200 rounded px-3 py-2 bg-gray-50 text-sm">
-                      <div className="font-medium text-gray-800 inline-flex flex-wrap items-center gap-1">
-                        <span>{(entry.from || '').trim() || 'Unknown'}</span>
-                        <span className="text-gray-400">→</span>
-                        <span>{(entry.to || '').trim() || 'Unknown'}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {entry.at ? new Date(entry.at).toLocaleString() : 'Time unavailable'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <button className="btn-secondary" onClick={() => setIsServiceSwitchHistoryOpen(false)}>Close</button>
                 </div>
               </div>
             </div>
