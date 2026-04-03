@@ -109,8 +109,6 @@ export default function ChatbotSettingsPage() {
     validateEmail: false,
     validatePhoneNumber: false,
     conversationStyle: false,
-    googleReviewEnabled: false,
-    googleReviewUrl: '',
     preferredLanguages: [],
     leadTypeMessages: []
   });
@@ -269,8 +267,6 @@ export default function ChatbotSettingsPage() {
           validateEmail: integration?.validateEmail || false,
           validatePhoneNumber: integration?.validatePhoneNumber || false,
           conversationStyle: integration?.conversationStyle || false,
-          googleReviewEnabled: integration?.googleReviewEnabled || false,
-          googleReviewUrl: integration?.googleReviewUrl ?? '',
           preferredLanguages: integration?.preferredLanguages?.slice(0, PREFERRED_LANGUAGES_MAX) ?? [],
           leadTypeMessages
         };
@@ -373,8 +369,6 @@ export default function ChatbotSettingsPage() {
       newSettings.greeting !== originalSettings.greeting ||
       newSettings.primaryColor !== originalSettings.primaryColor ||
       // validateEmail/validatePhoneNumber/conversationStyle are managed at App creation level
-      Boolean(newSettings.googleReviewEnabled) !== Boolean(originalSettings.googleReviewEnabled) ||
-      (newSettings.googleReviewUrl ?? '') !== (originalSettings.googleReviewUrl ?? '') ||
       JSON.stringify(newSettings.preferredLanguages || []) !== JSON.stringify(originalSettings.preferredLanguages || []) ||
       newSettings.chatbotImage !== originalSettings.chatbotImage ||
       selectedFile !== null ||
@@ -615,7 +609,7 @@ export default function ChatbotSettingsPage() {
                         onClick={() =>
                           setOpenEmojiPicker(
                             openEmojiPicker && openEmojiPicker.type === 'greeting'
-                              ? left
+                              ? null
                               : { type: 'greeting' }
                           )
                         }
@@ -712,44 +706,6 @@ export default function ChatbotSettingsPage() {
                             • If Company Name is left empty, phrases like &quot;from {'{'}companyName{'}'}&quot; or &quot;at {'{'}companyName{'}'}&quot; will be automatically removed from the greeting.
                           </p>
                         </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Google Review (after lead creation) */}
-                <div className="md:col-span-2">
-                  <div className="space-y-4">
-                    <div className="pt-0 border-t-0 border-gray-200 mt-0">
-                      <div className="flex items-center justify-between gap-4 mb-3">
-                        <div className="min-w-0">
-                          <label className="text-sm font-medium text-gray-700">Ask for Google review after lead creation</label>
-                          <p className="text-sm text-gray-500">Show a &quot;Write a review&quot; prompt in the chat after users submit their name and email</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={settings.googleReviewEnabled || false}
-                            onChange={(e) => updateSettings({ ...settings, googleReviewEnabled: e.target.checked })}
-                          />
-                          <div className="brand-toggle-track"></div>
-                        </label>
-                      </div>
-                      {settings.googleReviewEnabled && (
-                        <div className="mt-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Google review URL</label>
-                          <input
-                            type="url"
-                            className="input-field w-full"
-                            placeholder="https://search.google.com/local/writereview?placeid=..."
-                            value={settings.googleReviewUrl ?? ''}
-                            onChange={(e) => updateSettings({ ...settings, googleReviewUrl: e.target.value.trim() || '' })}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Paste the &quot;Write a review&quot; link from your Google Business Profile. In Google Search, open your business and click &quot;Write a review&quot; to copy the URL.
-                          </p>
-                        </div>
                       )}
                     </div>
                   </div>

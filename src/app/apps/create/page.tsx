@@ -60,6 +60,8 @@ export default function CreateAppPage() {
     validateEmail: true,
     validatePhoneNumber: true,
     conversationStyle: false,
+    googleReviewEnabled: false,
+    googleReviewUrl: '',
   });
 
   const [whatsAppData, setWhatsAppData] = useState({
@@ -249,6 +251,10 @@ export default function CreateAppPage() {
             validateEmail: !!leadCaptureSettings.validateEmail,
             validatePhoneNumber: !!leadCaptureSettings.validatePhoneNumber,
             conversationStyle: !!leadCaptureSettings.conversationStyle,
+            googleReviewEnabled: !!leadCaptureSettings.googleReviewEnabled,
+            googleReviewUrl: leadCaptureSettings.googleReviewEnabled
+              ? (leadCaptureSettings.googleReviewUrl || '').trim()
+              : '',
           });
         } catch (e: any) {
           toast.error(e?.message || 'Failed to save lead capture settings');
@@ -589,7 +595,7 @@ export default function CreateAppPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -643,7 +649,49 @@ export default function CreateAppPage() {
                         </label>
                       </div>
                     </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">Ask for Google review after lead creation</div>
+                          <div className="text-xs text-gray-600 mt-1">Show a "Write a review" prompt in chat after users submit name and email.</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={leadCaptureSettings.googleReviewEnabled}
+                            onChange={(e) =>
+                              setLeadCaptureSettings((p) => ({
+                                ...p,
+                                googleReviewEnabled: e.target.checked,
+                                googleReviewUrl: e.target.checked ? p.googleReviewUrl : '',
+                              }))
+                            }
+                          />
+                          <div className="brand-toggle-track"></div>
+                        </label>
+                      </div>
+                    </div>
                   </div>
+
+                  {leadCaptureSettings.googleReviewEnabled && (
+                    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Google review URL</label>
+                      <input
+                        type="url"
+                        className="input-field w-full"
+                        placeholder="https://www.trustpilot.com/evaluate/facelism.com"
+                        value={leadCaptureSettings.googleReviewUrl}
+                        onChange={(e) =>
+                          setLeadCaptureSettings((p) => ({ ...p, googleReviewUrl: e.target.value }))
+                        }
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Paste the "Write a review" link from your Google Business Profile. In Google Search, open your business and click "Write a review" to copy the URL.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200">

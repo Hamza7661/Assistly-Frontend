@@ -49,6 +49,7 @@ function ChatbotWorkflowPageContent() {
     title: '',
     question: '',
     questionTypeId: 0,
+    choiceInputMode: 'button',
     options: [],
     isRoot: false,
     isActive: true,
@@ -152,6 +153,7 @@ function ChatbotWorkflowPageContent() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
+      choiceInputMode: 'button',
       options: [],
       isRoot: true,
       isActive: true,
@@ -170,6 +172,7 @@ function ChatbotWorkflowPageContent() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
+      choiceInputMode: 'button',
       options: [],
       isRoot: false,
       isActive: true,
@@ -205,6 +208,7 @@ function ChatbotWorkflowPageContent() {
         ...newQuestion,
         title: newQuestion.title?.trim() || newQuestion.question.trim().substring(0, 100),
         questionTypeId: resolvedQuestionTypeId,
+        choiceInputMode: newQuestion.choiceInputMode || 'button',
       };
 
       let savedWorkflowId: string | null = null;
@@ -261,6 +265,7 @@ function ChatbotWorkflowPageContent() {
         title: '',
         question: '',
         questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
+        choiceInputMode: 'button',
         options: [],
         isRoot: false,
         isActive: true,
@@ -283,6 +288,7 @@ function ChatbotWorkflowPageContent() {
       title: '',
       question: '',
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
+      choiceInputMode: 'button',
       options: [],
       isRoot: false,
       isActive: true,
@@ -300,6 +306,7 @@ function ChatbotWorkflowPageContent() {
     setNewQuestion({
       ...question,
       questionTypeId: typeId,
+      choiceInputMode: question.choiceInputMode || 'button',
       options: ensureChoiceTypeHasButtonRow(typeId, question.options),
     });
     setPendingAttachmentFile(null);
@@ -310,6 +317,7 @@ function ChatbotWorkflowPageContent() {
 
   const handleDeleteQuestion = async () => {
     if (!questionIdToDelete) return;
+    if (!currentApp?.id) return;
     try {
       const service = await useChatbotWorkflowService();
 
@@ -374,6 +382,7 @@ function ChatbotWorkflowPageContent() {
   };
 
   const handleDragEnd = async (event: DragEndEvent, workflowGroupId: string) => {
+    if (!currentApp?.id) return;
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -964,6 +973,7 @@ function ChatbotWorkflowPageContent() {
     const isChoiceQuestionType =
       selectedQuestionType?.code === 'single_choice' ||
       selectedQuestionType?.code === 'multiple_choice';
+    const isMultipleChoiceQuestionType = selectedQuestionType?.code === 'multiple_choice';
 
     return (
       <div className="space-y-5">
@@ -1040,9 +1050,12 @@ function ChatbotWorkflowPageContent() {
               value={newQuestion.questionTypeId || questionTypes[0].id}
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
+                const qt = questionTypes.find((item) => item.id === val);
+                const isMulti = qt?.code === 'multiple_choice';
                 setNewQuestion((prev) => ({
                   ...prev,
                   questionTypeId: val,
+                  choiceInputMode: isMulti ? (prev.choiceInputMode || 'button') : 'button',
                   options: ensureChoiceTypeHasButtonRow(val, prev.options),
                 }));
               }}
@@ -1060,6 +1073,33 @@ function ChatbotWorkflowPageContent() {
 
         {/* ── Chat buttons / options & branching ─────────────────────────── */}
         <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+            {isMultipleChoiceQuestionType && (
+              <div className="rounded-lg border border-purple-100 bg-purple-50 p-3">
+                <label className="block text-xs font-medium text-purple-800 mb-1.5">
+                  Response UI for guests
+                </label>
+                <div className="flex items-center gap-4 text-xs text-purple-900">
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="choiceInputMode"
+                      checked={(newQuestion.choiceInputMode || 'button') === 'button'}
+                      onChange={() => setNewQuestion((prev) => ({ ...prev, choiceInputMode: 'button' }))}
+                    />
+                    Buttons (single tap)
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="choiceInputMode"
+                      checked={newQuestion.choiceInputMode === 'checkbox'}
+                      onChange={() => setNewQuestion((prev) => ({ ...prev, choiceInputMode: 'checkbox' }))}
+                    />
+                    Checkboxes (multi-select)
+                  </label>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
@@ -1070,7 +1110,9 @@ function ChatbotWorkflowPageContent() {
                   {isChoiceQuestionType
                     ? selectedQuestionType?.code === 'single_choice'
                       ? 'Each row is one chat button shown with your question. The guest taps exactly one. You can branch each button to a different next step.'
-                      : 'Each row is one chat button shown with your question. The guest may select several where the channel supports it. You can branch each button to a different next step.'
+                      : (newQuestion.choiceInputMode === 'checkbox'
+                          ? 'Each row is one checkbox option. The guest can pick multiple options, then submit. Branching follows the first matched selected option.'
+                          : 'Each row is one chat button shown with your question. The guest may select several where the channel supports it. You can branch each button to a different next step.')
                     : 'Add optional quick-reply style buttons, or leave empty for a typed reply only. Each row can branch to a different next question.'}
                 </p>
               </div>
@@ -1078,17 +1120,19 @@ function ChatbotWorkflowPageContent() {
                 type="button"
                 onClick={addOption}
                 className="btn-secondary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
-                aria-label={isChoiceQuestionType ? 'Add another chat button' : 'Add option'}
+                aria-label={isChoiceQuestionType ? 'Add another option' : 'Add option'}
               >
                 <Plus className="h-3 w-3" />
-                {isChoiceQuestionType ? 'Add button' : 'Add option'}
+                {isChoiceQuestionType && newQuestion.choiceInputMode === 'checkbox' ? 'Add checkbox' : isChoiceQuestionType ? 'Add button' : 'Add option'}
               </button>
             </div>
 
             {options.length === 0 && (
               <p className="text-xs text-gray-400 italic">
                 {isChoiceQuestionType
-                  ? 'No button labels yet. Click “Add button” and enter the text that will appear on each button in chat (e.g. “Yes”, “Talk to sales”).'
+                  ? newQuestion.choiceInputMode === 'checkbox'
+                    ? 'No checkbox options yet. Click "Add checkbox" and enter each selectable option.'
+                    : 'No button labels yet. Click "Add button" and enter the text that will appear on each button in chat (e.g. "Yes", "Talk to sales").'
                   : 'No options yet — the chatbot will expect a free-text reply. Add options to offer clickable choices.'}
               </p>
             )}
@@ -1101,7 +1145,11 @@ function ChatbotWorkflowPageContent() {
                   </span>
                   <div className="flex-1 min-w-0 space-y-1">
                     <label className="block text-xs font-medium text-gray-600">
-                      {isChoiceQuestionType ? 'Button label (shown in chat)' : 'Option label'}
+                      {isChoiceQuestionType
+                        ? newQuestion.choiceInputMode === 'checkbox'
+                          ? 'Checkbox label (shown in chat)'
+                          : 'Button label (shown in chat)'
+                        : 'Option label'}
                     </label>
                     <div className="flex items-center gap-2">
                       <input
@@ -1109,18 +1157,20 @@ function ChatbotWorkflowPageContent() {
                         className="input-field flex-1 min-w-0 text-sm py-1"
                         placeholder={
                           isChoiceQuestionType
-                            ? 'e.g. Book a consultation, Not now, Speak to human'
+                            ? newQuestion.choiceInputMode === 'checkbox'
+                              ? 'e.g. Acne treatment, Wrinkle treatment, Hydration'
+                              : 'e.g. Book a consultation, Not now, Speak to human'
                             : "Option text (e.g. I'm a job seeker)"
                         }
                         value={opt.text}
                         onChange={(e) => updateOption(idx, 'text', e.target.value)}
-                        aria-label={isChoiceQuestionType ? `Button label ${idx + 1}` : `Option ${idx + 1}`}
+                        aria-label={isChoiceQuestionType ? `Choice label ${idx + 1}` : `Option ${idx + 1}`}
                       />
                       <button
                         type="button"
                         onClick={() => removeOption(idx)}
                         className="text-red-400 hover:text-red-600 p-1 shrink-0"
-                        title={isChoiceQuestionType ? 'Remove button' : 'Remove option'}
+                        title={isChoiceQuestionType ? 'Remove choice' : 'Remove option'}
                       >
                         <X className="h-4 w-4" />
                       </button>

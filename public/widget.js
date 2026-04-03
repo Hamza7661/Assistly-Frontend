@@ -29,6 +29,7 @@
   var bellQueuedAt = 0;         // timestamp when bell was queued
   var BELL_WINDOW_MS = 4000;    // cancel if user hasn't interacted within 4 s of widget opening
   var bellExpiryTimer = null;
+  var initialLoadBellPlayed = false;
 
   function cancelBell() {
     bellQueued = false;
@@ -108,6 +109,33 @@
         scheduleBellTones();
       }).catch(function() {});
     }
+  }
+
+  // First-load bell (on widget bootstrap), independent from "open" bell.
+  // Best-effort immediate playback without relying on click/open interaction.
+  function playInitialLoadBellSound() {
+    if (initialLoadBellPlayed) return;
+    initialLoadBellPlayed = true;
+    if (!ensureAudioContext()) return;
+
+    try {
+      if (bellAudioContext.state === 'suspended') {
+        // Try immediate resume/play. If blocked by browser policy,
+        // we still queue so it can fire on first user interaction.
+        bellAudioContext.resume().then(function() {
+          bellQueued = true;
+          scheduleBellTones();
+        }).catch(function() {
+          // Autoplay can be blocked without user interaction.
+          // Keep queued without expiry so it rings on first interaction.
+          bellQueued = true;
+          if (bellExpiryTimer) { clearTimeout(bellExpiryTimer); bellExpiryTimer = null; }
+        });
+      } else {
+        bellQueued = true;
+        scheduleBellTones();
+      }
+    } catch (e) {}
   }
   // ── End Audio ──────────────────────────────────────────────────────────────
   
@@ -317,6 +345,9 @@
     
     // Apply initial box shadow
     applyBoxShadow(iframe);
+
+    // Ring once on initial widget load (page load bootstrap)
+    playInitialLoadBellSound();
     
   }
   

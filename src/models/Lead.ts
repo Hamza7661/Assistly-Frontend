@@ -38,6 +38,11 @@ export interface Lead {
     to?: string;
     at?: string;
   }>;
+  serviceSwitchHistory?: Array<{
+    from?: string;
+    to?: string;
+    at?: string;
+  }>;
   leadDateTime?: string; // ISO string
   history?: ConversationMessage[];
   createdAt?: string;
