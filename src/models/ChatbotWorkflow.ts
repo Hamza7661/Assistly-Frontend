@@ -28,6 +28,7 @@ export interface ChatbotWorkflowItem {
   title: string;
   question: string;
   questionTypeId?: number;
+  choiceInputMode?: 'button' | 'checkbox';
   options: WorkflowOption[];
   attachment?: WorkflowAttachment;
   isRoot?: boolean;
@@ -44,6 +45,7 @@ export class ChatbotWorkflow {
   title: string;
   question: string;
   questionTypeId?: number;
+  choiceInputMode?: 'button' | 'checkbox';
   options: WorkflowOption[];
   attachment?: WorkflowAttachment;
   isRoot: boolean;
@@ -59,6 +61,7 @@ export class ChatbotWorkflow {
     this.title = data.title || '';
     this.question = data.question || '';
     this.questionTypeId = data.questionTypeId ?? 0;
+    this.choiceInputMode = data.choiceInputMode ?? 'button';
     this.options = data.options || [];
     this.attachment = data.attachment;
     this.isRoot = data.isRoot ?? false;
@@ -80,6 +83,7 @@ export class ChatbotWorkflow {
       title: this.title,
       question: this.question,
       questionTypeId: this.questionTypeId,
+      choiceInputMode: this.choiceInputMode,
       isRoot: this.isRoot,
       isActive: this.isActive,
       order: this.order,

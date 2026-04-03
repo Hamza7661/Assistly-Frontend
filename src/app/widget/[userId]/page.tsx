@@ -16,7 +16,8 @@ type AnyMessage =
   | ReviewPromptMessage
   | UserFileMessage
   | { type: 'user'; content: string }
-  | { type: 'user_replay'; content: string };
+  | { type: 'user_replay'; content: string }
+  | { type: 'session_complete' };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -94,7 +95,22 @@ export default function WidgetPage() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
+  const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
   const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
+  const [hasActiveConversation, setHasActiveConversation] = useState(false);
+
+  const persistConversationMeta = (meta: { active?: boolean; leadId?: string | null; clickedItems?: string[] }) => {
+    if (!conversationMetaStorageKey || typeof window === 'undefined') return;
+    try {
+      const existingRaw = sessionStorage.getItem(conversationMetaStorageKey);
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      const next = {
+        ...existing,
+        ...meta,
+      };
+      sessionStorage.setItem(conversationMetaStorageKey, JSON.stringify(next));
+    } catch {}
+  };
 
   useEffect(() => {
     if (!resumeStorageKey || typeof window === 'undefined') return;
@@ -107,7 +123,24 @@ export default function WidgetPage() {
       sessionStorage.setItem(resumeStorageKey, id);
     }
     setWidgetSessionId(id);
-  }, [resumeStorageKey]);
+
+    if (conversationMetaStorageKey) {
+      try {
+        const rawMeta = sessionStorage.getItem(conversationMetaStorageKey);
+        if (rawMeta) {
+          const meta = JSON.parse(rawMeta) as {
+            active?: boolean;
+            leadId?: string | null;
+            clickedItems?: string[];
+          };
+          const isActive = Boolean(meta.active);
+          setHasActiveConversation(isActive);
+          if (isActive && meta.leadId) setLeadId(meta.leadId);
+          if (Array.isArray(meta.clickedItems)) setClickedItems(meta.clickedItems);
+        }
+      } catch {}
+    }
+  }, [resumeStorageKey, conversationMetaStorageKey]);
 
   const clearReconnectTimer = () => {
     if (reconnectTimerRef.current) {
@@ -129,7 +162,11 @@ export default function WidgetPage() {
         sourceChannel: 'web',
       });
       const id = json?.data?.lead?._id;
-      if (id) setLeadId(id);
+      if (id) {
+        setLeadId(id);
+        setHasActiveConversation(true);
+        persistConversationMeta({ active: true, leadId: id, clickedItems: [] });
+      }
     } catch {}
   };
 
@@ -242,19 +279,23 @@ export default function WidgetPage() {
   useEffect(() => {
     if (!settingsLoaded || !widgetSessionId) return;
     const timer = setTimeout(() => {
-      setMessages([]);
-      setConnected(false);
-      setChatEnded(false);
-      setIsTyping(false);
-      setFileUploadEnabled(false);
-      setClickedItems([]);
+      if (!hasActiveConversation) {
+        setMessages([]);
+        setConnected(false);
+        setChatEnded(false);
+        setIsTyping(false);
+        setFileUploadEnabled(false);
+        setClickedItems([]);
+      }
       setIsOpen(true);
       sendWidgetState(true);
       resizeIframe(600);
-      createInteractionLead();
+      if (!hasActiveConversation) {
+        createInteractionLead();
+      }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [settingsLoaded, countryCode, widgetSessionId]);
+  }, [settingsLoaded, countryCode, widgetSessionId, hasActiveConversation, leadId]);
 
   useEffect(() => {
     // Only connect when widget is opened
@@ -294,14 +335,35 @@ export default function WidgetPage() {
         // Handle file upload enable signal (not a chat message)
         if (msgType === 'enable_file_upload') {
           setFileUploadEnabled(true);
+          setHasActiveConversation(true);
+          persistConversationMeta({ active: true, leadId, clickedItems });
+          return;
+        }
+
+        // Terminal state notification from backend: next open should start fresh
+        if (msgType === 'session_complete') {
+          setHasActiveConversation(false);
+          setLeadId(null);
+          setClickedItems([]);
+          if (conversationMetaStorageKey && typeof window !== 'undefined') {
+            try {
+              sessionStorage.removeItem(conversationMetaStorageKey);
+            } catch {}
+          }
           return;
         }
 
         if (msgType === 'user_replay') {
           setMessages((prev) => [...prev, { type: 'user_replay', content: String((msg as { content?: string }).content || '') }]);
+          setHasActiveConversation(true);
+          persistConversationMeta({ active: true, leadId, clickedItems });
           return;
         }
         setMessages((prev) => [...prev, msg]);
+        if (msgType === 'bot' || msgType === 'review_prompt') {
+          setHasActiveConversation(true);
+          persistConversationMeta({ active: true, leadId, clickedItems });
+        }
         if (msgType === 'warn' || msgType === 'error') {
           setIsTyping(false);
           return;
@@ -350,7 +412,7 @@ export default function WidgetPage() {
       wsRef.current = null; // Clear ref BEFORE close so stale onclose is ignored
       ws?.close();
     };
-  }, [fullWsUrl, isOpen, connectAttempt, widgetSessionId]);
+  }, [fullWsUrl, isOpen, connectAttempt, widgetSessionId, leadId, clickedItems, conversationMetaStorageKey]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -379,9 +441,12 @@ export default function WidgetPage() {
       country: countryCode
     }));
     setMessages((prev) => [...prev, { type: 'user', content: (displayText || value) }]);
+    setHasActiveConversation(true);
+    persistConversationMeta({ active: true, leadId, clickedItems });
     if (displayText) {
       const nextClicked = [...clickedItems, displayText];
       setClickedItems(nextClicked);
+      persistConversationMeta({ active: true, leadId, clickedItems: nextClicked });
       updateInteractionLead({
         initialInteraction: clickedItems.length === 0 ? displayText : undefined,
         clickedItems: nextClicked,
@@ -546,18 +611,86 @@ export default function WidgetPage() {
     );
   };
 
+  const CheckboxChoiceGroup = ({
+    options,
+    groupKey,
+  }: {
+    options: Array<{ value: string; label: string }>;
+    groupKey: string;
+  }) => {
+    const [selected, setSelected] = useState<string[]>([]);
+    const toggle = (value: string) => {
+      setSelected((prev) =>
+        prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+      );
+    };
+
+    return (
+      <div className="w-full rounded-lg border border-gray-200 bg-white/80 p-2 space-y-2">
+        <p className="text-[11px] sm:text-xs text-gray-600">
+          Select one or more, then click Submit selection.
+        </p>
+        <div className="space-y-1">
+          {options.map((opt, idx) => {
+            const id = `${groupKey}-${idx}`;
+            const isChecked = selected.includes(opt.value);
+            return (
+              <label key={id} htmlFor={id} className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
+                <input
+                  id={id}
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => toggle(opt.value)}
+                  className="rounded border-gray-300 text-[#c01721] focus:ring-[#c01721]"
+                />
+                <span>{opt.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          disabled={selected.length === 0}
+          className="rounded-full text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: settings.primaryColor || '#c01721' } as React.CSSProperties}
+          onClick={() => {
+            const payload = selected.join(', ');
+            sendText(payload, payload);
+          }}
+        >
+          Submit selection
+        </button>
+      </div>
+    );
+  };
+
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
     // Matches:
     // <button>text</button>
     // <button value="val">text</button>
+    // <checkbox value="val">text</checkbox>
     // <file url="..." name="filename">label</file>
-    const regex = /<(button|file)(?:\s+value=["']([^"']*)["'])?(?:\s+url=["']([^"']*)["'])?(?:\s+name=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
+    const regex = /<(button|file|checkbox)(?:\s+value=["']([^"']*)["'])?(?:\s+url=["']([^"']*)["'])?(?:\s+name=["']([^"']*)["'])?(?:\s+group=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
+    let pendingCheckboxes: Array<{ value: string; label: string }> = [];
+
+    const flushCheckboxes = (keySeed: number) => {
+      if (pendingCheckboxes.length === 0) return;
+      parts.push(
+        <CheckboxChoiceGroup
+          key={`cb-${keySeed}`}
+          groupKey={`cb-${keySeed}`}
+          options={pendingCheckboxes}
+        />
+      );
+      pendingCheckboxes = [];
+    };
     
     while ((match = regex.exec(text)) !== null) {
       if (match.index > lastIndex) {
+        flushCheckboxes(match.index);
         const chunk = text.slice(lastIndex, match.index).trim();
         if (chunk) parts.push(renderTextWithLinks(chunk, `t-${lastIndex}`));
       }
@@ -566,9 +699,10 @@ export default function WidgetPage() {
       const buttonValue = match[2] || '';
       const fileUrl = match[3] || '';
       const fileName = match[4] || 'Download';
-      const innerText = (match[5] || '').trim();
+      const innerText = (match[6] || '').trim();
 
       if (tagName === 'file' && fileUrl) {
+        flushCheckboxes(match.index);
         parts.push(
           <a
             key={`f-${match.index}`}
@@ -586,6 +720,7 @@ export default function WidgetPage() {
           </a>
         );
       } else if (tagName === 'button' && innerText) {
+        flushCheckboxes(match.index);
         const clickValue = buttonValue || innerText;
         parts.push(
           <button
@@ -605,10 +740,14 @@ export default function WidgetPage() {
             {innerText}
           </button>
         );
+      } else if (tagName === 'checkbox' && innerText) {
+        const checkboxValue = buttonValue || innerText;
+        pendingCheckboxes.push({ value: checkboxValue, label: innerText });
       }
       lastIndex = match.index + match[0].length;
     }
     
+    flushCheckboxes(lastIndex);
     if (lastIndex < text.length) {
       const rest = text.slice(lastIndex).trim();
       if (rest) parts.push(renderTextWithLinks(rest, `t-${lastIndex}`));
@@ -655,14 +794,19 @@ export default function WidgetPage() {
             />
             <button
               onClick={() => {
-                setMessages([]);
-                setConnected(false);
-                setChatEnded(false);
-                setIsTyping(false);
-                setFileUploadEnabled(false);
+                if (!hasActiveConversation) {
+                  setMessages([]);
+                  setConnected(false);
+                  setChatEnded(false);
+                  setIsTyping(false);
+                  setFileUploadEnabled(false);
+                }
                 setIsOpen(true);
                 sendWidgetState(true);
                 resizeIframe(600);
+                if (!hasActiveConversation) {
+                  createInteractionLead();
+                }
               }}
               className="absolute inset-0 w-full h-full rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center"
               style={{ backgroundColor: settings.primaryColor || '#c01721' }}
@@ -804,7 +948,7 @@ export default function WidgetPage() {
                     )
                   : isUserBubble
                     ? renderTextWithLinks(m.content, `u-${idx}`)
-                    : `${m.type.toUpperCase()}: ${m.content}`}
+                    : `${m.type.toUpperCase()}: ${'content' in m ? m.content : ''}`}
               
               {/* Speech bubble tail */}
               {isUserBubble ? (
@@ -846,7 +990,6 @@ export default function WidgetPage() {
                     setConnectionError(null);
                     setChatEnded(false);
                     setConnected(false);
-                    setMessages([]);
                     setIsOpen(false);
                     setTimeout(() => setIsOpen(true), 100);
                   }}
