@@ -21,6 +21,8 @@ type AnyMessage =
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const MAX_RECONNECT_ATTEMPTS = 3;
+/** Set when flow is done: booking confirmation shown, or non-booking JSON after all questions. Cleared on widget close/reload. */
+const SESSION_FINISHED_STORAGE_SUFFIX = '__session_finished';
 
 export default function WidgetPage() {
   const params = useParams<{ userId?: string; appId?: string }>();
@@ -51,29 +53,6 @@ export default function WidgetPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isIntentionalClose = useRef(false);
 
-  // Handle click outside to close widget
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Only respond to left mouse button clicks (button 0)
-      if (event.button === 0 && isOpen && widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        sendWidgetState(false);
-        isIntentionalClose.current = true;
-        if (wsRef.current) {
-          wsRef.current.close();
-        }
-        resizeIframe(100);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
   const [settings, setSettings] = useState<IntegrationSettings>({
     assistantName: 'Assistly Chatbot',
     greeting: '',
@@ -123,6 +102,29 @@ export default function WidgetPage() {
 
   useEffect(() => {
     if (!resumeStorageKey || typeof window === 'undefined') return;
+
+    // Full page reload after a completed flow: start clean (same as closing the widget after complete)
+    try {
+      const finishedKey = `${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`;
+      if (sessionStorage.getItem(finishedKey) === '1') {
+        sessionStorage.removeItem(finishedKey);
+        sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+        if (conversationMetaStorageKey) sessionStorage.removeItem(conversationMetaStorageKey);
+        const newId =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+        sessionStorage.setItem(resumeStorageKey, newId);
+        setWidgetSessionId(newId);
+        setMessages([]);
+        setLeadId(null);
+        setClickedItems([]);
+        setHasActiveConversation(false);
+        setFileUploadEnabled(false);
+        return;
+      }
+    } catch {}
+
     let id = sessionStorage.getItem(resumeStorageKey);
     if (!id) {
       id =
@@ -243,6 +245,7 @@ export default function WidgetPage() {
 
     if (resumeStorageKey) {
       try {
+        sessionStorage.removeItem(`${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`);
         if (conversationMetaStorageKey) {
           sessionStorage.removeItem(conversationMetaStorageKey);
         }
@@ -451,31 +454,14 @@ export default function WidgetPage() {
           return;
         }
 
-        // Terminal state notification from backend: clear UI and rotate resume so next WS is a new session
+        // Flow complete (booking confirmed with details shown, or non-booking JSON after all questions).
+        // Keep messages + same WebSocket; reset storage/UI only when user closes widget or reloads.
         if (msgType === 'session_complete') {
-          setMessages([]);
-          setHasActiveConversation(false);
-          setLeadId(null);
-          setClickedItems([]);
-          setFileUploadEnabled(false);
-          setChatEnded(false);
-          setIsTyping(false);
-          setInput('');
-          reconnectAttemptsRef.current = 0;
           if (typeof window !== 'undefined' && resumeStorageKey) {
             try {
-              if (conversationMetaStorageKey) sessionStorage.removeItem(conversationMetaStorageKey);
-              sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
-              const newId =
-                typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-                  ? crypto.randomUUID()
-                  : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-              sessionStorage.setItem(resumeStorageKey, newId);
-              setWidgetSessionId(newId);
+              sessionStorage.setItem(`${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`, '1');
             } catch {}
           }
-          void createInteractionLead();
-          setConnectAttempt((c) => c + 1);
           return;
         }
 
@@ -677,6 +663,64 @@ export default function WidgetPage() {
     }
   };
 
+  /** After booking / all questions answered: clear cached thread when user closes widget (or on reload). */
+  const applyCompletedFlowStorageReset = useCallback((): string | null => {
+    if (!resumeStorageKey || typeof window === 'undefined') return null;
+    try {
+      const fk = `${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`;
+      if (sessionStorage.getItem(fk) !== '1') return null;
+      sessionStorage.removeItem(fk);
+      sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+      if (conversationMetaStorageKey) sessionStorage.removeItem(conversationMetaStorageKey);
+      const newId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      sessionStorage.setItem(resumeStorageKey, newId);
+      return newId;
+    } catch {
+      return null;
+    }
+  }, [resumeStorageKey, conversationMetaStorageKey]);
+
+  const closeWidgetChrome = useCallback(() => {
+    const newId = applyCompletedFlowStorageReset();
+    if (newId) {
+      setWidgetSessionId(newId);
+      setMessages([]);
+      setLeadId(null);
+      setClickedItems([]);
+      setHasActiveConversation(false);
+      setFileUploadEnabled(false);
+      setInput('');
+      setIsTyping(false);
+      setChatEnded(false);
+      setConnectionError(null);
+      reconnectAttemptsRef.current = 0;
+    }
+    isIntentionalClose.current = true;
+    setIsOpen(false);
+    sendWidgetState(false);
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {}
+    }
+    resizeIframe(100);
+  }, [applyCompletedFlowStorageReset]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+        closeWidgetChrome();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, closeWidgetChrome]);
+
   // Format inline bullet points (•) so each starts on a new line
   const formatBulletPoints = (str: string) => str.replace(/ • /g, '\n• ');
 
@@ -771,7 +815,7 @@ export default function WidgetPage() {
     return (
       <div className="w-full rounded-lg border border-gray-200 bg-white/80 p-2 space-y-2">
         <p className="text-[11px] sm:text-xs text-gray-600">
-          Select one or more, then click Submit selection.
+          Select one or more options, then click Submit.
         </p>
         <div className="space-y-1">
           {options.map((opt, idx) => {
@@ -801,7 +845,7 @@ export default function WidgetPage() {
             sendText(payload, payload);
           }}
         >
-          Submit selection
+          Submit
         </button>
       </div>
     );
@@ -832,13 +876,23 @@ export default function WidgetPage() {
     };
     
     while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        flushCheckboxes(match.index);
-        const chunk = text.slice(lastIndex, match.index).trim();
-        if (chunk) parts.push(renderTextWithLinks(chunk, `t-${lastIndex}`));
-      }
-      
       const tagName = match[1].toLowerCase();
+      const gap = match.index > lastIndex ? text.slice(lastIndex, match.index) : '';
+      const gapTrim = gap.trim();
+
+      // Newlines/whitespace between consecutive <checkbox> tags must NOT flush — otherwise
+      // each option becomes its own group (repeated hint + Submit per row).
+      if (match.index > lastIndex) {
+        const mergeIntoCheckboxGroup =
+          tagName === 'checkbox' && pendingCheckboxes.length > 0 && gapTrim === '';
+        if (!mergeIntoCheckboxGroup) {
+          flushCheckboxes(match.index);
+          if (gapTrim) {
+            parts.push(renderTextWithLinks(gapTrim, `t-${lastIndex}`));
+          }
+        }
+      }
+
       const buttonValue = match[2] || '';
       const fileUrl = match[3] || '';
       const fileName = match[4] || 'Download';
@@ -1030,14 +1084,7 @@ export default function WidgetPage() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setIsOpen(false);
-              sendWidgetState(false);
-              if (wsRef.current) {
-                wsRef.current.close();
-              }
-              resizeIframe(100);
-            }}
+            onClick={closeWidgetChrome}
             className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1.5 py-1 rounded-md hover:bg-gray-100"
             title="Close chat"
             aria-label="Close chat"
