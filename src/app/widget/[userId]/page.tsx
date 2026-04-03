@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useWidgetService } from '@/services';
 import type { IntegrationSettings } from '@/models';
@@ -180,7 +180,7 @@ export default function WidgetPage() {
     }
   };
 
-  const createInteractionLead = async () => {
+  const createInteractionLead = useCallback(async () => {
     if (!identifier) return;
     try {
       const svc = await useWidgetService();
@@ -199,7 +199,7 @@ export default function WidgetPage() {
         persistConversationMeta({ active: true, leadId: id, clickedItems: [] });
       }
     } catch {}
-  };
+  }, [identifier, appId, countryCode]);
 
   const updateInteractionLead = async (payload: Record<string, unknown>) => {
     if (!identifier || !leadId) return;
@@ -208,6 +208,61 @@ export default function WidgetPage() {
       await svc.updatePublicLead(identifier, leadId, payload);
     } catch {}
   };
+
+  /** New resume id + cleared sessionStorage + UI — server treats next WS as a brand-new session. */
+  const resetChatToStart = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (
+      !window.confirm(
+        'Start over? This clears the chat and begins a new conversation from scratch.'
+      )
+    ) {
+      return;
+    }
+
+    isIntentionalClose.current = true;
+    clearReconnectTimer();
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {}
+      wsRef.current = null;
+    }
+
+    if (resumeStorageKey) {
+      try {
+        if (conversationMetaStorageKey) {
+          sessionStorage.removeItem(conversationMetaStorageKey);
+        }
+        sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+        const newId =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+        sessionStorage.setItem(resumeStorageKey, newId);
+        setWidgetSessionId(newId);
+      } catch {}
+    }
+
+    setMessages([]);
+    setLeadId(null);
+    setClickedItems([]);
+    setHasActiveConversation(false);
+    setFileUploadEnabled(false);
+    setChatEnded(false);
+    setConnectionError(null);
+    setInput('');
+    setIsTyping(true);
+    reconnectAttemptsRef.current = 0;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    void createInteractionLead();
+    setConnectAttempt((c) => c + 1);
+  }, [
+    resumeStorageKey,
+    conversationMetaStorageKey,
+    createInteractionLead,
+  ]);
 
   const fullWsUrl = useMemo(() => {
     const resolveDefaultWsBase = () => {
@@ -917,22 +972,40 @@ export default function WidgetPage() {
           </div>
           <span>{settings.assistantName}</span>
         </div>
-        <button
-          onClick={() => {
-            setIsOpen(false);
-            sendWidgetState(false);
-            // Close WebSocket connection when closing widget
-            if (wsRef.current) {
-              wsRef.current.close();
-            }
-            // Resize iframe back to compact size
-            resizeIframe(100);
-          }}
-          className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
-          title="Close chat"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={resetChatToStart}
+            className="text-gray-400 hover:text-gray-700 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            title="Start over — clear chat and begin again"
+            aria-label="Start over — clear chat and begin again"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              sendWidgetState(false);
+              if (wsRef.current) {
+                wsRef.current.close();
+              }
+              resizeIframe(100);
+            }}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1.5 py-1 rounded-md hover:bg-gray-100"
+            title="Close chat"
+            aria-label="Close chat"
+          >
+            ×
+          </button>
+        </div>
       </div>
       
       {/* Messages */}
