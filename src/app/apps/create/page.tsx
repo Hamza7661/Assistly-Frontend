@@ -653,8 +653,7 @@ export default function CreateAppPage() {
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="font-medium text-gray-900 text-sm">Ask for Google review after lead creation</div>
-                          <div className="text-xs text-gray-600 mt-1">Show a "Write a review" prompt in chat after users submit name and email.</div>
+                          <div className="font-medium text-gray-900 text-sm">Offer a review link after lead creation</div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
@@ -677,19 +676,16 @@ export default function CreateAppPage() {
 
                   {leadCaptureSettings.googleReviewEnabled && (
                     <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Google review URL</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Review page URL</label>
                       <input
                         type="url"
                         className="input-field w-full"
-                        placeholder="https://www.trustpilot.com/evaluate/facelism.com"
+                        placeholder="https://example.com/reviews"
                         value={leadCaptureSettings.googleReviewUrl}
                         onChange={(e) =>
                           setLeadCaptureSettings((p) => ({ ...p, googleReviewUrl: e.target.value }))
                         }
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Paste the "Write a review" link from your Google Business Profile. In Google Search, open your business and click "Write a review" to copy the URL.
-                      </p>
                     </div>
                   )}
                 </div>

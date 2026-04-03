@@ -208,7 +208,7 @@ function ChatbotWorkflowPageContent() {
         ...newQuestion,
         title: newQuestion.title?.trim() || newQuestion.question.trim().substring(0, 100),
         questionTypeId: resolvedQuestionTypeId,
-        choiceInputMode: newQuestion.choiceInputMode || 'button',
+        choiceInputMode: resolveChoiceInputModeForPersist(resolvedQuestionTypeId),
       };
 
       let savedWorkflowId: string | null = null;
@@ -306,7 +306,7 @@ function ChatbotWorkflowPageContent() {
     setNewQuestion({
       ...question,
       questionTypeId: typeId,
-      choiceInputMode: question.choiceInputMode || 'button',
+      choiceInputMode: resolveChoiceInputModeForPersist(typeId),
       options: ensureChoiceTypeHasButtonRow(typeId, question.options),
     });
     setPendingAttachmentFile(null);
@@ -446,7 +446,7 @@ function ChatbotWorkflowPageContent() {
     });
   };
 
-  /** Single / multiple choice questions need at least one row for chat button labels. */
+  /** Single / multiple choice questions need at least one row for option labels. */
   const ensureChoiceTypeHasButtonRow = (typeId: number, existing: WorkflowOption[] | undefined): WorkflowOption[] => {
     const qt = questionTypes.find((q) => q.id === typeId);
     const isChoice = qt?.code === 'single_choice' || qt?.code === 'multiple_choice';
@@ -455,6 +455,12 @@ function ChatbotWorkflowPageContent() {
       opts.push({ text: '', nextQuestionId: null, isTerminal: false, order: 0 });
     }
     return opts;
+  };
+
+  /** Multiple choice always persists as checkbox (multi-select) in chat; single choice uses buttons. */
+  const resolveChoiceInputModeForPersist = (typeId: number): 'button' | 'checkbox' => {
+    const qt = questionTypes.find((q) => q.id === typeId);
+    return qt?.code === 'multiple_choice' ? 'checkbox' : 'button';
   };
 
   // Attachment handler
@@ -974,6 +980,7 @@ function ChatbotWorkflowPageContent() {
       selectedQuestionType?.code === 'single_choice' ||
       selectedQuestionType?.code === 'multiple_choice';
     const isMultipleChoiceQuestionType = selectedQuestionType?.code === 'multiple_choice';
+    const isSingleChoiceQuestionType = selectedQuestionType?.code === 'single_choice';
 
     return (
       <div className="space-y-5">
@@ -1055,7 +1062,7 @@ function ChatbotWorkflowPageContent() {
                 setNewQuestion((prev) => ({
                   ...prev,
                   questionTypeId: val,
-                  choiceInputMode: isMulti ? (prev.choiceInputMode || 'button') : 'button',
+                  choiceInputMode: isMulti ? 'checkbox' : 'button',
                   options: ensureChoiceTypeHasButtonRow(val, prev.options),
                 }));
               }}
@@ -1071,48 +1078,19 @@ function ChatbotWorkflowPageContent() {
           </div>
         )}
 
-        {/* ── Chat buttons / options & branching ─────────────────────────── */}
+        {/* ── Choices / options & branching ─────────────────────────────── */}
         <div className="border border-gray-200 rounded-lg p-4 space-y-3">
-            {isMultipleChoiceQuestionType && (
-              <div className="rounded-lg border border-purple-100 bg-purple-50 p-3">
-                <label className="block text-xs font-medium text-purple-800 mb-1.5">
-                  Response UI for guests
-                </label>
-                <div className="flex items-center gap-4 text-xs text-purple-900">
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="choiceInputMode"
-                      checked={(newQuestion.choiceInputMode || 'button') === 'button'}
-                      onChange={() => setNewQuestion((prev) => ({ ...prev, choiceInputMode: 'button' }))}
-                    />
-                    Buttons (single tap)
-                  </label>
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="choiceInputMode"
-                      checked={newQuestion.choiceInputMode === 'checkbox'}
-                      onChange={() => setNewQuestion((prev) => ({ ...prev, choiceInputMode: 'checkbox' }))}
-                    />
-                    Checkboxes (multi-select)
-                  </label>
-                </div>
-              </div>
-            )}
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-purple-600" />
-                  {isChoiceQuestionType ? 'Chat buttons & branching' : 'Options & branching (optional)'}
+                  {isChoiceQuestionType ? 'Choices & branching' : 'Options & branching (optional)'}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {isChoiceQuestionType
-                    ? selectedQuestionType?.code === 'single_choice'
-                      ? 'Each row is one chat button shown with your question. The guest taps exactly one. You can branch each button to a different next step.'
-                      : (newQuestion.choiceInputMode === 'checkbox'
-                          ? 'Each row is one checkbox option. The guest can pick multiple options, then submit. Branching follows the first matched selected option.'
-                          : 'Each row is one chat button shown with your question. The guest may select several where the channel supports it. You can branch each button to a different next step.')
+                    ? isSingleChoiceQuestionType
+                      ? 'Each row is one option shown as a tap button with your question. The guest selects exactly one. You can branch each option to a different next step.'
+                      : 'Each row is one option shown as a checkbox with your question. The guest can select multiple choices, then submit. Branching follows the first matched selected option.'
                     : 'Add optional quick-reply style buttons, or leave empty for a typed reply only. Each row can branch to a different next question.'}
                 </p>
               </div>
@@ -1120,19 +1098,19 @@ function ChatbotWorkflowPageContent() {
                 type="button"
                 onClick={addOption}
                 className="btn-secondary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
-                aria-label={isChoiceQuestionType ? 'Add another option' : 'Add option'}
+                aria-label={isChoiceQuestionType ? 'Add another choice' : 'Add option'}
               >
                 <Plus className="h-3 w-3" />
-                {isChoiceQuestionType && newQuestion.choiceInputMode === 'checkbox' ? 'Add checkbox' : isChoiceQuestionType ? 'Add button' : 'Add option'}
+                {isChoiceQuestionType ? 'Add choice' : 'Add option'}
               </button>
             </div>
 
             {options.length === 0 && (
               <p className="text-xs text-gray-400 italic">
                 {isChoiceQuestionType
-                  ? newQuestion.choiceInputMode === 'checkbox'
-                    ? 'No checkbox options yet. Click "Add checkbox" and enter each selectable option.'
-                    : 'No button labels yet. Click "Add button" and enter the text that will appear on each button in chat (e.g. "Yes", "Talk to sales").'
+                  ? isMultipleChoiceQuestionType
+                    ? 'No choices yet. Click "Add choice" and enter each option (guests can select several).'
+                    : 'No choices yet. Click "Add choice" and enter the label for each tap option (e.g. "Yes", "Talk to sales").'
                   : 'No options yet — the chatbot will expect a free-text reply. Add options to offer clickable choices.'}
               </p>
             )}
@@ -1145,11 +1123,7 @@ function ChatbotWorkflowPageContent() {
                   </span>
                   <div className="flex-1 min-w-0 space-y-1">
                     <label className="block text-xs font-medium text-gray-600">
-                      {isChoiceQuestionType
-                        ? newQuestion.choiceInputMode === 'checkbox'
-                          ? 'Checkbox label (shown in chat)'
-                          : 'Button label (shown in chat)'
-                        : 'Option label'}
+                      {isChoiceQuestionType ? 'Choice label (shown in chat)' : 'Option label'}
                     </label>
                     <div className="flex items-center gap-2">
                       <input
@@ -1157,8 +1131,8 @@ function ChatbotWorkflowPageContent() {
                         className="input-field flex-1 min-w-0 text-sm py-1"
                         placeholder={
                           isChoiceQuestionType
-                            ? newQuestion.choiceInputMode === 'checkbox'
-                              ? 'e.g. Acne treatment, Wrinkle treatment, Hydration'
+                            ? isMultipleChoiceQuestionType
+                              ? 'e.g. Fine lines, Pigmentation, Dullness'
                               : 'e.g. Book a consultation, Not now, Speak to human'
                             : "Option text (e.g. I'm a job seeker)"
                         }
