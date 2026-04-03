@@ -162,6 +162,9 @@ export default function WidgetPage() {
     }
   }, [resumeStorageKey, conversationMetaStorageKey]);
 
+  // Do NOT depend on messages.length: after the first bot reply we persist __msgs, which would
+  // flip this to true, change fullWsUrl (skip_history_replay=1), and reconnect the WebSocket —
+  // the user's next tap can hit a closed socket (stuck chat). Snapshot is resume + active flag only.
   const skipHistoryReplay = useMemo(() => {
     if (typeof window === 'undefined' || !resumeStorageKey || !hasActiveConversation) return false;
     try {
@@ -172,7 +175,7 @@ export default function WidgetPage() {
     } catch {
       return false;
     }
-  }, [resumeStorageKey, hasActiveConversation, messages.length]);
+  }, [resumeStorageKey, hasActiveConversation]);
 
   useEffect(() => {
     if (!resumeStorageKey || typeof window === 'undefined' || !hasActiveConversation) return;
