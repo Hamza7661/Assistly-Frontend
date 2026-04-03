@@ -448,17 +448,31 @@ export default function WidgetPage() {
           return;
         }
 
-        // Terminal state notification from backend: next open should start fresh
+        // Terminal state notification from backend: clear UI and rotate resume so next WS is a new session
         if (msgType === 'session_complete') {
+          setMessages([]);
           setHasActiveConversation(false);
           setLeadId(null);
           setClickedItems([]);
-          if (typeof window !== 'undefined') {
+          setFileUploadEnabled(false);
+          setChatEnded(false);
+          setIsTyping(false);
+          setInput('');
+          reconnectAttemptsRef.current = 0;
+          if (typeof window !== 'undefined' && resumeStorageKey) {
             try {
               if (conversationMetaStorageKey) sessionStorage.removeItem(conversationMetaStorageKey);
-              if (resumeStorageKey) sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+              sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+              const newId =
+                typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                  ? crypto.randomUUID()
+                  : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+              sessionStorage.setItem(resumeStorageKey, newId);
+              setWidgetSessionId(newId);
             } catch {}
           }
+          void createInteractionLead();
+          setConnectAttempt((c) => c + 1);
           return;
         }
 
@@ -537,6 +551,7 @@ export default function WidgetPage() {
     conversationMetaStorageKey,
     resumeStorageKey,
     skipHistoryReplay,
+    createInteractionLead,
   ]);
 
   // Auto-scroll to bottom when messages change
