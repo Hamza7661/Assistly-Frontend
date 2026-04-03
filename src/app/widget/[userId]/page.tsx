@@ -58,6 +58,7 @@ export default function WidgetPage() {
       if (event.button === 0 && isOpen && widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         sendWidgetState(false);
+        isIntentionalClose.current = true;
         if (wsRef.current) {
           wsRef.current.close();
         }
@@ -86,6 +87,14 @@ export default function WidgetPage() {
   const [countryCode, setCountryCode] = useState<string>('US');
   const [leadId, setLeadId] = useState<string | null>(null);
   const [clickedItems, setClickedItems] = useState<string[]>([]);
+  const leadIdRef = useRef<string | null>(null);
+  const clickedItemsRef = useRef<string[]>([]);
+  useEffect(() => {
+    leadIdRef.current = leadId;
+  }, [leadId]);
+  useEffect(() => {
+    clickedItemsRef.current = clickedItems;
+  }, [clickedItems]);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -386,6 +395,8 @@ export default function WidgetPage() {
     return () => clearTimeout(timer);
   }, [settingsLoaded, countryCode, widgetSessionId, hasActiveConversation, leadId]);
 
+  // WebSocket must not reconnect when leadId/clickedItems change (e.g. after a button tap),
+  // or cleanup closes the socket before the bot reply is delivered.
   useEffect(() => {
     // Only connect when widget is opened
     if (!isOpen) return;
@@ -429,7 +440,11 @@ export default function WidgetPage() {
         if (msgType === 'enable_file_upload') {
           setFileUploadEnabled(true);
           setHasActiveConversation(true);
-          persistConversationMeta({ active: true, leadId, clickedItems });
+          persistConversationMeta({
+            active: true,
+            leadId: leadIdRef.current,
+            clickedItems: clickedItemsRef.current,
+          });
           return;
         }
 
@@ -450,13 +465,21 @@ export default function WidgetPage() {
         if (msgType === 'user_replay') {
           setMessages((prev) => [...prev, { type: 'user_replay', content: String((msg as { content?: string }).content || '') }]);
           setHasActiveConversation(true);
-          persistConversationMeta({ active: true, leadId, clickedItems });
+          persistConversationMeta({
+            active: true,
+            leadId: leadIdRef.current,
+            clickedItems: clickedItemsRef.current,
+          });
           return;
         }
         setMessages((prev) => [...prev, msg]);
         if (msgType === 'bot' || msgType === 'review_prompt') {
           setHasActiveConversation(true);
-          persistConversationMeta({ active: true, leadId, clickedItems });
+          persistConversationMeta({
+            active: true,
+            leadId: leadIdRef.current,
+            clickedItems: clickedItemsRef.current,
+          });
         }
         if (msgType === 'warn' || msgType === 'error') {
           setIsTyping(false);
@@ -511,8 +534,6 @@ export default function WidgetPage() {
     isOpen,
     connectAttempt,
     widgetSessionId,
-    leadId,
-    clickedItems,
     conversationMetaStorageKey,
     resumeStorageKey,
     skipHistoryReplay,
