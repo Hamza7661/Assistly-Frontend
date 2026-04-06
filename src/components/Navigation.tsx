@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type UIEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useApp } from '@/contexts/AppContext';
@@ -28,6 +28,7 @@ export default function Navigation() {
   const { currentApp } = useApp();
   const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebar();
   const router = useRouter();
+  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -120,10 +121,20 @@ export default function Navigation() {
   const handleNotificationClick = (lead: Lead) => {
     markLeadAsRead(lead);
     setIsNotificationOpen(false);
-    if (lead._id) {
-      router.push(`/leads?leadId=${encodeURIComponent(lead._id)}`);
-      return;
+
+    if (typeof window !== 'undefined') {
+      const payload = {
+        leadId: lead._id || null,
+        lead,
+        ts: Date.now(),
+      };
+      sessionStorage.setItem('assistly:pendingLeadOpen', JSON.stringify(payload));
+      if (pathname === '/leads') {
+        window.dispatchEvent(new CustomEvent('assistly:open-lead-detail', { detail: payload }));
+        return;
+      }
     }
+
     router.push('/leads');
   };
 

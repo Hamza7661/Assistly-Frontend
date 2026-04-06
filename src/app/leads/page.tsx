@@ -105,9 +105,6 @@ export default function LeadsPage() {
   const sourceChannelFilter = activeSourceTab === 'all' ? undefined : activeSourceTab;
   const page = pageByTab[activeSourceTab] || 1;
   const total = totalByTab[activeSourceTab] ?? null;
-  const queryLeadId = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('leadId')
-    : null;
   const [readLeadMap, setReadLeadMap] = useState<Record<string, string>>({});
   const readStorageKey =
     user?._id && currentApp?.id ? `lead-activity-read:${user._id}:${currentApp.id}` : null;
@@ -671,29 +668,55 @@ export default function LeadsPage() {
   }, [readStorageKey, readLeadMap]);
 
   useEffect(() => {
-    if (!queryLeadId) return;
-    const localMatch = items.find((lead) => lead._id === queryLeadId);
-    if (localMatch) {
-      openView(localMatch);
-      return;
-    }
-
     let isCancelled = false;
-    const loadById = async () => {
+
+    const openFromPayload = async (payload?: { leadId?: string | null; lead?: Lead | null }) => {
+      if (!payload || isCancelled) return;
+      if (payload.lead) {
+        openView(payload.lead);
+        return;
+      }
+      if (!payload.leadId) return;
+
+      const localMatch = items.find((lead) => lead._id === payload.leadId);
+      if (localMatch) {
+        openView(localMatch);
+        return;
+      }
+
       try {
         const svc = await useLeadService();
-        const res = await svc.getById(queryLeadId);
-        const lead = res.data?.lead;
-        if (!isCancelled && lead) openView(lead);
+        const res = await svc.getById(payload.leadId);
+        const fetched = res.data?.lead;
+        if (!isCancelled && fetched) openView(fetched);
       } catch {
-        // Ignore invalid / stale leadId silently.
+        // Ignore invalid / stale lead id silently.
       }
     };
-    loadById();
+
+    const handleOpenLeadEvent = (event: Event) => {
+      const custom = event as CustomEvent<{ leadId?: string | null; lead?: Lead | null }>;
+      void openFromPayload(custom.detail);
+    };
+
+    window.addEventListener('assistly:open-lead-detail', handleOpenLeadEvent as EventListener);
+
+    const pendingRaw = sessionStorage.getItem('assistly:pendingLeadOpen');
+    if (pendingRaw) {
+      sessionStorage.removeItem('assistly:pendingLeadOpen');
+      try {
+        const pending = JSON.parse(pendingRaw) as { leadId?: string | null; lead?: Lead | null };
+        void openFromPayload(pending);
+      } catch {
+        // Ignore malformed pending payload.
+      }
+    }
+
     return () => {
       isCancelled = true;
+      window.removeEventListener('assistly:open-lead-detail', handleOpenLeadEvent as EventListener);
     };
-  }, [queryLeadId, items]);
+  }, [items]);
 
   const openEdit = (lead: Lead) => { setEditItem(lead); setIsEditOpen(true); };
   const closeEdit = () => { setIsEditOpen(false); setEditItem(null); };
