@@ -18,6 +18,10 @@ class IntegrationService extends HttpService {
     // Add validation fields
     if (settings.validateEmail !== undefined) formData.append('validateEmail', settings.validateEmail.toString());
     if (settings.validatePhoneNumber !== undefined) formData.append('validatePhoneNumber', settings.validatePhoneNumber.toString());
+    if (settings.captureLeadName !== undefined) formData.append('captureLeadName', settings.captureLeadName.toString());
+    if (settings.captureLeadEmail !== undefined) formData.append('captureLeadEmail', settings.captureLeadEmail.toString());
+    if (settings.captureLeadPhoneNumber !== undefined) formData.append('captureLeadPhoneNumber', settings.captureLeadPhoneNumber.toString());
+    if (settings.captureFeedbackEnabled !== undefined) formData.append('captureFeedbackEnabled', settings.captureFeedbackEnabled.toString());
     
     if (settings.conversationStyle !== undefined) {
       formData.append('conversationStyle', settings.conversationStyle.toString());
