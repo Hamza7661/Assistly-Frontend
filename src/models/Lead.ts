@@ -33,6 +33,12 @@ export interface Lead {
     link?: string;
     confirmed?: boolean;
   };
+  userFeedback?: {
+    experience?: 'very_happy' | 'happy' | 'neutral' | 'sad' | 'very_sad';
+    rating?: number;
+    comment?: string;
+    submittedAt?: string;
+  };
   leadTypeSwitchHistory?: Array<{
     from?: string;
     to?: string;

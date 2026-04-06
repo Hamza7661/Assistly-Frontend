@@ -293,12 +293,59 @@ export default function LeadsPage() {
     return <span key={keyPrefix} className="whitespace-pre-wrap">{parts}</span>;
   };
 
+  type InteractiveOption = { type: 'button' | 'checkbox'; value: string; label: string };
+
+  const parseInteractiveOptions = (text: string): InteractiveOption[] => {
+    const options: InteractiveOption[] = [];
+    const regex = /<(button|checkbox)(?:\s+value=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const type = (match[1] || '').toLowerCase() as 'button' | 'checkbox';
+      const value = (match[2] || '').trim();
+      const label = (match[3] || '').trim();
+      if (!label) continue;
+      options.push({ type, value, label });
+    }
+    return options;
+  };
+
+  const resolveUserSelectionValue = (history: NonNullable<Lead['history']>, index: number): string => {
+    const message = history[index];
+    const raw = (message?.content || '').trim();
+    if (!raw || !/^\d+$/.test(raw)) return message?.content || '';
+
+    // Walk backwards to find the nearest assistant prompt with interactive options.
+    for (let i = index - 1; i >= 0; i -= 1) {
+      const prev = history[i];
+      if (!prev || prev.role !== 'assistant') continue;
+      const options = parseInteractiveOptions(prev.content || '');
+      if (options.length === 0) continue;
+
+      // 1) If the option value itself is numeric and matches user value, use its label.
+      const byValue = options.find((opt) => opt.value && opt.value === raw);
+      if (byValue) return byValue.label;
+
+      // 2) If user sent a 1-based index (common for numbered options), resolve by position.
+      const n = Number.parseInt(raw, 10);
+      if (Number.isFinite(n) && n >= 1 && n <= options.length) {
+        return options[n - 1].label;
+      }
+
+      // 3) If backend passed 0-based index as value, map that too.
+      const byZeroBasedValue = options.find((opt, optIndex) => String(optIndex) === raw);
+      if (byZeroBasedValue) return byZeroBasedValue.label;
+
+      return message.content;
+    }
+    return message.content;
+  };
+
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
-    // Updated regex to handle both formats:
-    // 1. <button>text</button> (simple format)
-    // 2. <button value="something">text</button> (with value attribute)
-    const regex = /<button(?:\s+value=["']([^"']*)["'])?>([\s\S]*?)<\/button>/gi;
+    // Supports both:
+    // 1) <button ...>Label</button>
+    // 2) <checkbox ...>Label</checkbox>
+    const regex = /<(button|checkbox)(?:\s+value=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     
@@ -308,32 +355,24 @@ export default function LeadsPage() {
         if (chunk) parts.push(renderTextWithLinks(chunk, `t-${lastIndex}`));
       }
       
-      // Extract button text and value
-      const buttonValue = match[1] || ''; // value attribute
-      const buttonText = (match[2] || '').trim(); // text content
+      // Extract control type, label and value.
+      const controlType = (match[1] || '').toLowerCase();
+      const controlValue = match[2] || '';
+      const controlText = (match[3] || '').trim();
       
-      if (buttonText) {
-        // Use button value if available, otherwise use button text
-        const clickValue = buttonValue || buttonText;
-        
+      if (controlText) {
         parts.push(
-          <button
+          <div
             key={`b-${match.index}`}
-            className="block w-full text-left rounded-full text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 active:translate-y-px transition mt-1 whitespace-normal break-words"
+            className={`block w-full text-left text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm mt-1 whitespace-normal break-words ${
+              controlType === 'checkbox' ? 'rounded-lg bg-white text-gray-800 border border-gray-200' : 'rounded-full text-white'
+            }`}
             style={{ 
-              backgroundColor: primaryColor,
-              '--hover-color': primaryColor + 'dd'
+              backgroundColor: controlType === 'checkbox' ? undefined : primaryColor,
             } as React.CSSProperties}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = primaryColor + 'dd';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = primaryColor;
-            }}
-            disabled
           >
-            {buttonText}
-          </button>
+            {controlText}
+          </div>
         );
       }
       lastIndex = match.index + match[0].length;
@@ -519,6 +558,15 @@ export default function LeadsPage() {
     } catch {
       return iso;
     }
+  };
+
+  const feedbackExperienceLabel = (experience?: string | null) => {
+    if (experience === 'very_happy') return { emoji: '😄', label: 'Very happy' };
+    if (experience === 'happy') return { emoji: '🙂', label: 'Happy' };
+    if (experience === 'neutral') return { emoji: '😐', label: 'Neutral' };
+    if (experience === 'sad') return { emoji: '🙁', label: 'Sad' };
+    if (experience === 'very_sad') return { emoji: '😞', label: 'Very sad' };
+    return null;
   };
 
   const openView = (lead: Lead) => {
@@ -1410,6 +1458,57 @@ export default function LeadsPage() {
                       </div>
                     </div>
 
+                    {/* User feedback */}
+                    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-500 via-violet-400 to-transparent" />
+                      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-violet-50 to-transparent" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
+                            <span className="text-base" aria-hidden>💬</span>
+                          </span>
+                          <div className="text-sm font-semibold text-gray-900">User feedback</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-sm">
+                        {viewItem.userFeedback?.experience || viewItem.userFeedback?.rating ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="min-w-0">
+                              <div className="text-[11px] uppercase tracking-wide text-gray-500">Experience</div>
+                              <div className="mt-0.5 font-medium text-gray-900 inline-flex items-center gap-2">
+                                {feedbackExperienceLabel(viewItem.userFeedback?.experience)?.emoji ? (
+                                  <span>{feedbackExperienceLabel(viewItem.userFeedback?.experience)?.emoji}</span>
+                                ) : null}
+                                <span>{feedbackExperienceLabel(viewItem.userFeedback?.experience)?.label || '—'}</span>
+                              </div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[11px] uppercase tracking-wide text-gray-500">Rating</div>
+                              <div className="mt-0.5 font-medium text-gray-900 inline-flex items-center gap-2">
+                                <span className="text-amber-500">
+                                  {'★★★★★'.slice(0, Math.max(0, Math.min(5, Number(viewItem.userFeedback?.rating || 0))))}
+                                  <span className="text-gray-300">
+                                    {'★★★★★'.slice(0, 5 - Math.max(0, Math.min(5, Number(viewItem.userFeedback?.rating || 0))))}
+                                  </span>
+                                </span>
+                                <span>
+                                  {viewItem.userFeedback?.rating ? `${viewItem.userFeedback.rating}/5` : '—'}
+                                </span>
+                              </div>
+                            </div>
+                            {viewItem.userFeedback?.submittedAt ? (
+                              <div className="col-span-2 min-w-0">
+                                <div className="text-[11px] uppercase tracking-wide text-gray-500">Submitted</div>
+                                <div className="mt-0.5 font-medium text-gray-900 truncate">{formatDateTime(viewItem.userFeedback.submittedAt)}</div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="text-gray-700">No feedback submitted yet.</div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Summary / Description */}
                     <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -1479,7 +1578,7 @@ export default function LeadsPage() {
                                     </div>
                                     {message.role === 'assistant'
                                       ? renderBotContent(message.content)
-                                      : <div className="whitespace-pre-wrap text-sm">{message.content}</div>}
+                                      : <div className="whitespace-pre-wrap text-sm">{resolveUserSelectionValue(viewItem.history || [], index)}</div>}
                                   </div>
                                 </div>
                               ))}
@@ -1562,7 +1661,7 @@ export default function LeadsPage() {
                           </div>
                           {message.role === 'assistant'
                             ? renderBotContent(message.content)
-                            : <div className="whitespace-pre-wrap text-sm">{message.content}</div>}
+                            : <div className="whitespace-pre-wrap text-sm">{resolveUserSelectionValue(viewItem.history || [], index)}</div>}
                         </div>
                       </div>
                     ))}

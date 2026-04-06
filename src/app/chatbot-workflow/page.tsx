@@ -1059,11 +1059,12 @@ function ChatbotWorkflowPageContent() {
                 const val = parseInt(e.target.value, 10);
                 const qt = questionTypes.find((item) => item.id === val);
                 const isMulti = qt?.code === 'multiple_choice';
+                const isChoice = qt?.code === 'single_choice' || qt?.code === 'multiple_choice';
                 setNewQuestion((prev) => ({
                   ...prev,
                   questionTypeId: val,
                   choiceInputMode: isMulti ? 'checkbox' : 'button',
-                  options: ensureChoiceTypeHasButtonRow(val, prev.options),
+                  options: isChoice ? ensureChoiceTypeHasButtonRow(val, prev.options) : [],
                 }));
               }}
               className="input-field w-full"
@@ -1079,6 +1080,7 @@ function ChatbotWorkflowPageContent() {
         )}
 
         {/* ── Choices / options & branching ─────────────────────────────── */}
+        {isChoiceQuestionType && (
         <div className="border border-gray-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -1098,10 +1100,20 @@ function ChatbotWorkflowPageContent() {
                 type="button"
                 onClick={addOption}
                 className="btn-secondary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
-                aria-label={isChoiceQuestionType ? 'Add another choice' : 'Add option'}
+                aria-label={
+                  isMultipleChoiceQuestionType
+                    ? 'Add checkbox'
+                    : isSingleChoiceQuestionType
+                      ? 'Add button'
+                      : 'Add option'
+                }
               >
                 <Plus className="h-3 w-3" />
-                {isChoiceQuestionType ? 'Add choice' : 'Add option'}
+                {isMultipleChoiceQuestionType
+                  ? 'Add checkbox'
+                  : isSingleChoiceQuestionType
+                    ? 'Add button'
+                    : 'Add option'}
               </button>
             </div>
 
@@ -1183,6 +1195,7 @@ function ChatbotWorkflowPageContent() {
               </div>
             ))}
         </div>
+        )}
 
         {/* ── File attachment (PDF, Word, etc.) ───────────────────────────── */}
         {!isRoot && (
