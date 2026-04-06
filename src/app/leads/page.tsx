@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera, Phone, Copy, ExternalLink, Mail, User, Monitor, MousePointerClick, CalendarDays, CalendarCheck, Maximize2 } from 'lucide-react';
 import { ProtectedRoute, NoAppEmptyState, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
@@ -18,7 +17,6 @@ export default function LeadsPage() {
   type StatusFilter = 'all' | 'interacting' | 'in_progress' | 'confirmed' | 'complete';
   type DatePreset = 'all' | 'today' | 'last7' | 'thisMonth' | 'custom';
   const { user } = useAuth();
-  const searchParams = useSearchParams();
   const { currentApp, isLoading: isLoadingApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [items, setItems] = useState<Lead[]>([]);
@@ -107,7 +105,9 @@ export default function LeadsPage() {
   const sourceChannelFilter = activeSourceTab === 'all' ? undefined : activeSourceTab;
   const page = pageByTab[activeSourceTab] || 1;
   const total = totalByTab[activeSourceTab] ?? null;
-  const queryLeadId = searchParams.get('leadId');
+  const queryLeadId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('leadId')
+    : null;
   const [readLeadMap, setReadLeadMap] = useState<Record<string, string>>({});
   const readStorageKey =
     user?._id && currentApp?.id ? `lead-activity-read:${user._id}:${currentApp.id}` : null;
