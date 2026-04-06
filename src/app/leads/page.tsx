@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera, Phone, Copy, ExternalLink, Mail, User, Monitor, MousePointerClick, CalendarDays, CalendarCheck, Maximize2 } from 'lucide-react';
 import { ProtectedRoute, NoAppEmptyState, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
@@ -17,6 +18,7 @@ export default function LeadsPage() {
   type StatusFilter = 'all' | 'interacting' | 'in_progress' | 'confirmed' | 'complete';
   type DatePreset = 'all' | 'today' | 'last7' | 'thisMonth' | 'custom';
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const { currentApp, isLoading: isLoadingApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [items, setItems] = useState<Lead[]>([]);
@@ -73,12 +75,51 @@ export default function LeadsPage() {
   const [newLeadNotification, setNewLeadNotification] = useState<Lead | null>(null);
   const wsRef = useRef<any>(null);
   const viewCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const leadIdentityKey = (lead?: Lead | null) => {
+    if (!lead) return '';
+    if (lead._id) return `id:${lead._id}`;
+    if (lead.createdAt) return `created:${lead.createdAt}`;
+    if (lead.leadDateTime) return `leadDate:${lead.leadDateTime}`;
+    const email = (lead.leadEmail || '').trim().toLowerCase();
+    const phone = (lead.leadPhoneNumber || '').trim();
+    const name = (lead.leadName || '').trim().toLowerCase();
+    const channel = (lead.sourceChannel || '').trim().toLowerCase();
+    return `fp:${email}|${phone}|${name}|${channel}`;
+  };
+
+  const upsertIncomingLead = (prevItems: Lead[], incoming: Lead) => {
+    const incomingKey = leadIdentityKey(incoming);
+    if (!incomingKey) return { nextItems: [incoming, ...prevItems], inserted: true };
+
+    const existingIndex = prevItems.findIndex((item) => leadIdentityKey(item) === incomingKey);
+    if (existingIndex === -1) {
+      return { nextItems: [incoming, ...prevItems], inserted: true };
+    }
+
+    const nextItems = [...prevItems];
+    nextItems[existingIndex] = { ...nextItems[existingIndex], ...incoming };
+    return { nextItems, inserted: false };
+  };
   
   // Integration settings for button colors
   const [primaryColor, setPrimaryColor] = useState('#c01721');
   const sourceChannelFilter = activeSourceTab === 'all' ? undefined : activeSourceTab;
   const page = pageByTab[activeSourceTab] || 1;
   const total = totalByTab[activeSourceTab] ?? null;
+  const queryLeadId = searchParams.get('leadId');
+  const [readLeadMap, setReadLeadMap] = useState<Record<string, string>>({});
+  const readStorageKey =
+    user?._id && currentApp?.id ? `lead-activity-read:${user._id}:${currentApp.id}` : null;
+  const isLeadUnread = (lead: Lead) => {
+    const key = leadIdentityKey(lead);
+    return !!key && !readLeadMap[key];
+  };
+  const markLeadAsRead = (lead: Lead) => {
+    const key = leadIdentityKey(lead);
+    if (!key) return;
+    setReadLeadMap((prev) => ({ ...prev, [key]: new Date().toISOString() }));
+  };
 
   // Load integration settings for primary color
   useEffect(() => {
@@ -133,6 +174,7 @@ export default function LeadsPage() {
   // Socket.IO connection for real-time lead updates
   useEffect(() => {
     if (!currentApp?.id) return;
+    let isCancelled = false;
 
     // Connect to same port as API
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
@@ -140,6 +182,7 @@ export default function LeadsPage() {
 
     // Import Socket.IO client dynamically
     import('socket.io-client').then(({ io }) => {
+      if (isCancelled) return;
       const socket = io(baseUrl);
       wsRef.current = socket;
 
@@ -153,9 +196,12 @@ export default function LeadsPage() {
 
       socket.on('new_lead', (data) => {
         const newLead = data.lead as Lead;
-        
-        // Add new lead to the beginning of the list
-        setItems(prevItems => [newLead, ...prevItems]);
+        let inserted = false;
+        setItems((prevItems) => {
+          const { nextItems, inserted: wasInserted } = upsertIncomingLead(prevItems, newLead);
+          inserted = wasInserted;
+          return nextItems;
+        });
         
         // Show notification
         setNewLeadNotification(newLead);
@@ -166,10 +212,12 @@ export default function LeadsPage() {
         }, 5000);
         
         // Update total count
-        setTotalByTab(prev => ({
-          ...prev,
-          [activeSourceTab]: prev[activeSourceTab] !== null ? (prev[activeSourceTab] as number) + 1 : 1,
-        }));
+        if (inserted) {
+          setTotalByTab(prev => ({
+            ...prev,
+            [activeSourceTab]: prev[activeSourceTab] !== null ? (prev[activeSourceTab] as number) + 1 : 1,
+          }));
+        }
       });
 
       socket.on('disconnect', () => {
@@ -187,6 +235,7 @@ export default function LeadsPage() {
     });
 
     return () => {
+      isCancelled = true;
       if (wsRef.current) {
         wsRef.current.disconnect();
         wsRef.current = null;
@@ -573,6 +622,7 @@ export default function LeadsPage() {
   };
 
   const openView = (lead: Lead) => {
+    markLeadAsRead(lead);
     if (viewCloseTimerRef.current) {
       clearTimeout(viewCloseTimerRef.current);
       viewCloseTimerRef.current = null;
@@ -601,6 +651,49 @@ export default function LeadsPage() {
       if (viewCloseTimerRef.current) clearTimeout(viewCloseTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!readStorageKey) {
+      setReadLeadMap({});
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(readStorageKey);
+      setReadLeadMap(raw ? JSON.parse(raw) : {});
+    } catch {
+      setReadLeadMap({});
+    }
+  }, [readStorageKey]);
+
+  useEffect(() => {
+    if (!readStorageKey) return;
+    localStorage.setItem(readStorageKey, JSON.stringify(readLeadMap));
+  }, [readStorageKey, readLeadMap]);
+
+  useEffect(() => {
+    if (!queryLeadId) return;
+    const localMatch = items.find((lead) => lead._id === queryLeadId);
+    if (localMatch) {
+      openView(localMatch);
+      return;
+    }
+
+    let isCancelled = false;
+    const loadById = async () => {
+      try {
+        const svc = await useLeadService();
+        const res = await svc.getById(queryLeadId);
+        const lead = res.data?.lead;
+        if (!isCancelled && lead) openView(lead);
+      } catch {
+        // Ignore invalid / stale leadId silently.
+      }
+    };
+    loadById();
+    return () => {
+      isCancelled = true;
+    };
+  }, [queryLeadId, items]);
 
   const openEdit = (lead: Lead) => { setEditItem(lead); setIsEditOpen(true); };
   const closeEdit = () => { setIsEditOpen(false); setEditItem(null); };
@@ -1091,7 +1184,10 @@ export default function LeadsPage() {
                   {filteredItems.map(l => (
                     <li key={l._id} className="p-4 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{l.leadName || 'Anonymous Visitor'}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate inline-flex items-center gap-1.5">
+                          {isLeadUnread(l) ? <span className="h-2 w-2 rounded-full bg-[#c01721] shrink-0" /> : null}
+                          <span className="truncate">{l.leadName || 'Anonymous Visitor'}</span>
+                        </p>
                         <p className="inline-flex items-center gap-1 text-xs text-gray-500 mt-0.5 truncate">
                           {interactedWithIcon(interactedWithText(l))}
                           {interactedWithText(l)}
@@ -1148,8 +1244,9 @@ export default function LeadsPage() {
                     {filteredItems.map(l => (
                       <tr key={l._id} className="border-b last:border-b-0 hover:bg-gray-50/50">
                         <td className="px-4 py-3 w-[170px]">
-                          <div className="truncate" title={l.leadName || 'Anonymous Visitor'}>
-                            {l.leadName || 'Anonymous Visitor'}
+                          <div className="truncate inline-flex items-center gap-1.5" title={l.leadName || 'Anonymous Visitor'}>
+                            {isLeadUnread(l) ? <span className="h-2 w-2 rounded-full bg-[#c01721] shrink-0" /> : null}
+                            <span className="truncate">{l.leadName || 'Anonymous Visitor'}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-gray-600 w-[95px]"><span className={`inline-flex whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span></td>
