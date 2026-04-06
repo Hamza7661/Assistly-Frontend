@@ -58,6 +58,30 @@ class LeadService extends HttpService {
     return this.request<LeadResponse>(`/leads/${id}`, { method: 'GET' });
   }
 
+  async getReadStateByApp(appId: string, leadIds: string[]) {
+    const uniq = Array.from(new Set(leadIds.filter(Boolean)));
+    if (uniq.length === 0) {
+      return { status: 'success' as const, data: { reads: {} as Record<string, string> } };
+    }
+    const query = new URLSearchParams();
+    query.set('leadIds', uniq.join(','));
+    return this.request<{ status: 'success' | 'fail'; data: { reads: Record<string, string> } }>(
+      `/leads/apps/${appId}/read-state?${query.toString()}`,
+      { method: 'GET' }
+    );
+  }
+
+  async markReadByApp(appId: string, leadIds: string[]) {
+    const uniq = Array.from(new Set(leadIds.filter(Boolean)));
+    return this.request<{ status: 'success' | 'fail'; data: { updated: number } }>(
+      `/leads/apps/${appId}/read-state/mark`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ leadIds: uniq }),
+      }
+    );
+  }
+
   async update(id: string, lead: Partial<Lead>) {
     return this.request<LeadResponse>(`/leads/${id}`, {
       method: 'PUT',
