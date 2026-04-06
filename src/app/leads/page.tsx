@@ -81,9 +81,23 @@ export default function LeadsPage() {
     if (lead.leadDateTime) return `leadDate:${lead.leadDateTime}`;
     const email = (lead.leadEmail || '').trim().toLowerCase();
     const phone = (lead.leadPhoneNumber || '').trim();
-    const name = (lead.leadName || '').trim().toLowerCase();
     const channel = (lead.sourceChannel || '').trim().toLowerCase();
-    return `fp:${email}|${phone}|${name}|${channel}`;
+    return `fp:${email}|${phone}|${channel}`;
+  };
+
+  const leadReadKeys = (lead?: Lead | null) => {
+    if (!lead) return [];
+    const keys = new Set<string>();
+    const primary = leadIdentityKey(lead);
+    if (primary) keys.add(primary);
+    if (lead._id) keys.add(`id:${lead._id}`);
+    if (lead.createdAt) keys.add(`created:${lead.createdAt}`);
+    if (lead.leadDateTime) keys.add(`leadDate:${lead.leadDateTime}`);
+    const email = (lead.leadEmail || '').trim().toLowerCase();
+    const phone = (lead.leadPhoneNumber || '').trim();
+    const channel = (lead.sourceChannel || '').trim().toLowerCase();
+    if (email || phone) keys.add(`fp:${email}|${phone}|${channel}`);
+    return Array.from(keys);
   };
 
   const upsertIncomingLead = (prevItems: Lead[], incoming: Lead) => {
@@ -106,16 +120,62 @@ export default function LeadsPage() {
   const page = pageByTab[activeSourceTab] || 1;
   const total = totalByTab[activeSourceTab] ?? null;
   const [readLeadMap, setReadLeadMap] = useState<Record<string, string>>({});
-  const readStorageKey =
-    user?._id && currentApp?.id ? `lead-activity-read:${user._id}:${currentApp.id}` : null;
+  const pendingReadIdsRef = useRef<Set<string>>(new Set());
+  const flushReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLeadUnread = (lead: Lead) => {
-    const key = leadIdentityKey(lead);
-    return !!key && !readLeadMap[key];
+    const keys = leadReadKeys(lead);
+    if (keys.length === 0) return false;
+    return !keys.some((key) => !!readLeadMap[key]);
+  };
+  const syncReadState = async (leadIds: string[]) => {
+    if (!currentApp?.id || leadIds.length === 0) return;
+    try {
+      const svc = await useLeadService();
+      const res = await svc.getReadStateByApp(currentApp.id, leadIds);
+      const reads = res.data?.reads || {};
+      setReadLeadMap((prev) => {
+        const next = { ...prev };
+        Object.entries(reads).forEach(([leadId, readAt]) => {
+          next[`id:${leadId}`] = String(readAt);
+        });
+        return next;
+      });
+    } catch (e) {
+      console.error('Failed to sync lead read state:', e);
+    }
+  };
+  const flushPendingReadIds = async () => {
+    if (!currentApp?.id) return;
+    const ids = Array.from(pendingReadIdsRef.current);
+    if (ids.length === 0) return;
+    pendingReadIdsRef.current.clear();
+    try {
+      const svc = await useLeadService();
+      await svc.markReadByApp(currentApp.id, ids);
+    } catch (e) {
+      console.error('Failed to persist lead read state:', e);
+      ids.forEach((id) => pendingReadIdsRef.current.add(id));
+    }
+  };
+  const scheduleFlushPendingReads = () => {
+    if (flushReadTimerRef.current) return;
+    flushReadTimerRef.current = setTimeout(async () => {
+      flushReadTimerRef.current = null;
+      await flushPendingReadIds();
+    }, 350);
   };
   const markLeadAsRead = (lead: Lead) => {
-    const key = leadIdentityKey(lead);
-    if (!key) return;
-    setReadLeadMap((prev) => ({ ...prev, [key]: new Date().toISOString() }));
+    const keys = leadReadKeys(lead);
+    if (keys.length === 0) return;
+    const now = new Date().toISOString();
+    setReadLeadMap((prev) => ({
+      ...prev,
+      ...Object.fromEntries(keys.map((key) => [key, now])),
+    }));
+    if (lead._id) {
+      pendingReadIdsRef.current.add(lead._id);
+      scheduleFlushPendingReads();
+    }
   };
 
   // Load integration settings for primary color
@@ -646,26 +706,23 @@ export default function LeadsPage() {
   useEffect(() => {
     return () => {
       if (viewCloseTimerRef.current) clearTimeout(viewCloseTimerRef.current);
+      if (flushReadTimerRef.current) {
+        clearTimeout(flushReadTimerRef.current);
+        flushReadTimerRef.current = null;
+      }
+      void flushPendingReadIds();
     };
   }, []);
 
   useEffect(() => {
-    if (!readStorageKey) {
-      setReadLeadMap({});
-      return;
-    }
-    try {
-      const raw = localStorage.getItem(readStorageKey);
-      setReadLeadMap(raw ? JSON.parse(raw) : {});
-    } catch {
-      setReadLeadMap({});
-    }
-  }, [readStorageKey]);
+    setReadLeadMap({});
+  }, [currentApp?.id, user?._id]);
 
   useEffect(() => {
-    if (!readStorageKey) return;
-    localStorage.setItem(readStorageKey, JSON.stringify(readLeadMap));
-  }, [readStorageKey, readLeadMap]);
+    const ids = items.map((lead) => lead._id).filter((id): id is string => !!id);
+    if (ids.length === 0) return;
+    void syncReadState(ids);
+  }, [items, currentApp?.id]);
 
   useEffect(() => {
     let isCancelled = false;

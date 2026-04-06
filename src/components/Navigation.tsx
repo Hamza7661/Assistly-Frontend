@@ -16,6 +16,9 @@ import {
   LogOut, 
   User,
   Bell,
+  CheckCheck,
+  Funnel,
+  FunnelX,
   ChevronDown,
   ChevronLeft,
   ChevronRight
@@ -38,11 +41,12 @@ export default function Navigation() {
   const [hasMoreNotifications, setHasMoreNotifications] = useState(true);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [readLeadMap, setReadLeadMap] = useState<Record<string, string>>({});
-  const [isReadStateHydrated, setIsReadStateHydrated] = useState(false);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const bellMenuRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<any>(null);
+  const pendingReadIdsRef = useRef<Set<string>>(new Set());
+  const flushReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogout = () => {
     logout();
@@ -62,8 +66,57 @@ export default function Navigation() {
     if (lead.leadDateTime) return `leadDate:${lead.leadDateTime}`;
     const email = (lead.leadEmail || '').trim().toLowerCase();
     const phone = (lead.leadPhoneNumber || '').trim();
-    const name = (lead.leadName || '').trim().toLowerCase();
-    return `fp:${email}|${phone}|${name}`;
+    const channel = (lead.sourceChannel || '').trim().toLowerCase();
+    return `fp:${email}|${phone}|${channel}`;
+  };
+
+  const leadReadKeys = (lead?: Lead | null) => {
+    if (!lead) return [];
+    const keys = new Set<string>();
+    if (lead._id) keys.add(`id:${lead._id}`);
+    const primary = leadIdentityKey(lead);
+    if (primary) keys.add(primary);
+    return Array.from(keys);
+  };
+
+  const syncReadState = async (leadIds: string[]) => {
+    if (!currentApp?.id || leadIds.length === 0) return;
+    try {
+      const svc = await useLeadService();
+      const res = await svc.getReadStateByApp(currentApp.id, leadIds);
+      const reads = res.data?.reads || {};
+      setReadLeadMap((prev) => {
+        const next = { ...prev };
+        Object.entries(reads).forEach(([leadId, readAt]) => {
+          next[`id:${leadId}`] = String(readAt);
+        });
+        return next;
+      });
+    } catch (e) {
+      console.error('Failed to sync read state:', e);
+    }
+  };
+
+  const flushPendingReadIds = async () => {
+    if (!currentApp?.id) return;
+    const ids = Array.from(pendingReadIdsRef.current);
+    if (ids.length === 0) return;
+    pendingReadIdsRef.current.clear();
+    try {
+      const svc = await useLeadService();
+      await svc.markReadByApp(currentApp.id, ids);
+    } catch (e) {
+      console.error('Failed to persist read state:', e);
+      ids.forEach((id) => pendingReadIdsRef.current.add(id));
+    }
+  };
+
+  const scheduleFlushPendingReads = () => {
+    if (flushReadTimerRef.current) return;
+    flushReadTimerRef.current = setTimeout(async () => {
+      flushReadTimerRef.current = null;
+      await flushPendingReadIds();
+    }, 350);
   };
 
   const leadTimestamp = (lead?: Lead | null) => {
@@ -93,29 +146,36 @@ export default function Navigation() {
   };
 
   const isLeadRead = (lead: Lead) => {
-    const key = leadIdentityKey(lead);
-    return !!(key && readLeadMap[key]);
+    const keys = leadReadKeys(lead);
+    return keys.some((key) => !!readLeadMap[key]);
   };
 
   const markLeadAsRead = (lead: Lead) => {
-    const key = leadIdentityKey(lead);
-    if (!key) return;
-    setReadLeadMap((prev) => ({
-      ...prev,
-      [key]: new Date().toISOString(),
-    }));
+    const keys = leadReadKeys(lead);
+    if (keys.length === 0) return;
+    const now = new Date().toISOString();
+    setReadLeadMap((prev) => ({ ...prev, ...Object.fromEntries(keys.map((key) => [key, now])) }));
+    if (lead._id) {
+      pendingReadIdsRef.current.add(lead._id);
+      scheduleFlushPendingReads();
+    }
   };
 
   const markAllAsRead = () => {
     const now = new Date().toISOString();
+    const idsToMark = new Set<string>();
     setReadLeadMap((prev) => {
       const next = { ...prev };
       notifications.forEach((lead) => {
-        const key = leadIdentityKey(lead);
-        if (key) next[key] = now;
+        leadReadKeys(lead).forEach((key) => {
+          next[key] = now;
+        });
+        if (lead._id) idsToMark.add(lead._id);
       });
       return next;
     });
+    idsToMark.forEach((id) => pendingReadIdsRef.current.add(id));
+    scheduleFlushPendingReads();
   };
 
   const handleNotificationClick = (lead: Lead) => {
@@ -128,11 +188,12 @@ export default function Navigation() {
         lead,
         ts: Date.now(),
       };
-      sessionStorage.setItem('assistly:pendingLeadOpen', JSON.stringify(payload));
       if (pathname === '/leads') {
+        sessionStorage.removeItem('assistly:pendingLeadOpen');
         window.dispatchEvent(new CustomEvent('assistly:open-lead-detail', { detail: payload }));
         return;
       }
+      sessionStorage.setItem('assistly:pendingLeadOpen', JSON.stringify(payload));
     }
 
     router.push('/leads');
@@ -150,8 +211,20 @@ export default function Navigation() {
     [notifications, readLeadMap]
   );
 
-  const readStorageKey =
-    user?._id && currentApp?.id ? `lead-activity-read:${user._id}:${currentApp.id}` : null;
+  const leadStatusPillClass = (status?: Lead['status']) => {
+    if (status === 'confirmed') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (status === 'complete') return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (status === 'in_progress' || status === 'interacting') return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-gray-50 text-gray-600 border-gray-200';
+  };
+
+  const leadStatusLabel = (status?: Lead['status']) => {
+    if (status === 'in_progress') return 'In Progress';
+    if (status === 'interacting') return 'Interacting';
+    if (status === 'confirmed') return 'Confirmed';
+    if (status === 'complete') return 'Completed';
+    return 'Unknown';
+  };
 
   const loadNotifications = async (targetPage: number, append: boolean) => {
     if (!currentApp?.id || loadingNotifications) return;
@@ -206,25 +279,14 @@ export default function Navigation() {
   }, [isUserMenuOpen, isNotificationOpen]);
 
   useEffect(() => {
-    if (!readStorageKey) {
-      setReadLeadMap({});
-      setIsReadStateHydrated(false);
-      return;
-    }
-    try {
-      const raw = localStorage.getItem(readStorageKey);
-      setReadLeadMap(raw ? JSON.parse(raw) : {});
-    } catch {
-      setReadLeadMap({});
-    } finally {
-      setIsReadStateHydrated(true);
-    }
-  }, [readStorageKey]);
+    setReadLeadMap({});
+  }, [currentApp?.id, user?._id]);
 
   useEffect(() => {
-    if (!readStorageKey || !isReadStateHydrated) return;
-    localStorage.setItem(readStorageKey, JSON.stringify(readLeadMap));
-  }, [readStorageKey, isReadStateHydrated, readLeadMap]);
+    const leadIds = notifications.map((lead) => lead._id).filter((id): id is string => !!id);
+    if (leadIds.length === 0) return;
+    void syncReadState(leadIds);
+  }, [notifications, currentApp?.id]);
 
   useEffect(() => {
     if (!currentApp?.id) {
@@ -257,6 +319,11 @@ export default function Navigation() {
 
     return () => {
       isCancelled = true;
+      if (flushReadTimerRef.current) {
+        clearTimeout(flushReadTimerRef.current);
+        flushReadTimerRef.current = null;
+      }
+      void flushPendingReadIds();
       if (wsRef.current) {
         wsRef.current.disconnect();
         wsRef.current = null;
@@ -337,16 +404,18 @@ export default function Navigation() {
                   <div className="absolute right-0 mt-2 w-[360px] max-w-[90vw] bg-white rounded-md shadow-lg border border-gray-200 z-50">
                     <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
                       <p className="text-sm font-semibold text-gray-900">Lead Activity</p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setShowUnreadOnly((prev) => !prev)}
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                          title={showUnreadOnly ? 'Show all activity' : 'Show unread only'}
+                          aria-label={showUnreadOnly ? 'Show all activity' : 'Show unread only'}
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-full border ${
                             showUnreadOnly
-                              ? 'text-[#c01721] border-[#c01721]/30 bg-[#c01721]/5'
+                              ? 'text-[#c01721] border-[#c01721]/30 bg-[#c01721]/10'
                               : 'text-gray-600 border-gray-200 hover:bg-gray-50'
                           }`}
                         >
-                          {showUnreadOnly ? 'Showing unread' : 'Unread only'}
+                          {showUnreadOnly ? <FunnelX className="h-3.5 w-3.5" /> : <Funnel className="h-3.5 w-3.5" />}
                         </button>
                         <p className="text-xs text-gray-500">
                           {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
@@ -354,9 +423,11 @@ export default function Navigation() {
                         {unreadCount > 0 && (
                           <button
                             onClick={markAllAsRead}
-                            className="text-xs font-medium text-[#c01721] hover:underline"
+                            title="Mark all as read"
+                            aria-label="Mark all as read"
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-full border border-[#c01721]/25 text-[#c01721] hover:bg-[#c01721]/10"
                           >
-                            Mark all read
+                            <CheckCheck className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
@@ -374,17 +445,35 @@ export default function Navigation() {
                           <button
                             key={leadIdentityKey(lead)}
                             onClick={() => handleNotificationClick(lead)}
-                            className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${
-                              isRead ? 'bg-white' : 'bg-blue-50/50'
+                            className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors border-l-4 ${
+                              isRead
+                                ? 'bg-white border-l-transparent'
+                                : 'bg-[#c01721]/10 border-l-[#c01721]'
                             }`}
                           >
-                            <p className={`text-sm ${isRead ? 'text-gray-700' : 'text-gray-900 font-medium'}`}>
-                              {(lead.leadName || 'Anonymous Visitor').trim() || 'Anonymous Visitor'}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
-                              {lead.title || lead.summary || 'New lead activity'}
-                            </p>
-                            <p className="text-[11px] text-gray-400 mt-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className={`text-sm truncate ${isRead ? 'text-gray-600' : 'text-gray-900 font-semibold'}`}>
+                                {(lead.leadName || 'Anonymous Visitor').trim() || 'Anonymous Visitor'}
+                              </p>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${
+                                  isRead
+                                    ? 'text-gray-500 border-gray-200 bg-gray-50'
+                                    : 'text-[#c01721] border-[#c01721]/25 bg-[#c01721]/10'
+                                }`}
+                              >
+                                {isRead ? 'Read' : 'Unread'}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${leadStatusPillClass(lead.status)}`}>
+                                {leadStatusLabel(lead.status)}
+                              </span>
+                              <p className={`text-xs truncate ${isRead ? 'text-gray-500' : 'text-gray-700'}`}>
+                                {lead.title || lead.summary || 'New lead activity'}
+                              </p>
+                            </div>
+                            <p className={`text-[11px] mt-1 ${isRead ? 'text-gray-400' : 'text-[#c01721]'}`}>
                               {when ? new Date(when).toLocaleString() : 'Just now'}
                             </p>
                           </button>
