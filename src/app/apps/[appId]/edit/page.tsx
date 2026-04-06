@@ -61,12 +61,29 @@ export default function EditAppPage() {
   });
 
   const [leadCaptureSettings, setLeadCaptureSettings] = useState({
+    captureLeadName: true,
+    captureLeadEmail: true,
+    captureLeadPhoneNumber: true,
     validateEmail: true,
     validatePhoneNumber: true,
     conversationStyle: false,
+    captureFeedbackEnabled: false,
     googleReviewEnabled: false,
     googleReviewUrl: '',
   });
+
+  useEffect(() => {
+    setLeadCaptureSettings((prev) => {
+      let next = prev;
+      if (!prev.captureLeadEmail && prev.validateEmail) {
+        next = { ...next, validateEmail: false };
+      }
+      if (!prev.captureLeadPhoneNumber && prev.validatePhoneNumber) {
+        next = { ...next, validatePhoneNumber: false };
+      }
+      return next;
+    });
+  }, [leadCaptureSettings.captureLeadEmail, leadCaptureSettings.captureLeadPhoneNumber]);
 
   const [whatsappNumberStatus, setWhatsappNumberStatus] = useState<WhatsappNumberStatus | undefined>(
     undefined
@@ -176,9 +193,13 @@ export default function EditAppPage() {
             const iRes = await integrationSvc.getSettings(appId);
             const integration = iRes.data?.integration;
             setLeadCaptureSettings({
+              captureLeadName: integration?.captureLeadName !== false,
+              captureLeadEmail: integration?.captureLeadEmail !== false,
+              captureLeadPhoneNumber: integration?.captureLeadPhoneNumber !== false,
               validateEmail: !!integration?.validateEmail,
               validatePhoneNumber: !!integration?.validatePhoneNumber,
               conversationStyle: !!integration?.conversationStyle,
+              captureFeedbackEnabled: !!integration?.captureFeedbackEnabled,
               googleReviewEnabled: !!integration?.googleReviewEnabled,
               googleReviewUrl: integration?.googleReviewUrl ?? '',
             });
@@ -405,9 +426,13 @@ export default function EditAppPage() {
         try {
           const integrationSvc = await useIntegrationService();
           await integrationSvc.updateSettings(appId, {
+            captureLeadName: !!leadCaptureSettings.captureLeadName,
+            captureLeadEmail: !!leadCaptureSettings.captureLeadEmail,
+            captureLeadPhoneNumber: !!leadCaptureSettings.captureLeadPhoneNumber,
             validateEmail: !!leadCaptureSettings.validateEmail,
             validatePhoneNumber: !!leadCaptureSettings.validatePhoneNumber,
             conversationStyle: !!leadCaptureSettings.conversationStyle,
+            captureFeedbackEnabled: !!leadCaptureSettings.captureFeedbackEnabled,
             googleReviewEnabled: !!leadCaptureSettings.googleReviewEnabled,
             googleReviewUrl: leadCaptureSettings.googleReviewEnabled
               ? (leadCaptureSettings.googleReviewUrl || '').trim()
@@ -691,8 +716,62 @@ export default function EditAppPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture Name</div>
+                        <div className="text-xs text-gray-600 mt-1">Collect customer name during chat.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureLeadName}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureLeadName: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture Email</div>
+                        <div className="text-xs text-gray-600 mt-1">Collect customer email during chat.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureLeadEmail}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureLeadEmail: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture Phone Number</div>
+                        <div className="text-xs text-gray-600 mt-1">Collect customer phone number during chat.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureLeadPhoneNumber}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureLeadPhoneNumber: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="font-medium text-gray-900 text-sm">Validate Email</div>
@@ -703,14 +782,20 @@ export default function EditAppPage() {
                           type="checkbox"
                           className="sr-only peer"
                           checked={leadCaptureSettings.validateEmail}
+                          disabled={!leadCaptureSettings.captureLeadEmail}
                           onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, validateEmail: e.target.checked }))}
                         />
                         <div className="brand-toggle-track"></div>
                       </label>
                     </div>
+                    {!leadCaptureSettings.captureLeadEmail && (
+                      <div className="mt-2 text-[11px] text-amber-700">
+                        Enable Capture Email to use email validation.
+                      </div>
+                    )}
                   </div>
 
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="font-medium text-gray-900 text-sm">Validate Phone Number</div>
@@ -721,14 +806,20 @@ export default function EditAppPage() {
                           type="checkbox"
                           className="sr-only peer"
                           checked={leadCaptureSettings.validatePhoneNumber}
+                          disabled={!leadCaptureSettings.captureLeadPhoneNumber}
                           onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, validatePhoneNumber: e.target.checked }))}
                         />
                         <div className="brand-toggle-track"></div>
                       </label>
                     </div>
+                    {!leadCaptureSettings.captureLeadPhoneNumber && (
+                      <div className="mt-2 text-[11px] text-amber-700">
+                        Enable Capture Phone Number to use phone validation.
+                      </div>
+                    )}
                   </div>
 
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="font-medium text-gray-900 text-sm">Conversational Style</div>
@@ -746,7 +837,25 @@ export default function EditAppPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture End Feedback</div>
+                        <div className="text-xs text-gray-600 mt-1">Ask for smiley experience and 1-5 rating when chat ends.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureFeedbackEnabled}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureFeedbackEnabled: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="font-medium text-gray-900 text-sm">Offer a review link after lead creation</div>
