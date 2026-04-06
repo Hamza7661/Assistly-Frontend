@@ -516,15 +516,18 @@ export default function LeadsPage() {
     if (/Edg\//i.test(ua)) return 'Edge';
     if (/OPR\//i.test(ua) || /Opera/i.test(ua)) return 'Opera';
     if (/Brave/i.test(ua)) return 'Brave';
-    if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) return 'Chrome';
+    // Chrome on iOS reports "CriOS", not "Chrome".
+    if (/(Chrome|CriOS)\//i.test(ua) && !/Chromium/i.test(ua)) return 'Chrome';
     if (/Firefox\//i.test(ua)) return 'Firefox';
     // Safari often includes "Safari" + "Version" and doesn't include Chrome token.
-    if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) return 'Safari';
+    if (/Safari\//i.test(ua) && !/(Chrome|CriOS)\//i.test(ua) && !/Chromium/i.test(ua)) return 'Safari';
     if (/Chromium/i.test(ua)) return 'Chromium';
     return 'Browser';
   };
 
   const deviceTypeLabel = (lead: Lead) => {
+    const cc = lead.clientContext || {};
+    if (cc.deviceType) return cc.deviceType;
     const ua = ((lead.clientContext || {}).userAgent || '').toString();
     if (!ua) return '-';
     if (/iPad|Tablet/i.test(ua)) return 'Tablet';
