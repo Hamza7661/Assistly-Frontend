@@ -19,6 +19,9 @@ import {
   CheckCheck,
   Funnel,
   FunnelX,
+  Globe,
+  Camera,
+  Phone,
   ChevronDown,
   ChevronLeft,
   ChevronRight
@@ -241,6 +244,43 @@ export default function Navigation() {
     if (status === 'confirmed') return 'Confirmed';
     if (status === 'complete') return 'Completed';
     return 'Unknown';
+  };
+
+  const channelLabel = (source?: string) => {
+    const s = (source || '').trim().toLowerCase();
+    if (!s) return 'Unknown';
+    if (s === 'web') return 'Web';
+    if (s === 'whatsapp') return 'WhatsApp';
+    if (s === 'instagram') return 'Instagram';
+    if (s === 'facebook' || s === 'messenger') return 'Facebook';
+    if (s === 'voice') return 'Voice';
+    return s;
+  };
+
+  const channelIcon = (source?: string) => {
+    const s = (source || '').trim().toLowerCase();
+    if (s === 'facebook' || s === 'messenger') {
+      return (
+        <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
+          <path d="M24 12a12 12 0 10-13.88 11.86v-8.39H7.08V12h3.04V9.36c0-3 1.79-4.66 4.53-4.66 1.31 0 2.68.23 2.68.23v2.95h-1.5c-1.48 0-1.94.92-1.94 1.86V12h3.3l-.53 3.47h-2.77v8.39A12 12 0 0024 12z" />
+        </svg>
+      );
+    }
+    if (s === 'instagram') return <Camera className="h-3 w-3" aria-hidden />;
+    if (s === 'whatsapp') return <Phone className="h-3 w-3" aria-hidden />;
+    if (s === 'web') return <Globe className="h-3 w-3" aria-hidden />;
+    if (s === 'voice') return <Phone className="h-3 w-3" aria-hidden />;
+    return <Globe className="h-3 w-3" aria-hidden />;
+  };
+
+  const channelPillClass = (source?: string) => {
+    const s = (source || '').trim().toLowerCase();
+    if (s === 'facebook' || s === 'messenger') return 'border-blue-200 bg-blue-50 text-blue-700';
+    if (s === 'instagram') return 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700';
+    if (s === 'whatsapp') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    if (s === 'voice') return 'border-amber-200 bg-amber-50 text-amber-700';
+    if (s === 'web') return 'border-slate-200 bg-slate-100 text-slate-700';
+    return 'border-gray-200 bg-gray-50 text-gray-700';
   };
 
   const loadNotifications = async (targetPage: number, append: boolean) => {
@@ -506,6 +546,10 @@ export default function Navigation() {
                             <div className="mt-0.5 flex items-center gap-1.5">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${leadStatusPillClass(lead.status)}`}>
                                 {leadStatusLabel(lead.status)}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${channelPillClass(lead.sourceChannel)}`}>
+                                {channelIcon(lead.sourceChannel)}
+                                {channelLabel(lead.sourceChannel)}
                               </span>
                               <p className={`text-xs truncate ${isRead ? 'text-gray-500' : 'text-gray-700'}`}>
                                 {lead.title || lead.summary || 'New lead activity'}

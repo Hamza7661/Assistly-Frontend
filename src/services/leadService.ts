@@ -59,16 +59,37 @@ class LeadService extends HttpService {
   }
 
   async getReadStateByApp(appId: string, leadIds: string[]) {
-    const uniq = Array.from(new Set(leadIds.filter(Boolean)));
+    const isObjectId = (value: string) => /^[a-fA-F0-9]{24}$/.test(value);
+    const uniq = Array.from(
+      new Set(
+        leadIds
+          .map((id) => String(id || '').trim())
+          .filter((id) => id && isObjectId(id))
+      )
+    );
     if (uniq.length === 0) {
       return { status: 'success' as const, data: { reads: {} as Record<string, string> } };
     }
-    const query = new URLSearchParams();
-    query.set('leadIds', uniq.join(','));
-    return this.request<{ status: 'success' | 'fail'; data: { reads: Record<string, string> } }>(
-      `/leads/apps/${appId}/read-state?${query.toString()}`,
-      { method: 'GET' }
-    );
+
+    // Keep query strings short and resilient to proxy/path limits.
+    const CHUNK_SIZE = 80;
+    const readMap: Record<string, string> = {};
+    try {
+      for (let i = 0; i < uniq.length; i += CHUNK_SIZE) {
+        const chunk = uniq.slice(i, i + CHUNK_SIZE);
+        const query = new URLSearchParams();
+        query.set('leadIds', chunk.join(','));
+        const res = await this.request<{ status: 'success' | 'fail'; data: { reads: Record<string, string> } }>(
+          `/leads/apps/${appId}/read-state?${query.toString()}`,
+          { method: 'GET' }
+        );
+        Object.assign(readMap, res?.data?.reads || {});
+      }
+      return { status: 'success' as const, data: { reads: readMap } };
+    } catch {
+      // Non-blocking UX: notifications should still render even if read-state sync fails.
+      return { status: 'success' as const, data: { reads: {} as Record<string, string> } };
+    }
   }
 
   async markReadByApp(appId: string, leadIds: string[]) {
