@@ -1048,7 +1048,7 @@ function ChatbotWorkflowPageContent() {
           </div>
         </div>
 
-        {questionTypes.length > 0 && (
+        {!isRoot && questionTypes.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Question type

@@ -78,6 +78,7 @@ export default function WidgetPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messagesRef = useRef<AnyMessage[]>([]);
   const [connectAttempt, setConnectAttempt] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -441,6 +442,22 @@ export default function WidgetPage() {
       try {
         const msg = JSON.parse(e.data) as AnyMessage;
         const msgType = (msg as any).type;
+        const msgContent = String((msg as { content?: string }).content || '');
+
+        // On reopen/resume we may already have the transcript loaded from sessionStorage.
+        // If backend replays older lines, skip them so chat does not append duplicates.
+        const isDuplicateOnResume = (type: string, content: string) => {
+          if (!skipHistoryReplay || !content) return false;
+          return messagesRef.current.some((m) => {
+            if (!('content' in m)) return false;
+            const existingContent = String((m as { content?: string }).content || '');
+            if (existingContent !== content) return false;
+            if (type === 'user_replay') {
+              return m.type === 'user_replay' || m.type === 'user';
+            }
+            return m.type === type;
+          });
+        };
 
         // Handle file upload enable signal (not a chat message)
         if (msgType === 'enable_file_upload') {
@@ -466,6 +483,7 @@ export default function WidgetPage() {
         }
 
         if (msgType === 'user_replay') {
+          if (isDuplicateOnResume(msgType, msgContent)) return;
           setMessages((prev) => [...prev, { type: 'user_replay', content: String((msg as { content?: string }).content || '') }]);
           setHasActiveConversation(true);
           persistConversationMeta({
@@ -473,6 +491,12 @@ export default function WidgetPage() {
             leadId: leadIdRef.current,
             clickedItems: clickedItemsRef.current,
           });
+          return;
+        }
+        if (
+          (msgType === 'bot' || msgType === 'review_prompt' || msgType === 'user')
+          && isDuplicateOnResume(msgType, msgContent)
+        ) {
           return;
         }
         setMessages((prev) => [...prev, msg]);
@@ -548,6 +572,10 @@ export default function WidgetPage() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  }, [messages]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
   }, [messages]);
 
   // Cleanup on unmount
@@ -954,6 +982,16 @@ export default function WidgetPage() {
     return <div className="flex flex-wrap items-start gap-2">{parts}</div>;
   };
 
+  const requiresOptionSelection = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (msg.type !== 'bot') continue;
+      const content = String(msg.content || '');
+      return /<(button|checkbox)\b/i.test(content);
+    }
+    return false;
+  }, [messages]);
+
   if (!isOpen) {
     if (!settingsLoaded) return null;
     // Compact widget - inline message and chat button
@@ -1262,8 +1300,12 @@ export default function WidgetPage() {
         )}
         <input
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
-          placeholder={connected ? 'Type a message...' : (chatEnded ? 'Chat ended' : 'Connecting...')}
-          disabled={!connected}
+          placeholder={
+            !connected
+              ? (chatEnded ? 'Chat ended' : 'Connecting...')
+              : (requiresOptionSelection ? 'Please select from the options above' : 'Type a message...')
+          }
+          disabled={!connected || requiresOptionSelection}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
@@ -1272,7 +1314,7 @@ export default function WidgetPage() {
           className="text-white text-sm sm:text-base px-2 sm:px-4 py-1.5 sm:py-2 rounded font-medium disabled:opacity-50 whitespace-nowrap" 
           style={{ backgroundColor: settings.primaryColor || '#c01721' }}
           onClick={send} 
-          disabled={!connected}
+          disabled={!connected || requiresOptionSelection}
         >
           Send
         </button>
