@@ -152,7 +152,8 @@ export default function MetaEmbeddedSignupWizard({
       ...(fallbackRedirect && { fallback_redirect_uri: fallbackRedirect }),
       extras: {
         sessionInfoVersion: 3,
-        featureType: 'only_waba_sharing',
+        // Full embedded signup so Meta popup includes phone onboarding + OTP verification
+        featureType: 'whatsapp_embedded_signup',
       },
     };
     if (META_PARTNER_SOLUTION_ID) {
