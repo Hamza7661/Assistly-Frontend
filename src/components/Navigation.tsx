@@ -97,6 +97,23 @@ export default function Navigation() {
     }
   };
 
+  const fetchReadStateMap = async (leadIds: string[]) => {
+    if (!currentApp?.id || leadIds.length === 0) return {} as Record<string, string>;
+    try {
+      const svc = await useLeadService();
+      const res = await svc.getReadStateByApp(currentApp.id, leadIds);
+      const reads = res.data?.reads || {};
+      const next: Record<string, string> = {};
+      Object.entries(reads).forEach(([leadId, readAt]) => {
+        next[`id:${leadId}`] = String(readAt);
+      });
+      return next;
+    } catch (e) {
+      console.error('Failed to fetch read state map:', e);
+      return {};
+    }
+  };
+
   const flushPendingReadIds = async () => {
     if (!currentApp?.id) return;
     const ids = Array.from(pendingReadIdsRef.current);
@@ -239,6 +256,11 @@ export default function Navigation() {
       });
       const leads = res.data?.leads || [];
       const totalPages = res.data?.pagination?.totalPages;
+      const leadIds = leads.map((lead: Lead) => lead._id).filter((id: string | undefined): id is string => !!id);
+      const readMapForPage = await fetchReadStateMap(leadIds);
+      if (Object.keys(readMapForPage).length > 0) {
+        setReadLeadMap((prev) => ({ ...prev, ...readMapForPage }));
+      }
       setNotifications((prev) => (append ? upsertLeads(prev, leads) : upsertLeads([], leads)));
       setNotificationPage(targetPage);
       if (typeof totalPages === 'number') {
@@ -283,18 +305,14 @@ export default function Navigation() {
   }, [currentApp?.id, user?._id]);
 
   useEffect(() => {
-    const leadIds = notifications.map((lead) => lead._id).filter((id): id is string => !!id);
-    if (leadIds.length === 0) return;
-    void syncReadState(leadIds);
-  }, [notifications, currentApp?.id]);
-
-  useEffect(() => {
     if (!currentApp?.id) {
       setNotifications([]);
       setNotificationPage(0);
       setHasMoreNotifications(true);
       return;
     }
+    // Preload notifications so bell count is correct without opening the menu.
+    void loadNotifications(1, false);
     let isCancelled = false;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
     const baseUrl = apiUrl.replace('/api/v1', '');
@@ -310,6 +328,8 @@ export default function Navigation() {
         socket.on('new_lead', (data) => {
           const incoming = data?.lead as Lead | undefined;
           if (!incoming) return;
+          // Ignore leads for other apps to keep unread count app-scoped.
+          if (incoming.appId && String(incoming.appId) !== String(currentApp.id)) return;
           setNotifications((prev) => upsertLeads(prev, [incoming]));
         });
       })
@@ -434,6 +454,24 @@ export default function Navigation() {
                     </div>
 
                     <div className="max-h-96 overflow-y-auto" onScroll={handleNotificationScroll}>
+                      {loadingNotifications && visibleNotifications.length === 0 && (
+                        <div className="px-3 py-2 space-y-2" aria-hidden="true">
+                          {[0, 1, 2].map((idx) => (
+                            <div
+                              key={`notif-skeleton-${idx}`}
+                              className="rounded-md border border-gray-100 p-2.5 animate-pulse"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="h-3.5 w-32 bg-gray-200 rounded" />
+                                <div className="h-4 w-12 bg-gray-200 rounded-full" />
+                              </div>
+                              <div className="mt-2 h-3 w-48 bg-gray-200 rounded" />
+                              <div className="mt-2 h-2.5 w-24 bg-gray-100 rounded" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {visibleNotifications.length === 0 && !loadingNotifications && (
                         <p className="px-3 py-6 text-sm text-gray-500 text-center">No activity yet</p>
                       )}
@@ -480,7 +518,7 @@ export default function Navigation() {
                         );
                       })}
 
-                      {loadingNotifications && (
+                      {loadingNotifications && visibleNotifications.length > 0 && (
                         <p className="px-3 py-2 text-xs text-gray-500 text-center">Loading more...</p>
                       )}
                     </div>
