@@ -518,6 +518,39 @@ export default function LeadsPage() {
     return source;
   };
 
+  const channelIcon = (source?: string) => {
+    const s = (source || '').trim().toLowerCase();
+    if (s === 'facebook' || s === 'messenger') {
+      return (
+        <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
+          <path d="M24 12a12 12 0 10-13.88 11.86v-8.39H7.08V12h3.04V9.36c0-3 1.79-4.66 4.53-4.66 1.31 0 2.68.23 2.68.23v2.95h-1.5c-1.48 0-1.94.92-1.94 1.86V12h3.3l-.53 3.47h-2.77v8.39A12 12 0 0024 12z" />
+        </svg>
+      );
+    }
+    if (s === 'instagram') return <Camera className="h-3 w-3" aria-hidden />;
+    if (s === 'whatsapp') return <Phone className="h-3 w-3" aria-hidden />;
+    if (s === 'web') return <Globe className="h-3 w-3" aria-hidden />;
+    if (s === 'voice') return <Phone className="h-3 w-3" aria-hidden />;
+    return <Globe className="h-3 w-3" aria-hidden />;
+  };
+
+  const channelPill = (source?: string) => (
+    <span
+      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${(() => {
+        const s = (source || '').trim().toLowerCase();
+        if (s === 'facebook' || s === 'messenger') return 'bg-blue-50 text-blue-700 border-blue-200';
+        if (s === 'instagram') return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200';
+        if (s === 'whatsapp') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        if (s === 'voice') return 'bg-amber-50 text-amber-700 border-amber-200';
+        if (s === 'web') return 'bg-slate-100 text-slate-700 border-slate-200';
+        return 'bg-gray-50 text-gray-700 border-gray-200';
+      })()}`}
+    >
+      {channelIcon(source)}
+      {channelLabel(source)}
+    </span>
+  );
+
   /** Human-readable interaction / lead-type token (hyphens & underscores → spaces, title case). */
   const interactionLabel = (value?: string) => {
     const v = normalizeInteractionInput(value);
@@ -1275,7 +1308,7 @@ export default function LeadsPage() {
                         <div className="flex flex-wrap gap-1.5 mt-1.5">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span>
                           {activeSourceTab === 'all' && (
-                            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{channelLabel(l.sourceChannel)}</span>
+                            channelPill(l.sourceChannel)
                           )}
                           <span className="inline-flex items-center gap-1.5 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                             {countryFlagUrl(countryCode(l)) ? <img src={countryFlagUrl(countryCode(l))} alt="" className="h-3 w-4 rounded-sm border border-gray-200 bg-white" /> : null}
@@ -1331,7 +1364,7 @@ export default function LeadsPage() {
                         </td>
                         <td className="px-4 py-3 text-gray-600 w-[95px]"><span className={`inline-flex whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span></td>
                         {activeSourceTab === 'all' && (
-                          <td className="px-4 py-3 text-gray-600 w-[90px] whitespace-nowrap">{channelLabel(l.sourceChannel)}</td>
+                          <td className="px-4 py-3 text-gray-600 w-[90px] whitespace-nowrap">{channelPill(l.sourceChannel)}</td>
                         )}
                         <td className="px-4 py-3 text-gray-600">
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs max-w-[170px] whitespace-normal break-words leading-snug">
@@ -1973,6 +2006,9 @@ export default function LeadsPage() {
                       <span> from {newLeadNotification.leadName}</span>
                     )}
                   </p>
+                  <div className="mt-1">
+                    {channelPill(newLeadNotification.sourceChannel)}
+                  </div>
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={() => {
