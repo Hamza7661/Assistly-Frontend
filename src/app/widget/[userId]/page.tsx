@@ -47,6 +47,7 @@ export default function WidgetPage() {
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
+  const [sessionCompleted, setSessionCompleted] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [fileUploadEnabled, setFileUploadEnabled] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -266,6 +267,7 @@ export default function WidgetPage() {
     setHasActiveConversation(false);
     setFileUploadEnabled(false);
     setChatEnded(false);
+    setSessionCompleted(false);
     setConnectionError(null);
     setInput('');
     setIsTyping(true);
@@ -388,6 +390,7 @@ export default function WidgetPage() {
         setMessages([]);
         setConnected(false);
         setChatEnded(false);
+        setSessionCompleted(false);
         setIsTyping(false);
         setFileUploadEnabled(false);
         setClickedItems([]);
@@ -479,6 +482,9 @@ export default function WidgetPage() {
               sessionStorage.setItem(`${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`, '1');
             } catch {}
           }
+          setSessionCompleted(true);
+          setIsTyping(false);
+          setFileUploadEnabled(false);
           return;
         }
 
@@ -723,6 +729,7 @@ export default function WidgetPage() {
       setInput('');
       setIsTyping(false);
       setChatEnded(false);
+      setSessionCompleted(false);
       setConnectionError(null);
       reconnectAttemptsRef.current = 0;
     }
@@ -1303,20 +1310,22 @@ export default function WidgetPage() {
           placeholder={
             !connected
               ? (chatEnded ? 'Chat ended' : 'Connecting...')
-              : (requiresOptionSelection ? 'Please select from the options above' : 'Type a message...')
+              : (sessionCompleted
+                  ? 'Conversation completed. Click Reset to start again.'
+                  : (requiresOptionSelection ? 'Please select from the options above' : 'Type a message...'))
           }
-          disabled={!connected || requiresOptionSelection}
+          disabled={!connected || requiresOptionSelection || sessionCompleted}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !sessionCompleted) send(); }}
         />
         <button 
           className="text-white text-sm sm:text-base px-2 sm:px-4 py-1.5 sm:py-2 rounded font-medium disabled:opacity-50 whitespace-nowrap" 
           style={{ backgroundColor: settings.primaryColor || '#c01721' }}
-          onClick={send} 
-          disabled={!connected || requiresOptionSelection}
+          onClick={sessionCompleted ? resetChatToStart : send}
+          disabled={sessionCompleted ? false : (!connected || requiresOptionSelection)}
         >
-          Send
+          {sessionCompleted ? 'Reset' : 'Send'}
         </button>
       </div>
 
