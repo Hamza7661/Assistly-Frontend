@@ -197,6 +197,31 @@ function ChatbotWorkflowPageContent() {
         return;
       }
 
+      const selectedQuestionType = questionTypes.find(
+        (qt) => qt.id === (newQuestion.questionTypeId || questionTypes[0]?.id)
+      );
+      const isChoiceQuestionType =
+        selectedQuestionType?.code === 'single_choice' ||
+        selectedQuestionType?.code === 'multiple_choice';
+      const optionList = (newQuestion.options || []) as WorkflowOption[];
+      if (isChoiceQuestionType) {
+        if (optionList.length === 0) {
+          toast.error('Please add at least one option for this question type.');
+          setSaving(false);
+          return;
+        }
+        const hasEmptyOption = optionList.some((opt) => !String(opt?.text || '').trim());
+        if (hasEmptyOption) {
+          toast.error(
+            selectedQuestionType?.code === 'multiple_choice'
+              ? 'Please enter text for all checkboxes before saving.'
+              : 'Please enter text for all buttons before saving.'
+          );
+          setSaving(false);
+          return;
+        }
+      }
+
       const resolvedQuestionTypeId =
         newQuestion.questionTypeId && newQuestion.questionTypeId > 0
           ? newQuestion.questionTypeId

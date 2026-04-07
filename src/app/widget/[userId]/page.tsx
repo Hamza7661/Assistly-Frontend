@@ -1311,7 +1311,7 @@ export default function WidgetPage() {
             !connected
               ? (chatEnded ? 'Chat ended' : 'Connecting...')
               : (sessionCompleted
-                  ? 'Conversation completed. Click Reset to start again.'
+                  ? 'Chat completed - Click Reset to start again.'
                   : (requiresOptionSelection ? 'Please select from the options above' : 'Type a message...'))
           }
           disabled={!connected || requiresOptionSelection || sessionCompleted}
