@@ -5,6 +5,7 @@ export interface ConversationMessage {
 
 export interface Lead {
   _id?: string;
+  appId?: string;
   title: string;
   summary?: string;
   description?: string;
