@@ -536,7 +536,8 @@ export default function LeadsPage() {
 
   const channelPill = (source?: string) => (
     <span
-      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${(() => {
+      title={channelLabel(source)}
+      className={`inline-flex items-center justify-center p-1 rounded-full border ${(() => {
         const s = (source || '').trim().toLowerCase();
         if (s === 'facebook' || s === 'messenger') return 'bg-blue-50 text-blue-700 border-blue-200';
         if (s === 'instagram') return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200';
@@ -547,7 +548,6 @@ export default function LeadsPage() {
       })()}`}
     >
       {channelIcon(source)}
-      {channelLabel(source)}
     </span>
   );
 
@@ -1345,7 +1345,7 @@ export default function LeadsPage() {
                       <th className="px-4 py-3 font-medium text-gray-600 w-[170px]">Visitor</th>
                       <th className="px-4 py-3 font-medium text-gray-600 w-[95px]">Status</th>
                       {activeSourceTab === 'all' && (
-                        <th className="px-4 py-3 font-medium text-gray-600 w-[90px]">Channel</th>
+                        <th className="px-4 py-3 font-medium text-gray-600 w-[56px]">Channel</th>
                       )}
                       <th className="px-4 py-3 font-medium text-gray-600 min-w-[170px]">Interaction</th>
                       <th className="px-4 py-3 font-medium text-gray-600 min-w-[220px]">Country / Location</th>
@@ -1364,7 +1364,7 @@ export default function LeadsPage() {
                         </td>
                         <td className="px-4 py-3 text-gray-600 w-[95px]"><span className={`inline-flex whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${statusClass(l.status)}`}>{statusLabel(l.status)}</span></td>
                         {activeSourceTab === 'all' && (
-                          <td className="px-4 py-3 text-gray-600 w-[90px] whitespace-nowrap">{channelPill(l.sourceChannel)}</td>
+                          <td className="px-4 py-3 text-gray-600 w-[56px]">{channelPill(l.sourceChannel)}</td>
                         )}
                         <td className="px-4 py-3 text-gray-600">
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs max-w-[170px] whitespace-normal break-words leading-snug">
