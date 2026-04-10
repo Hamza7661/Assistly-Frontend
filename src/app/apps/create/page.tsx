@@ -19,7 +19,7 @@ import {
   FacebookButtonIcon,
 } from '@/components/StepperBrandIcons';
 import { Listbox } from '@headlessui/react';
-import { Building2, Loader2, ChevronDown, Check, CheckCircle2, XCircle } from 'lucide-react';
+import { Building2, Loader2, ChevronDown, Check, CheckCircle2, XCircle, MessageSquare, Phone } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { toast } from 'react-toastify';
@@ -86,7 +86,7 @@ export default function CreateAppPage() {
     whatsappNumber: '',
     countryCode:
       (process.env.NEXT_PUBLIC_DEFAULT_COUNTRY as string | undefined)?.toUpperCase() || 'GB',
-    availableNumbers: [] as { phoneNumber: string; friendlyName?: string }[],
+    availableNumbers: [] as { phoneNumber: string; friendlyName?: string; capabilities?: { sms: boolean; voice: boolean }; monthlyPrice?: string; priceUnit?: string }[],
     selectedTwilioNumber: '',
     provisioning: false,
     searching: false,
@@ -375,9 +375,16 @@ export default function CreateAppPage() {
     }
   };
 
+  const toCurrencySymbol = (unit?: string) => {
+    const map: Record<string, string> = {
+      GBP: '£', USD: '$', EUR: '€', CAD: 'CA$', AUD: 'A$', JPY: '¥', CHF: 'Fr',
+    };
+    return (unit && map[unit.toUpperCase()]) ? map[unit.toUpperCase()] : (unit ? unit + ' ' : '$');
+  };
+
   const uniqueAvailableNumbers = (() => {
     const seen = new Set<string>();
-    const out: { phoneNumber: string; friendlyName?: string }[] = [];
+    const out: { phoneNumber: string; friendlyName?: string; capabilities?: { sms: boolean; voice: boolean }; monthlyPrice?: string; priceUnit?: string }[] = [];
     for (const n of whatsAppData.availableNumbers) {
       const key = (n.phoneNumber || '').replace(/[^\d+]/g, '').trim();
       if (!key || seen.has(key)) continue;
@@ -1011,21 +1018,42 @@ export default function CreateAppPage() {
                                 disabled={uniqueAvailableNumbers.length === 0 || !!whatsAppData.provisionedNumber}
                               >
                                 <div className="relative w-full min-w-0">
-                                  <Listbox.Button className="input-field relative w-full pr-10 h-11 flex items-center disabled:opacity-60">
-                                    <span className="text-sm text-gray-800">
-                                      {whatsAppData.selectedTwilioNumber ? (
-                                        <span className="font-mono">{whatsAppData.selectedTwilioNumber}</span>
-                                      ) : uniqueAvailableNumbers.length === 0 ? (
-                                        'Search to load numbers'
-                                      ) : (
-                                        'Select a number'
-                                      )}
-                                    </span>
+                                  <Listbox.Button className="input-field relative w-full pr-10 h-11 flex items-center gap-2 overflow-hidden disabled:opacity-60">
+                                    {(() => {
+                                      const obj = uniqueAvailableNumbers.find(n => n.phoneNumber === whatsAppData.selectedTwilioNumber);
+                                      if (whatsAppData.selectedTwilioNumber) {
+                                        return (
+                                          <>
+                                            <span className="font-mono font-semibold text-gray-900 text-sm truncate shrink-0">{whatsAppData.selectedTwilioNumber}</span>
+                                            {obj?.capabilities?.sms && (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 shrink-0">
+                                                <MessageSquare className="h-3 w-3" />SMS
+                                              </span>
+                                            )}
+                                            {obj?.capabilities?.voice && (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 shrink-0">
+                                                <Phone className="h-3 w-3" />Call
+                                              </span>
+                                            )}
+                                            {obj?.monthlyPrice && (
+                                              <span className="inline-flex items-center rounded-full bg-[#c01721] px-2 py-0.5 text-[10px] font-bold text-white shrink-0">
+                                                {toCurrencySymbol(obj.priceUnit)}{parseFloat(obj.monthlyPrice).toFixed(2)}/mo
+                                              </span>
+                                            )}
+                                          </>
+                                        );
+                                      }
+                                      return (
+                                        <span className="text-sm text-gray-500">
+                                          {uniqueAvailableNumbers.length === 0 ? 'Search to load numbers' : 'Select a number'}
+                                        </span>
+                                      );
+                                    })()}
                                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                   </Listbox.Button>
                                   {uniqueAvailableNumbers.length > 0 && !whatsAppData.provisionedNumber && (
-                                    <Listbox.Options className="absolute z-20 bottom-full mb-2 w-full min-w-[360px] max-h-72 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg focus:outline-none">
-                                      <div className="sticky top-0 bg-white border-b border-gray-100 p-2">
+                                    <Listbox.Options className="absolute z-20 bottom-full mb-2 w-full min-w-[400px] max-h-72 overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl focus:outline-none divide-y divide-gray-100">
+                                      <div className="sticky top-0 bg-white border-b border-gray-100 p-2 z-10">
                                         <input
                                           value={numberSearch}
                                           onChange={(e) => setNumberSearch(e.target.value)}
@@ -1038,15 +1066,15 @@ export default function CreateAppPage() {
                                           key={n.phoneNumber}
                                           value={n.phoneNumber}
                                           className={({ active }) =>
-                                            `flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm ${
-                                              active ? 'bg-gray-50' : 'bg-white'
+                                            `flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors ${
+                                              active ? 'bg-red-50' : 'bg-white'
                                             }`
                                           }
                                         >
                                           {({ selected }) => (
                                             <>
                                               <div className="flex-1 min-w-0">
-                                                <div className="font-mono text-gray-900 truncate">{n.phoneNumber}</div>
+                                                <div className="font-mono font-semibold text-gray-900 text-sm tracking-wide truncate">{n.phoneNumber}</div>
                                               {(() => {
                                                 const pd = (n.phoneNumber || '').replace(/\D/g, '');
                                                 const fd = (n.friendlyName || '').replace(/\D/g, '');
@@ -1058,12 +1086,31 @@ export default function CreateAppPage() {
                                                     fd.endsWith(pd));
                                                 if (!n.friendlyName || same) return null;
                                                 return (
-                                                  <div className="text-xs text-gray-500 truncate">{n.friendlyName}</div>
+                                                  <div className="text-xs text-gray-400 truncate mt-0.5">{n.friendlyName}</div>
                                                 );
                                               })()}
                                               </div>
+                                              <div className="flex items-center gap-2 shrink-0">
+                                                {n.capabilities?.sms && (
+                                                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                    <MessageSquare className="h-3 w-3" />
+                                                    SMS
+                                                  </span>
+                                                )}
+                                                {n.capabilities?.voice && (
+                                                  <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                                                    <Phone className="h-3 w-3" />
+                                                    Call
+                                                  </span>
+                                                )}
+                                                {n.monthlyPrice && (
+                                                  <span className="inline-flex items-center rounded-full bg-[#c01721] px-2.5 py-1 text-[11px] font-bold text-white whitespace-nowrap shadow-sm">
+                                                    {toCurrencySymbol(n.priceUnit)}{parseFloat(n.monthlyPrice).toFixed(2)}/mo
+                                                  </span>
+                                                )}
+                                              </div>
                                               {selected ? (
-                                                <Check className="h-4 w-4 text-[#c01721]" />
+                                                <Check className="h-4 w-4 text-[#c01721] shrink-0" />
                                               ) : null}
                                             </>
                                           )}
