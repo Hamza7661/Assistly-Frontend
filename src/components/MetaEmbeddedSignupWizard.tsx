@@ -144,10 +144,35 @@ export default function MetaEmbeddedSignupWizard({
       return;
     }
     setStatus('opening');
+    setOtpCode(null);
+    setOtpBody(null);
     setErrorMessage(null);
+
+    // Parse E.164 phone number into country code + local number for Meta's setup.phone.
+    // e.g. +447863773712 → code: "44", number: "7863773712"
+    let phoneSetup: Record<string, string> | undefined;
+    if (phoneNumber && phoneNumber.startsWith('+')) {
+      const digits = phoneNumber.slice(1); // strip leading +
+      // Common country code lengths: 1 (US/CA), 2 (GB=44, FR=33…), 3 (less common)
+      // Use a simple heuristic: try 2-digit code first, then 1-digit
+      const cc2 = digits.slice(0, 2);
+      const cc1 = digits.slice(0, 1);
+      // GB (44), FR (33), DE (49), AU (61), NZ (64), etc. start with non-1 two-digit codes
+      const twoDigitCodes = ['44','33','49','61','64','31','32','34','39','41','43','45','46','47','48','52','55','81','82','86','91'];
+      if (twoDigitCodes.includes(cc2)) {
+        phoneSetup = { code: cc2, number: digits.slice(2) };
+      } else {
+        phoneSetup = { code: cc1, number: digits.slice(1) };
+      }
+    }
+
     // Use a fixed fallback so only one URI needs to be in Valid OAuth Redirect URIs (avoids per-page URLs)
     const fallbackRedirect =
       typeof window !== 'undefined' ? `${window.location.origin}/` : undefined;
+    const setup: Record<string, unknown> = {};
+    if (META_PARTNER_SOLUTION_ID) setup.solutionID = META_PARTNER_SOLUTION_ID;
+    // Pre-populate the purchased number so Meta locks it in and sends OTP there
+    if (phoneSetup) setup.phone = phoneSetup;
     const options: Record<string, unknown> = {
       config_id: META_CONFIG_ID,
       auth_type: 'rerequest',
@@ -156,18 +181,12 @@ export default function MetaEmbeddedSignupWizard({
       ...(fallbackRedirect && { fallback_redirect_uri: fallbackRedirect }),
       extras: {
         sessionInfoVersion: 3,
-        // Full embedded signup so Meta popup includes phone onboarding + OTP verification
         featureType: 'whatsapp_embedded_signup',
+        ...(Object.keys(setup).length > 0 && { setup }),
       },
     };
-    if (META_PARTNER_SOLUTION_ID) {
-      (options.extras as Record<string, unknown>).setup = { solutionID: META_PARTNER_SOLUTION_ID };
-    }
-    FB.login(
-      () => {},
-      options
-    );
-  }, []);
+    FB.login(() => {}, options);
+  }, [phoneNumber]);
 
   useEffect(() => {
     if (!META_APP_ID) return;
