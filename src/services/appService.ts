@@ -115,6 +115,16 @@ class AppService extends HttpService {
     });
   }
 
+  async getLatestSms(appId: string): Promise<
+    AppResponse & {
+      data: {
+        messages: { from: string; body: string; dateSent: string; otp: string | null }[];
+      };
+    }
+  > {
+    return this.request(`/apps/${appId}/latest-sms`, { method: 'GET' });
+  }
+
   async getAvailableNumbersForApp(
     appId: string,
     countryCode: string,

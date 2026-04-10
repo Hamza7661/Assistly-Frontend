@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { useAppService } from '@/services';
-import { Loader2, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, Phone, AlertCircle, MessageSquare, Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // Config (env) takes priority; fallback to defaults for App ID and Embedded Signup Config ID
@@ -54,6 +54,10 @@ export default function MetaEmbeddedSignupWizard({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const listenerRef = useRef<((event: MessageEvent) => void) | null>(null);
   const isHttps = useIsHttps();
+  const [otpCode, setOtpCode] = useState<string | null>(null);
+  const [otpBody, setOtpBody] = useState<string | null>(null);
+  const [otpPolling, setOtpPolling] = useState(false);
+  const otpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleEmbeddedSignupMessage = useCallback(
     async (event: MessageEvent) => {
@@ -191,6 +195,42 @@ export default function MetaEmbeddedSignupWizard({
     }
   }, []);
 
+  // Poll Twilio for incoming SMS (OTP from Meta) while the signup popup is open
+  const pollForOtp = useCallback(async () => {
+    if (!appId) return;
+    try {
+      const appService = await useAppService();
+      const res = await appService.getLatestSms(appId);
+      if (res.status === 'success') {
+        const withOtp = (res.data?.messages || []).find((m) => m.otp);
+        if (withOtp) {
+          setOtpCode(withOtp.otp);
+          setOtpBody(withOtp.body);
+        }
+      }
+    } catch { /* non-fatal */ }
+  }, [appId]);
+
+  useEffect(() => {
+    if (status === 'opening') {
+      setOtpPolling(true);
+      pollForOtp();
+      otpIntervalRef.current = setInterval(pollForOtp, 4000);
+    } else {
+      setOtpPolling(false);
+      if (otpIntervalRef.current) {
+        clearInterval(otpIntervalRef.current);
+        otpIntervalRef.current = null;
+      }
+    }
+    return () => {
+      if (otpIntervalRef.current) {
+        clearInterval(otpIntervalRef.current);
+        otpIntervalRef.current = null;
+      }
+    };
+  }, [status, pollForOtp]);
+
 
   if (status === 'completed') {
     return (
@@ -274,6 +314,45 @@ export default function MetaEmbeddedSignupWizard({
             {status === 'idle' || status === 'loading_sdk' ? 'Loading...' : status === 'opening' ? 'Complete signup in the popup...' : 'Continue with Facebook'}
           </button>
         </div>
+
+        {/* OTP panel: shown while the Meta popup is open */}
+        {status === 'opening' && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-blue-800">
+              <MessageSquare className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-medium">
+                {otpCode ? 'Verification code received' : 'Waiting for SMS verification code…'}
+              </span>
+              {otpPolling && !otpCode && <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />}
+            </div>
+            {otpCode ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-3xl font-bold tracking-[0.3em] text-blue-900 bg-white border border-blue-200 rounded-lg px-4 py-2 select-all">
+                    {otpCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { navigator.clipboard.writeText(otpCode); toast.success('Code copied!'); }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </button>
+                </div>
+                {otpBody && (
+                  <p className="text-xs text-blue-600 italic">"{otpBody}"</p>
+                )}
+                <p className="text-xs text-blue-700">Enter this code in the Meta popup to verify your number.</p>
+              </div>
+            ) : (
+              <p className="text-xs text-blue-600">
+                Meta will send a 6-digit code to <span className="font-mono font-medium">{phoneNumber}</span>.
+                It will appear here automatically — enter it in the popup above.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
