@@ -14,6 +14,9 @@ const META_PARTNER_SOLUTION_ID = process.env.NEXT_PUBLIC_META_PARTNER_SOLUTION_I
 /** Can show/preview Embedded Signup (App ID + Config ID); full registration needs Partner Solution ID (Tech Provider) */
 const canShowSignup = !!(META_APP_ID && META_CONFIG_ID);
 const isMetaFullyConfigured = !!(META_APP_ID && META_CONFIG_ID && META_PARTNER_SOLUTION_ID);
+const OTP_POLL_START_DELAY_MS = 15000;
+const OTP_POLL_FAST_INTERVAL_MS = 4000;
+const OTP_POLL_SLOW_INTERVAL_MS = 15000;
 
 export type MetaSignupStatus = 'idle' | 'loading_sdk' | 'ready' | 'opening' | 'completed' | 'error';
 
@@ -58,6 +61,7 @@ export default function MetaEmbeddedSignupWizard({
   const [otpBody, setOtpBody] = useState<string | null>(null);
   const [otpPolling, setOtpPolling] = useState(false);
   const otpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const otpStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleEmbeddedSignupMessage = useCallback(
     async (event: MessageEvent) => {
@@ -233,22 +237,47 @@ export default function MetaEmbeddedSignupWizard({
   useEffect(() => {
     if (status === 'opening') {
       setOtpPolling(true);
-      pollForOtp();
-      otpIntervalRef.current = setInterval(pollForOtp, 4000);
+      otpStartTimerRef.current = setTimeout(() => {
+        pollForOtp();
+        otpIntervalRef.current = setInterval(pollForOtp, OTP_POLL_FAST_INTERVAL_MS);
+      }, OTP_POLL_START_DELAY_MS);
     } else {
       setOtpPolling(false);
+      if (otpStartTimerRef.current) {
+        clearTimeout(otpStartTimerRef.current);
+        otpStartTimerRef.current = null;
+      }
       if (otpIntervalRef.current) {
         clearInterval(otpIntervalRef.current);
         otpIntervalRef.current = null;
       }
     }
     return () => {
+      if (otpStartTimerRef.current) {
+        clearTimeout(otpStartTimerRef.current);
+        otpStartTimerRef.current = null;
+      }
       if (otpIntervalRef.current) {
         clearInterval(otpIntervalRef.current);
         otpIntervalRef.current = null;
       }
     };
   }, [status, pollForOtp]);
+
+  // After first OTP is detected, keep polling but at a slower cadence so resend codes are still picked up.
+  useEffect(() => {
+    if (status !== 'opening' || !otpCode) return;
+    if (otpIntervalRef.current) {
+      clearInterval(otpIntervalRef.current);
+    }
+    otpIntervalRef.current = setInterval(pollForOtp, OTP_POLL_SLOW_INTERVAL_MS);
+    return () => {
+      if (otpIntervalRef.current) {
+        clearInterval(otpIntervalRef.current);
+        otpIntervalRef.current = null;
+      }
+    };
+  }, [status, otpCode, pollForOtp]);
 
 
   if (status === 'completed') {

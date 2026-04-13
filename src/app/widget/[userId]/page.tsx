@@ -362,7 +362,6 @@ export default function WidgetPage() {
         // If country is provided in URL, use it first
         if (countryFromUrl) {
           setCountryCode(countryFromUrl.toUpperCase());
-          console.log('Country from URL:', countryFromUrl);
           return;
         }
         
