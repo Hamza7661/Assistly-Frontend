@@ -436,12 +436,9 @@ export default function WidgetPage() {
       // If we already have rendered messages, treat early incoming frames as potential
       // transcript replay and dedupe by (type, content) until a new message arrives.
       replayDedupGuardRef.current = messagesRef.current.length > 0;
-      // Resumed thread with cached messages: server skips transcript replay; no typing wait.
-      if (!skipHistoryReplay) {
-        setIsTyping(true);
-      } else {
-        setIsTyping(false);
-      }
+      // On reopen/resume, keep indicator off until a live bot turn actually starts.
+      // Show typing immediately only for a brand-new chat with no prior messages.
+      setIsTyping(messagesRef.current.length === 0);
     };
     ws.onmessage = (e) => {
       // Guard: ignore messages from a stale WebSocket
