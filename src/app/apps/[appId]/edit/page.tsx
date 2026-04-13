@@ -90,7 +90,6 @@ export default function EditAppPage() {
     undefined
   );
   const [whatsappNumberSource, setWhatsappNumberSource] = useState<string | undefined>(undefined);
-  const [twilioSubaccountReady, setTwilioSubaccountReady] = useState<boolean | null>(null);
   const [showWhatsAppSetupBanner, setShowWhatsAppSetupBanner] = useState(false);
 
   const [newNumberCountry, setNewNumberCountry] = useState('US');
@@ -201,7 +200,6 @@ export default function EditAppPage() {
           });
           setWhatsappNumberStatus(app.whatsappNumberStatus);
           setWhatsappNumberSource(app.whatsappNumberSource);
-          setTwilioSubaccountReady(!!app.twilioSubaccountReady);
           // Facebook persisted connection
           setFbConnectedPageId(app.facebookPageId || '');
           setFbConnectedPageName(app.facebookPageName || '');
@@ -279,7 +277,6 @@ export default function EditAppPage() {
       }));
       setWhatsappNumberStatus(app.whatsappNumberStatus);
       setWhatsappNumberSource(app.whatsappNumberSource);
-      setTwilioSubaccountReady(!!app.twilioSubaccountReady);
     }
   };
 
@@ -1071,15 +1068,7 @@ export default function EditAppPage() {
 
                   {formData.whatsappOption === 'get-from-twilio' && (
                     <div className="space-y-4">
-                      {twilioSubaccountReady === false && (
-                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                          <p className="text-sm text-amber-900">
-                            No number is attached to this app yet. Please use your own WhatsApp number
-                            or buy a new number to continue.
-                          </p>
-                        </div>
-                      )}
-                      {twilioSubaccountReady === true && needsHostedNumberPurchase && (
+                      {needsHostedNumberPurchase && (
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
                           <p className="text-sm text-gray-700">
                             Search for a number, then purchase (carrier and usage charges may apply). After that,
@@ -1274,8 +1263,7 @@ export default function EditAppPage() {
                           </div>
                         </div>
                       )}
-                      {twilioSubaccountReady === true &&
-                        !needsHostedNumberPurchase &&
+                      {!needsHostedNumberPurchase &&
                         !!formData.whatsappNumber?.trim() && (
                           <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
                             <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
