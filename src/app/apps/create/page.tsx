@@ -350,7 +350,17 @@ export default function CreateAppPage() {
     setWhatsAppData((p) => ({ ...p, searching: true, availableNumbers: [], selectedTwilioNumber: '' }));
     try {
       const appService = await useAppService();
-      await appService.ensureSubaccountForApp(createdAppId);
+      try {
+        await appService.ensureSubaccountForApp(createdAppId);
+      } catch (ensureErr: unknown) {
+        if (whatsAppData.countryCode === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.getAvailableNumbersForApp(createdAppId, whatsAppData.countryCode, 20);
       if (res.status === 'success' && res.data?.numbers) {
         const normalize = (s: string) => (s || '').replace(/[^\d+]/g, '').trim();
@@ -412,7 +422,17 @@ export default function CreateAppPage() {
     setWhatsAppData((p) => ({ ...p, provisioning: true }));
     try {
       const appService = await useAppService();
-      await appService.ensureSubaccountForApp(createdAppId);
+      try {
+        await appService.ensureSubaccountForApp(createdAppId);
+      } catch (ensureErr: unknown) {
+        if (whatsAppData.countryCode === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.provisionNumberForApp(createdAppId, {
         countryCode: whatsAppData.countryCode,
         ...(phoneNumber ? { phoneNumber } : {}),
