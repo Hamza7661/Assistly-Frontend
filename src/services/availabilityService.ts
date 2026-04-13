@@ -64,6 +64,20 @@ class AvailabilityService extends HttpService {
       body: JSON.stringify(payload),
     });
   }
+
+  /** App-scoped: delete a single availability exception by date. */
+  async deleteException(appId: string, date: string): Promise<{ status: string; message: string }> {
+    return this.request(`/availability/apps/${appId}/exceptions/${encodeURIComponent(date)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** App-scoped: retry Outlook sync for an exception by date. */
+  async retryExceptionSync(appId: string, date: string): Promise<{ status: string; message: string }> {
+    return this.request(`/availability/apps/${appId}/exceptions/${encodeURIComponent(date)}/retry-sync`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const availabilityService = new AvailabilityService();
