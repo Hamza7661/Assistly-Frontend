@@ -80,6 +80,7 @@ export default function WidgetPage() {
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef<AnyMessage[]>([]);
+  const replayDedupGuardRef = useRef(false);
   const [connectAttempt, setConnectAttempt] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -432,6 +433,9 @@ export default function WidgetPage() {
       setConnected(true);
       setIsReconnecting(false);
       setConnectionError(null);
+      // If we already have rendered messages, treat early incoming frames as potential
+      // transcript replay and dedupe by (type, content) until a new message arrives.
+      replayDedupGuardRef.current = messagesRef.current.length > 0;
       // Resumed thread with cached messages: server skips transcript replay; no typing wait.
       if (!skipHistoryReplay) {
         setIsTyping(true);
@@ -447,10 +451,10 @@ export default function WidgetPage() {
         const msgType = (msg as any).type;
         const msgContent = String((msg as { content?: string }).content || '');
 
-        // On reopen/resume we may already have the transcript loaded from sessionStorage.
-        // If backend replays older lines, skip them so chat does not append duplicates.
+        // On reopen/resume we may already have transcript in-memory. If backend replays
+        // older lines, skip them so chat does not append duplicates.
         const isDuplicateOnResume = (type: string, content: string) => {
-          if (!skipHistoryReplay || !content) return false;
+          if (!replayDedupGuardRef.current || !content) return false;
           return messagesRef.current.some((m) => {
             if (!('content' in m)) return false;
             const existingContent = String((m as { content?: string }).content || '');
@@ -491,6 +495,7 @@ export default function WidgetPage() {
         if (msgType === 'user_replay') {
           if (isDuplicateOnResume(msgType, msgContent)) return;
           setMessages((prev) => [...prev, { type: 'user_replay', content: String((msg as { content?: string }).content || '') }]);
+          replayDedupGuardRef.current = false;
           setHasActiveConversation(true);
           persistConversationMeta({
             active: true,
@@ -506,6 +511,9 @@ export default function WidgetPage() {
           return;
         }
         setMessages((prev) => [...prev, msg]);
+        if (msgType === 'bot' || msgType === 'review_prompt' || msgType === 'user') {
+          replayDedupGuardRef.current = false;
+        }
         if (msgType === 'bot' || msgType === 'review_prompt') {
           setHasActiveConversation(true);
           persistConversationMeta({
