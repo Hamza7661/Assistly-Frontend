@@ -18,3 +18,4 @@ export const useChatbotWorkflowService = () => import('./chatbotWorkflowService'
 export const useSubscriptionService = () => import('./subscriptionService').then(module => module.subscriptionService);
 export const useQuestionTypeService = () => import('./questionTypeService').then(module => module.questionTypeService);
 export const useAppService = () => import('./appService').then(module => module.appService);
+export const useAppPlanService = () => import('./appPlanService').then(module => module.appPlanService);

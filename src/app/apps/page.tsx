@@ -14,6 +14,7 @@ import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Building2, Phone, Po
 import { toast } from 'react-toastify';
 import { INDUSTRIES_LIST } from '@/enums/Industry';
 import ConfirmModal from '@/components/ConfirmModal';
+import ConversationUsageWidget from '@/components/ConversationUsageWidget';
 
 type AppStats = { leadTypes: number; services: number; workflows: number; leads: number };
 
@@ -472,6 +473,15 @@ export default function AppsPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {currentApp && (
+              <div className="mb-8">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                  Conversation usage · quotas
+                </p>
+                <ConversationUsageWidget appId={currentApp.id} />
               </div>
             )}
 

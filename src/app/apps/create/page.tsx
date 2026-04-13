@@ -61,7 +61,6 @@ export default function CreateAppPage() {
     captureLeadEmail: true,
     captureLeadPhoneNumber: true,
     validateEmail: true,
-    validatePhoneNumber: true,
     conversationStyle: false,
     captureFeedbackEnabled: false,
     googleReviewEnabled: false,
@@ -70,16 +69,12 @@ export default function CreateAppPage() {
 
   useEffect(() => {
     setLeadCaptureSettings((prev) => {
-      let next = prev;
       if (!prev.captureLeadEmail && prev.validateEmail) {
-        next = { ...next, validateEmail: false };
+        return { ...prev, validateEmail: false };
       }
-      if (!prev.captureLeadPhoneNumber && prev.validatePhoneNumber) {
-        next = { ...next, validatePhoneNumber: false };
-      }
-      return next;
+      return prev;
     });
-  }, [leadCaptureSettings.captureLeadEmail, leadCaptureSettings.captureLeadPhoneNumber]);
+  }, [leadCaptureSettings.captureLeadEmail]);
 
   const [whatsAppData, setWhatsAppData] = useState({
     whatsappOption: 'use-my-number' as 'use-my-number' | 'get-from-twilio',
@@ -269,7 +264,7 @@ export default function CreateAppPage() {
             captureLeadEmail: !!leadCaptureSettings.captureLeadEmail,
             captureLeadPhoneNumber: !!leadCaptureSettings.captureLeadPhoneNumber,
             validateEmail: !!leadCaptureSettings.validateEmail,
-            validatePhoneNumber: !!leadCaptureSettings.validatePhoneNumber,
+            validatePhoneNumber: false,
             conversationStyle: !!leadCaptureSettings.conversationStyle,
             captureFeedbackEnabled: !!leadCaptureSettings.captureFeedbackEnabled,
             googleReviewEnabled: !!leadCaptureSettings.googleReviewEnabled,
@@ -698,30 +693,6 @@ export default function CreateAppPage() {
                       {!leadCaptureSettings.captureLeadEmail && (
                         <div className="mt-2 text-[11px] text-amber-700">
                           Enable Capture Email to use email validation.
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-medium text-gray-900 text-sm">Validate Phone Number</div>
-                          <div className="text-xs text-gray-600 mt-1">Require valid phone number when users provide phone numbers.</div>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={leadCaptureSettings.validatePhoneNumber}
-                            disabled={!leadCaptureSettings.captureLeadPhoneNumber}
-                            onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, validatePhoneNumber: e.target.checked }))}
-                          />
-                          <div className="brand-toggle-track"></div>
-                        </label>
-                      </div>
-                      {!leadCaptureSettings.captureLeadPhoneNumber && (
-                        <div className="mt-2 text-[11px] text-amber-700">
-                          Enable Capture Phone Number to use phone validation.
                         </div>
                       )}
                     </div>

@@ -8,11 +8,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useChatbotWorkflowService } from '@/services';
-import { ChatbotWorkflow, WorkflowGroup, WorkflowOption } from '@/models/ChatbotWorkflow';
+import { ChatbotWorkflow, WorkflowGroup, WorkflowOption, defaultBookingBlock } from '@/models/ChatbotWorkflow';
 import { useQuestionTypeService } from '@/services';
 import type { QuestionTypeItem } from '@/models/QuestionType';
 import { toast } from 'react-toastify';
-import { Trash2, Plus, Save, Edit2, X, ChevronDown, ChevronUp, Folder, MessageSquare, GripVertical, Paperclip, Link2, Upload, FileText, AlertCircle, GitBranch, ArrowDown } from 'lucide-react';
+import { Trash2, Plus, Save, Edit2, X, ChevronDown, ChevronUp, Folder, MessageSquare, GripVertical, Paperclip, Link2, Upload, FileText, AlertCircle, GitBranch, ArrowDown, Calendar } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -51,6 +51,7 @@ function ChatbotWorkflowPageContent() {
     questionTypeId: 0,
     choiceInputMode: 'button',
     options: [],
+    bookingBlock: defaultBookingBlock(),
     isRoot: false,
     isActive: true,
     order: 0
@@ -155,6 +156,7 @@ function ChatbotWorkflowPageContent() {
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
       choiceInputMode: 'button',
       options: [],
+      bookingBlock: defaultBookingBlock(),
       isRoot: true,
       isActive: true,
       order: 0,
@@ -174,6 +176,7 @@ function ChatbotWorkflowPageContent() {
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
       choiceInputMode: 'button',
       options: [],
+      bookingBlock: defaultBookingBlock(),
       isRoot: false,
       isActive: true,
       order: nextOrder,
@@ -292,6 +295,7 @@ function ChatbotWorkflowPageContent() {
         questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
         choiceInputMode: 'button',
         options: [],
+        bookingBlock: defaultBookingBlock(),
         isRoot: false,
         isActive: true,
         order: 0
@@ -315,6 +319,7 @@ function ChatbotWorkflowPageContent() {
       questionTypeId: questionTypes.length > 0 ? questionTypes[0].id : 0,
       choiceInputMode: 'button',
       options: [],
+      bookingBlock: defaultBookingBlock(),
       isRoot: false,
       isActive: true,
       order: 0
@@ -333,6 +338,7 @@ function ChatbotWorkflowPageContent() {
       questionTypeId: typeId,
       choiceInputMode: resolveChoiceInputModeForPersist(typeId),
       options: ensureChoiceTypeHasButtonRow(typeId, question.options),
+      bookingBlock: { ...defaultBookingBlock(), ...(question.bookingBlock || {}) },
     });
     setPendingAttachmentFile(null);
     setRemovingAttachment(false);
@@ -620,6 +626,12 @@ function ChatbotWorkflowPageContent() {
                     <span className="px-2 py-0.5 text-xs font-medium text-orange-700 bg-orange-100 rounded flex items-center gap-1">
                       <Paperclip className="h-3 w-3" />
                       {question.attachment!.filename || 'File attached'}
+                    </span>
+                  )}
+                  {question.bookingBlock?.enabled && (
+                    <span className="px-2 py-0.5 text-xs font-medium text-teal-800 bg-teal-100 rounded flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Booking step
                     </span>
                   )}
                 </div>
@@ -1289,6 +1301,175 @@ function ChatbotWorkflowPageContent() {
                   {hasExistingAttachment ? 'Replace File' : 'Attach File'}
                 </button>
                 <p className="text-xs text-gray-400 mt-1">Supported: PDF, Word, Excel, images · Max 25MB</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Optional booking block (non–book-appointment flows in chat) ── */}
+        {!isRoot && (
+          <div className="border border-teal-200 rounded-lg p-4 space-y-3 bg-teal-50/40">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-teal-600" />
+                Optional booking after this question
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                After the guest answers, the assistant can offer a calendar booking before continuing. This is skipped automatically for lead types that already use the main “book an appointment” flow.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newQuestion.bookingBlock?.enabled ?? false}
+                onChange={(e) =>
+                  setNewQuestion({
+                    ...newQuestion,
+                    bookingBlock: {
+                      ...defaultBookingBlock(),
+                      ...(newQuestion.bookingBlock || {}),
+                      enabled: e.target.checked,
+                    },
+                  })
+                }
+                className="rounded"
+              />
+              <span className="text-sm font-medium text-gray-700">Offer booking after this step</span>
+            </label>
+            {newQuestion.bookingBlock?.enabled && (
+              <div className="space-y-3 pt-1 border-t border-teal-100">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Booking question (shown in chat)</label>
+                  <textarea
+                    className="input-field w-full text-sm"
+                    rows={2}
+                    value={newQuestion.bookingBlock?.bookingQuestionText ?? ''}
+                    onChange={(e) =>
+                      setNewQuestion({
+                        ...newQuestion,
+                        bookingBlock: {
+                          ...defaultBookingBlock(),
+                          ...(newQuestion.bookingBlock || {}),
+                          enabled: true,
+                          bookingQuestionText: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Would you like to book an appointment?"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">After yes → next question</label>
+                    <select
+                      className="input-field w-full text-xs py-1"
+                      value={newQuestion.bookingBlock?.onYesNextQuestionId || ''}
+                      onChange={(e) =>
+                        setNewQuestion({
+                          ...newQuestion,
+                          bookingBlock: {
+                            ...defaultBookingBlock(),
+                            ...(newQuestion.bookingBlock || {}),
+                            enabled: true,
+                            onYesNextQuestionId: e.target.value || null,
+                          },
+                        })
+                      }
+                    >
+                      <option value="">Sequential (next in order)</option>
+                      {linkableQuestions.map((q) => (
+                        <option key={q._id} value={q._id}>
+                          {q.question.substring(0, 55)}
+                          {q.question.length > 55 ? '…' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">After no → next question</label>
+                    <select
+                      className="input-field w-full text-xs py-1"
+                      value={newQuestion.bookingBlock?.onNoNextQuestionId || ''}
+                      onChange={(e) =>
+                        setNewQuestion({
+                          ...newQuestion,
+                          bookingBlock: {
+                            ...defaultBookingBlock(),
+                            ...(newQuestion.bookingBlock || {}),
+                            enabled: true,
+                            onNoNextQuestionId: e.target.value || null,
+                          },
+                        })
+                      }
+                    >
+                      <option value="">Sequential (next in order)</option>
+                      {linkableQuestions.map((q) => (
+                        <option key={q._id} value={q._id}>
+                          {q.question.substring(0, 55)}
+                          {q.question.length > 55 ? '…' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Instructions after a successful booking (optional)</label>
+                  <textarea
+                    className="input-field w-full text-sm"
+                    rows={3}
+                    value={newQuestion.bookingBlock?.postBookingInstructions ?? ''}
+                    onChange={(e) =>
+                      setNewQuestion({
+                        ...newQuestion,
+                        bookingBlock: {
+                          ...defaultBookingBlock(),
+                          ...(newQuestion.bookingBlock || {}),
+                          enabled: true,
+                          postBookingInstructions: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="e.g. What to bring, parking, contact number…"
+                  />
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newQuestion.bookingBlock?.cancellationReasonEnabled ?? false}
+                    onChange={(e) =>
+                      setNewQuestion({
+                        ...newQuestion,
+                        bookingBlock: {
+                          ...defaultBookingBlock(),
+                          ...(newQuestion.bookingBlock || {}),
+                          enabled: true,
+                          cancellationReasonEnabled: e.target.checked,
+                        },
+                      })
+                    }
+                    className="rounded"
+                  />
+                  <span className="text-xs text-gray-700">Ask for a short reason if they decline</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newQuestion.bookingBlock?.respectLeadCaptureFlags !== false}
+                    onChange={(e) =>
+                      setNewQuestion({
+                        ...newQuestion,
+                        bookingBlock: {
+                          ...defaultBookingBlock(),
+                          ...(newQuestion.bookingBlock || {}),
+                          enabled: true,
+                          respectLeadCaptureFlags: e.target.checked,
+                        },
+                      })
+                    }
+                    className="rounded"
+                  />
+                  <span className="text-xs text-gray-700">Respect lead capture settings before booking</span>
+                </label>
               </div>
             )}
           </div>

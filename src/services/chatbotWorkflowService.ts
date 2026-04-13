@@ -154,6 +154,8 @@ class ChatbotWorkflowService extends HttpService {
     if (workflow.isActive !== undefined) clean.isActive = workflow.isActive;
     if (workflow.order !== undefined) clean.order = workflow.order;
     if (workflow.options !== undefined) clean.options = workflow.options;
+    if (workflow.choiceInputMode !== undefined) clean.choiceInputMode = workflow.choiceInputMode;
+    if (workflow.bookingBlock !== undefined) clean.bookingBlock = workflow.bookingBlock;
     
     return clean;
   }

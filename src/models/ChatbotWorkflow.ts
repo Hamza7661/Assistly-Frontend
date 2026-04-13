@@ -22,6 +22,29 @@ export interface WorkflowAttachment {
   size?: number | null;
 }
 
+/** Optional mid-flow calendar booking (skipped for book-an-appointment lead types in AI). */
+export interface BookingBlock {
+  enabled: boolean;
+  bookingQuestionText?: string;
+  onYesNextQuestionId?: string | null;
+  onNoNextQuestionId?: string | null;
+  postBookingInstructions?: string;
+  cancellationReasonEnabled?: boolean;
+  respectLeadCaptureFlags?: boolean;
+}
+
+export function defaultBookingBlock(): BookingBlock {
+  return {
+    enabled: false,
+    bookingQuestionText: 'Would you like to book an appointment?',
+    onYesNextQuestionId: null,
+    onNoNextQuestionId: null,
+    postBookingInstructions: '',
+    cancellationReasonEnabled: false,
+    respectLeadCaptureFlags: true,
+  };
+}
+
 export interface ChatbotWorkflowItem {
   _id?: string;
   owner?: string;
@@ -31,6 +54,7 @@ export interface ChatbotWorkflowItem {
   choiceInputMode?: 'button' | 'checkbox';
   options: WorkflowOption[];
   attachment?: WorkflowAttachment;
+  bookingBlock?: BookingBlock;
   isRoot?: boolean;
   isActive?: boolean;
   order?: number;
@@ -48,6 +72,7 @@ export class ChatbotWorkflow {
   choiceInputMode?: 'button' | 'checkbox';
   options: WorkflowOption[];
   attachment?: WorkflowAttachment;
+  bookingBlock?: BookingBlock;
   isRoot: boolean;
   isActive: boolean;
   order: number;
@@ -64,6 +89,9 @@ export class ChatbotWorkflow {
     this.choiceInputMode = data.choiceInputMode ?? 'button';
     this.options = data.options || [];
     this.attachment = data.attachment;
+    this.bookingBlock = data.bookingBlock
+      ? { ...defaultBookingBlock(), ...data.bookingBlock }
+      : defaultBookingBlock();
     this.isRoot = data.isRoot ?? false;
     this.isActive = data.isActive ?? true;
     this.order = data.order ?? 0;
@@ -72,7 +100,11 @@ export class ChatbotWorkflow {
   }
 
   static fromJson(json: any): ChatbotWorkflow {
-    return new ChatbotWorkflow(json);
+    const bb = json?.bookingBlock;
+    return new ChatbotWorkflow({
+      ...json,
+      bookingBlock: bb ? { ...defaultBookingBlock(), ...bb } : defaultBookingBlock(),
+    });
   }
 
   toJson(): any {
@@ -84,6 +116,9 @@ export class ChatbotWorkflow {
       question: this.question,
       questionTypeId: this.questionTypeId,
       choiceInputMode: this.choiceInputMode,
+      options: this.options,
+      attachment: this.attachment,
+      bookingBlock: this.bookingBlock,
       isRoot: this.isRoot,
       isActive: this.isActive,
       order: this.order,

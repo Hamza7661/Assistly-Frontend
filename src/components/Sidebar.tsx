@@ -15,7 +15,8 @@ import {
   ChevronDown,
   ChevronRight,
   Settings,
-  MessageCircle
+  MessageCircle,
+  Eye
 } from 'lucide-react';
 
 interface MenuItem {
@@ -34,6 +35,7 @@ const navigation: MenuItem[] = [
       { name: 'Training Data', href: '/questionnare', icon: Database },
       { name: 'Service Plans', href: '/treatment-plans', icon: ClipboardList },
       { name: 'Conversation Flows', href: '/chatbot-workflow', icon: FileText },
+      { name: 'Flow Preview', href: '/flow-preview', icon: Eye },
     ]
   },
   {
