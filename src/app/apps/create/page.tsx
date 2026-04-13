@@ -350,6 +350,17 @@ export default function CreateAppPage() {
     setWhatsAppData((p) => ({ ...p, searching: true, availableNumbers: [], selectedTwilioNumber: '' }));
     try {
       const appService = await useAppService();
+      try {
+        await appService.ensureSubaccountForApp(createdAppId);
+      } catch (ensureErr: unknown) {
+        if (whatsAppData.countryCode === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.getAvailableNumbersForApp(createdAppId, whatsAppData.countryCode, 20);
       if (res.status === 'success' && res.data?.numbers) {
         const normalize = (s: string) => (s || '').replace(/[^\d+]/g, '').trim();
@@ -411,6 +422,17 @@ export default function CreateAppPage() {
     setWhatsAppData((p) => ({ ...p, provisioning: true }));
     try {
       const appService = await useAppService();
+      try {
+        await appService.ensureSubaccountForApp(createdAppId);
+      } catch (ensureErr: unknown) {
+        if (whatsAppData.countryCode === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.provisionNumberForApp(createdAppId, {
         countryCode: whatsAppData.countryCode,
         ...(phoneNumber ? { phoneNumber } : {}),
@@ -879,6 +901,10 @@ export default function CreateAppPage() {
                               <div className="font-medium text-gray-900">Use my WhatsApp number</div>
                               <div className="text-sm text-gray-500">
                                 Register your existing number
+                              </div>
+                              <div className="text-xs text-amber-700 mt-1">
+                                If this number is already registered, deactivate it from the existing account first.
+                                You can use it here after 3 to 5 minutes.
                               </div>
                             </div>
                           </label>

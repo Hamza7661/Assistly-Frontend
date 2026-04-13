@@ -90,7 +90,6 @@ export default function EditAppPage() {
     undefined
   );
   const [whatsappNumberSource, setWhatsappNumberSource] = useState<string | undefined>(undefined);
-  const [twilioSubaccountReady, setTwilioSubaccountReady] = useState<boolean | null>(null);
   const [showWhatsAppSetupBanner, setShowWhatsAppSetupBanner] = useState(false);
 
   const [newNumberCountry, setNewNumberCountry] = useState('US');
@@ -201,7 +200,6 @@ export default function EditAppPage() {
           });
           setWhatsappNumberStatus(app.whatsappNumberStatus);
           setWhatsappNumberSource(app.whatsappNumberSource);
-          setTwilioSubaccountReady(!!app.twilioSubaccountReady);
           // Facebook persisted connection
           setFbConnectedPageId(app.facebookPageId || '');
           setFbConnectedPageName(app.facebookPageName || '');
@@ -279,7 +277,6 @@ export default function EditAppPage() {
       }));
       setWhatsappNumberStatus(app.whatsappNumberStatus);
       setWhatsappNumberSource(app.whatsappNumberSource);
-      setTwilioSubaccountReady(!!app.twilioSubaccountReady);
     }
   };
 
@@ -289,6 +286,17 @@ export default function EditAppPage() {
     setAvailableNumbers([]);
     try {
       const appService = await useAppService();
+      try {
+        await appService.ensureSubaccountForApp(appId);
+      } catch (ensureErr: any) {
+        if (newNumberCountry === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.getAvailableNumbersForApp(appId, newNumberCountry, 20);
       if (res.status === 'success' && res.data?.numbers) {
         setAvailableNumbers(res.data.numbers);
@@ -310,6 +318,17 @@ export default function EditAppPage() {
     setLoadingProvision(true);
     try {
       const appService = await useAppService();
+      try {
+        await appService.ensureSubaccountForApp(appId);
+      } catch (ensureErr: any) {
+        if (newNumberCountry === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.provisionNumberForApp(appId, {
         countryCode: newNumberCountry,
         phoneNumber,
@@ -1013,6 +1032,9 @@ export default function EditAppPage() {
                           <div className="text-sm text-gray-500">
                             Register your existing number
                           </div>
+                          <div className="text-xs text-amber-700 mt-1">
+                            If this number is already registered, deactivate it from the existing account first.
+                          </div>
                         </div>
                       </label>
 
@@ -1068,15 +1090,7 @@ export default function EditAppPage() {
 
                   {formData.whatsappOption === 'get-from-twilio' && (
                     <div className="space-y-4">
-                      {twilioSubaccountReady === false && (
-                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                          <p className="text-sm text-amber-900">
-                            Phone provisioning isn&apos;t ready for this app yet. Try again later or
-                            contact support.
-                          </p>
-                        </div>
-                      )}
-                      {twilioSubaccountReady === true && needsHostedNumberPurchase && (
+                      {needsHostedNumberPurchase && (
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
                           <p className="text-sm text-gray-700">
                             Search for a number, then purchase (carrier and usage charges may apply). After that,
@@ -1271,8 +1285,7 @@ export default function EditAppPage() {
                           </div>
                         </div>
                       )}
-                      {twilioSubaccountReady === true &&
-                        !needsHostedNumberPurchase &&
+                      {!needsHostedNumberPurchase &&
                         !!formData.whatsappNumber?.trim() && (
                           <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
                             <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
