@@ -33,11 +33,13 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import PostBookingNoteEditor from '@/components/PostBookingNoteEditor';
 
 type PlanItem = {
   _id?: string;
   title: string;
   description: string;
+  postBookingNote: string;
   attachedWorkflows: Array<{
     workflowId: string | null;
     order: number;
@@ -50,7 +52,7 @@ export default function TreatmentPlansPage() {
   const { currentApp, isLoading: isLoadingApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
   const router = useRouter();
-  const [plans, setPlans] = useState<PlanItem[]>([{ title: '', description: '', attachedWorkflows: [] }]);
+  const [plans, setPlans] = useState<PlanItem[]>([{ title: '', description: '', postBookingNote: '', attachedWorkflows: [] }]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
@@ -127,17 +129,18 @@ export default function TreatmentPlansPage() {
           _id: p._id,
           title: p?.question || '',
           description: p?.answer || '',
+          postBookingNote: p?.postBookingNote || '',
           attachedWorkflows
         };
       });
       
-      const planItems = mappedPlans.length > 0 ? mappedPlans : [{ title: '', description: '', attachedWorkflows: [] }];
+      const planItems = mappedPlans.length > 0 ? mappedPlans : [{ title: '', description: '', postBookingNote: '', attachedWorkflows: [] }];
       setPlans(planItems);
       setOriginalPlans(JSON.parse(JSON.stringify(planItems)));
       
       setWorkflows(workflowRes.data.workflows || []);
     } catch (e: any) {
-      setPlans([{ title: '', description: '', attachedWorkflows: [] }]);
+      setPlans([{ title: '', description: '', postBookingNote: '', attachedWorkflows: [] }]);
       setError(e?.message || 'Failed to load plans');
     } finally {
       setLoading(false);
@@ -174,7 +177,7 @@ export default function TreatmentPlansPage() {
     setHasUnsavedChanges(hasChanges);
   };
 
-  const updatePlan = (index: number, key: 'title' | 'description', value: string) => {
+  const updatePlan = (index: number, key: 'title' | 'description' | 'postBookingNote', value: string) => {
     setPlans(prev => {
       const newPlans = prev.map((p, i) => i === index ? { ...p, [key]: value } : p);
       checkForChanges(newPlans);
@@ -184,7 +187,7 @@ export default function TreatmentPlansPage() {
 
   const addPlanRow = () => {
     setPlans(prev => {
-      const newPlans = [...prev, { title: '', description: '', attachedWorkflows: [] }];
+      const newPlans = [...prev, { title: '', description: '', postBookingNote: '', attachedWorkflows: [] }];
       checkForChanges(newPlans);
       return newPlans;
     });
@@ -610,6 +613,7 @@ export default function TreatmentPlansPage() {
         .map(it => ({
           question: it.title.trim(),
           answer: it.description.trim(),
+          postBookingNote: (it.postBookingNote || '').trim(),
           attachedWorkflows: it.attachedWorkflows
             .filter(aw => aw.workflowId !== null)
             .map(aw => ({
@@ -728,6 +732,20 @@ export default function TreatmentPlansPage() {
                     <div className={styles.colActions}>
                       <button onClick={() => removePlanRow(planIdx)} className="btn-secondary border-red-300 text-red-700 hover:bg-red-100 w-full sm:w-auto">Remove</button>
                     </div>
+                  </div>
+
+                  {/* Post-Booking Instructions */}
+                  <div className="border-t border-gray-200 px-4 pt-4 pb-2">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      Post-Booking Instructions <span className="text-gray-400 font-normal normal-case">(optional)</span>
+                    </label>
+                    <p className="text-xs text-gray-400 mb-2">Shown to the customer in chat after booking and included in their confirmation email.</p>
+                    <PostBookingNoteEditor
+                      value={plan.postBookingNote}
+                      onChange={(html) => updatePlan(planIdx, 'postBookingNote', html)}
+                      maxLength={8000}
+                      placeholder="e.g. Please arrive 10 minutes early and avoid wearing makeup."
+                    />
                   </div>
                   
                   {/* Workflows Section */}

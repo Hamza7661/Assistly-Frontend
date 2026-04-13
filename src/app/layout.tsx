@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   description: "Professional virtual assistant services including chatbots, AI voice agents, and lead generation for your business",
   icons: {
     icon: [
-      { url: "/assistly-favicon.png", type: "image/png" },
-      { url: "/favicon.ico", sizes: "any" },
+      { url: "/assistly-favicon-custom.png?v=2", sizes: "32x32", type: "image/png" },
+      { url: "/assistly-favicon-custom.ico?v=2", sizes: "any" },
     ],
-    shortcut: ["/favicon.ico"],
-    apple: [{ url: "/assistly-favicon.png" }],
+    shortcut: ["/assistly-favicon-custom.png?v=2"],
+    apple: [{ url: "/assistly-favicon-custom.png?v=2" }],
   },
 };
 

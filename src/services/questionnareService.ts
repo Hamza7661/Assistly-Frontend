@@ -16,6 +16,7 @@ class QuestionnareService extends HttpService {
       items: items.map(it => ({ 
         question: it.question, 
         answer: it.answer,
+        postBookingNote: (it as any).postBookingNote || '',
         attachedWorkflows: (it as any).attachedWorkflows || []
       })) 
     } as any;

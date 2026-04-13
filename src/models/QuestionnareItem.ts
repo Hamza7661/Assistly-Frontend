@@ -12,6 +12,8 @@ export class QuestionnareItem {
     workflowId?: any;
     order?: number;
   }>;
+  /** Rich HTML for service plans: post-booking instructions (chat + email). */
+  postBookingNote?: string;
   createdAt?: string;
   updatedAt?: string;
 
@@ -24,6 +26,8 @@ export class QuestionnareItem {
     this.isActive = data.isActive;
     this.type = (data as any).type ?? QuestionnareType.FAQ;
     this.attachedWorkflows = (data as any).attachedWorkflows || [];
+    this.postBookingNote =
+      typeof (data as any).postBookingNote === 'string' ? (data as any).postBookingNote : '';
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
   }
@@ -42,6 +46,7 @@ export class QuestionnareItem {
       isActive: this.isActive,
       type: this.type,
       attachedWorkflows: this.attachedWorkflows,
+      postBookingNote: this.postBookingNote,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

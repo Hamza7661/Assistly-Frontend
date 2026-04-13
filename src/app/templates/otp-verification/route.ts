@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+  const baseUrl = new URL(request.url).origin;
   
   // Extract parameters from query string
   const otp = searchParams.get('otp') || '{{OTP}}';
   const customerName = searchParams.get('customerName') || '{{CUSTOMER_NAME}}';
+  const supportEmail = searchParams.get('supportEmail') || 'support@upzilo.com';
   
   const htmlTemplate = `
 <!DOCTYPE html>
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OTP Verification - Assistly</title>
+    <title>OTP Verification - UpZilo</title>
     <style>
         * {
             margin: 0;
@@ -49,30 +51,29 @@ export async function GET(request: NextRequest) {
         }
         
         .header {
-            background: linear-gradient(135deg, var(--secondary-color), #a8141c);
-            padding: 30px 20px;
+            background: #ffffff;
+            padding: 24px 20px 18px;
             text-align: center;
-            color: var(--primary-color);
+            border-bottom: 4px solid #a32035;
         }
-        
+
         .logo {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            margin: 0 auto 15px;
-            background: var(--primary-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--secondary-color);
+            margin-bottom: 8px;
         }
-        
+
+        .logo-image {
+            width: 180px;
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
         .company-name {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 600;
-            margin-bottom: 5px;
+            color: #7f1727;
+            margin-bottom: 0;
         }
         
         .content {
@@ -123,8 +124,8 @@ export async function GET(request: NextRequest) {
         }
         
         .info-box {
-            background: #f0f9ff;
-            border: 1px solid #0ea5e9;
+            background: #fff5f7;
+            border: 1px solid #f4c2cc;
             border-radius: 8px;
             padding: 20px;
             margin: 30px 0;
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
         
         .info-title {
             font-weight: 600;
-            color: #0369a1;
+            color: #7f1727;
             margin-bottom: 10px;
             display: flex;
             align-items: center;
@@ -144,12 +145,12 @@ export async function GET(request: NextRequest) {
         }
         
         .info-text {
-            color: #0369a1;
+            color: #7f1727;
             font-size: 14px;
         }
         
         .footer {
-            background: var(--background-light);
+            background: #f8fafc;
             padding: 20px 30px;
             text-align: center;
             border-top: 1px solid var(--border-color);
@@ -201,8 +202,10 @@ export async function GET(request: NextRequest) {
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">A</div>
-            <div class="company-name">Assistly</div>
+            <div class="logo">
+                <img src="https://upzilo.com/wp-content/uploads/2025/07/UpZilo_Logo-scaled.png" alt="UpZilo logo" class="logo-image">
+            </div>
+            <div class="company-name">UpZilo - Your Virtual Assistant Platform</div>
         </div>
         
         <div class="content">
@@ -234,10 +237,10 @@ export async function GET(request: NextRequest) {
         
         <div class="footer">
             <div class="footer-text">
-                This is an automated message from Assistly
+                This is an automated message from UpZilo
             </div>
             <div class="footer-text">
-                If you have any questions, please contact our support team.
+                Need help? Contact us at ${supportEmail}
             </div>
         </div>
     </div>

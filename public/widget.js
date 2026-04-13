@@ -22,46 +22,122 @@
   var widgetState = {
     isOpen: false
   };
+
+  // ── Audio ─────────────────────────────────────────────────────────────────
   var bellAudioContext = null;
+  var bellQueued = false;
+  var bellQueuedAt = 0;         // timestamp when bell was queued
+  var BELL_WINDOW_MS = 4000;    // cancel if user hasn't interacted within 4 s of widget opening
+  var bellExpiryTimer = null;
+  var initialLoadBellPlayed = false;
 
-  function playOpenBellSound() {
-    var AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
+  function cancelBell() {
+    bellQueued = false;
+    bellQueuedAt = 0;
+    if (bellExpiryTimer) { clearTimeout(bellExpiryTimer); bellExpiryTimer = null; }
+  }
 
+  function scheduleBellTones() {
+    if (!bellQueued) return;
+    cancelBell(); // clear flag + timer before playing
     try {
-      if (!bellAudioContext) {
-        bellAudioContext = new AudioCtx();
-      }
-
-      if (bellAudioContext.state === 'suspended') {
-        bellAudioContext.resume();
-      }
-
-      var now = bellAudioContext.currentTime;
-      var masterGain = bellAudioContext.createGain();
+      var ctx = bellAudioContext;
+      var now = ctx.currentTime;
+      var masterGain = ctx.createGain();
       masterGain.gain.setValueAtTime(0.0001, now);
-      masterGain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
-      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
-      masterGain.connect(bellAudioContext.destination);
+      masterGain.gain.exponentialRampToValueAtTime(0.62, now + 0.012);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.1);
+      masterGain.connect(ctx.destination);
 
-      // Simple bell-like stack (fundamental + harmonics with quick decay)
-      var partials = [880, 1320, 1760];
-      for (var i = 0; i < partials.length; i++) {
-        var osc = bellAudioContext.createOscillator();
-        var partialGain = bellAudioContext.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(partials[i], now);
-        partialGain.gain.setValueAtTime(0.25 / (i + 1), now);
-        partialGain.gain.exponentialRampToValueAtTime(0.0001, now + (0.35 + i * 0.12));
+      var harmonics = [523.25, 784.0, 1046.5, 1568.0];
+      for (var i = 0; i < harmonics.length; i++) {
+        var osc = ctx.createOscillator();
+        var partialGain = ctx.createGain();
+        osc.type = i === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(harmonics[i], now);
+        partialGain.gain.setValueAtTime(0.5 / (i + 1), now);
+        partialGain.gain.exponentialRampToValueAtTime(0.0001, now + (0.95 + i * 0.22));
         osc.connect(partialGain);
         partialGain.connect(masterGain);
         osc.start(now);
-        osc.stop(now + 0.95);
+        osc.stop(now + 1.6);
       }
-    } catch (e) {
-      // Ignore autoplay or context errors silently in host pages.
+    } catch (e) {}
+  }
+
+  function ensureAudioContext() {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return false;
+    if (!bellAudioContext) {
+      try { bellAudioContext = new AudioCtx(); } catch (e) { return false; }
+    }
+    return true;
+  }
+
+  // Fires on real user activation — only plays bell if still within the time window
+  function onUserInteraction() {
+    if (!bellQueued) return;
+    if (!ensureAudioContext()) return;
+    if (bellAudioContext.state === 'suspended') {
+      bellAudioContext.resume().then(function() {
+        scheduleBellTones();
+      }).catch(function() {});
+    } else {
+      scheduleBellTones();
     }
   }
+
+  ['mousedown', 'pointerdown', 'click', 'touchstart', 'keydown'].forEach(function(evt) {
+    document.addEventListener(evt, onUserInteraction, { passive: true });
+  });
+
+  function playOpenBellSound() {
+    if (!ensureAudioContext()) return;
+
+    bellQueued = true;
+    bellQueuedAt = Date.now();
+
+    // Auto-cancel after the window expires so the bell never fires unexpectedly late
+    if (bellExpiryTimer) clearTimeout(bellExpiryTimer);
+    bellExpiryTimer = setTimeout(cancelBell, BELL_WINDOW_MS);
+
+    // Try immediately — succeeds if AudioContext is already running
+    if (bellAudioContext.state !== 'suspended') {
+      scheduleBellTones();
+    } else {
+      bellAudioContext.resume().then(function() {
+        scheduleBellTones();
+      }).catch(function() {});
+    }
+  }
+
+  // First-load bell (on widget bootstrap), independent from "open" bell.
+  // Best-effort immediate playback without relying on click/open interaction.
+  function playInitialLoadBellSound() {
+    if (initialLoadBellPlayed) return;
+    initialLoadBellPlayed = true;
+    if (!ensureAudioContext()) return;
+
+    try {
+      if (bellAudioContext.state === 'suspended') {
+        // Try immediate resume/play. If blocked by browser policy,
+        // we still queue so it can fire on first user interaction.
+        bellAudioContext.resume().then(function() {
+          bellQueued = true;
+          scheduleBellTones();
+        }).catch(function() {
+          // Autoplay can be blocked without user interaction.
+          // Keep queued without expiry so it rings on first interaction.
+          bellQueued = true;
+          if (bellExpiryTimer) { clearTimeout(bellExpiryTimer); bellExpiryTimer = null; }
+        });
+      } else {
+        bellQueued = true;
+        scheduleBellTones();
+      }
+    } catch (e) {}
+  }
+  // ── End Audio ──────────────────────────────────────────────────────────────
   
   // Create iframe element
   function createIframe() {
@@ -80,7 +156,7 @@
     }
     iframe.src = url;
     iframe.frameBorder = '0';
-    iframe.allow = 'clipboard-write; clipboard-read';
+    iframe.allow = 'clipboard-write; clipboard-read; autoplay';
     
     // Set all styling internally
     iframe.style.position = 'fixed';
@@ -269,6 +345,9 @@
     
     // Apply initial box shadow
     applyBoxShadow(iframe);
+
+    // Ring once on initial widget load (page load bootstrap)
+    playInitialLoadBellSound();
     
   }
   

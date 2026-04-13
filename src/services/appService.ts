@@ -115,13 +115,32 @@ class AppService extends HttpService {
     });
   }
 
+  async getLatestSms(appId: string): Promise<
+    AppResponse & {
+      data: {
+        messages: { from: string; body: string; dateSent: string; otp: string | null }[];
+      };
+    }
+  > {
+    return this.request(`/apps/${appId}/latest-sms`, { method: 'GET' });
+  }
+
   async getAvailableNumbersForApp(
     appId: string,
     countryCode: string,
     limit?: number
   ): Promise<
     AppResponse & {
-      data: { countryCode: string; numbers: { phoneNumber: string; friendlyName?: string }[] };
+      data: {
+        countryCode: string;
+        numbers: {
+          phoneNumber: string;
+          friendlyName?: string;
+          capabilities?: { sms: boolean; voice: boolean };
+          monthlyPrice?: string;
+          priceUnit?: string;
+        }[];
+      };
     }
   > {
     const params = new URLSearchParams({ countryCode: countryCode.toUpperCase() });
@@ -144,7 +163,16 @@ class AppService extends HttpService {
    */
   async getAvailableNumbers(countryCode: string, limit?: number): Promise<
     AppResponse & {
-      data: { countryCode: string; numbers: { phoneNumber: string; friendlyName?: string }[] };
+      data: {
+        countryCode: string;
+        numbers: {
+          phoneNumber: string;
+          friendlyName?: string;
+          capabilities?: { sms: boolean; voice: boolean };
+          monthlyPrice?: string;
+          priceUnit?: string;
+        }[];
+      };
     }
   > {
     const params = new URLSearchParams({ countryCode: countryCode.toUpperCase() });

@@ -5,6 +5,7 @@ export interface ConversationMessage {
 
 export interface Lead {
   _id?: string;
+  appId?: string;
   title: string;
   summary?: string;
   description?: string;
@@ -13,6 +14,37 @@ export interface Lead {
   leadEmail?: string;
   leadType?: string;
   serviceType?: string;
+  sourceChannel?: string;
+  status?: 'interacting' | 'in_progress' | 'complete' | 'confirmed';
+  location?: { country?: string; countryCode?: string };
+  clientContext?: {
+    ipAddress?: string;
+    userAgent?: string;
+    browserName?: string;
+    browserVersion?: string;
+    osName?: string;
+    deviceType?: string;
+  };
+  initialInteraction?: string;
+  clickedItems?: string[];
+  appointmentDetails?: {
+    eventId?: string;
+    start?: string;
+    end?: string;
+    link?: string;
+    confirmed?: boolean;
+  };
+  userFeedback?: {
+    experience?: 'very_happy' | 'happy' | 'neutral' | 'sad' | 'very_sad';
+    rating?: number;
+    comment?: string;
+    submittedAt?: string;
+  };
+  leadTypeSwitchHistory?: Array<{
+    from?: string;
+    to?: string;
+    at?: string;
+  }>;
   leadDateTime?: string; // ISO string
   history?: ConversationMessage[];
   createdAt?: string;

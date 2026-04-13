@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { useAppService } from '@/services';
+import { useAppService, useIntegrationService } from '@/services';
 import { ProtectedRoute, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
 import MetaEmbeddedSignupWizard from '@/components/MetaEmbeddedSignupWizard';
@@ -22,6 +22,7 @@ import { useFacebookOAuth } from '@/hooks/useFacebookOAuth';
 import {
   Building2,
   Phone,
+  MessageSquare,
   Loader2,
   CheckCircle2,
   XCircle,
@@ -60,6 +61,31 @@ export default function EditAppPage() {
     instagramUsername: ''
   });
 
+  const [leadCaptureSettings, setLeadCaptureSettings] = useState({
+    captureLeadName: true,
+    captureLeadEmail: true,
+    captureLeadPhoneNumber: true,
+    validateEmail: true,
+    validatePhoneNumber: true,
+    conversationStyle: false,
+    captureFeedbackEnabled: false,
+    googleReviewEnabled: false,
+    googleReviewUrl: '',
+  });
+
+  useEffect(() => {
+    setLeadCaptureSettings((prev) => {
+      let next = prev;
+      if (!prev.captureLeadEmail && prev.validateEmail) {
+        next = { ...next, validateEmail: false };
+      }
+      if (!prev.captureLeadPhoneNumber && prev.validatePhoneNumber) {
+        next = { ...next, validatePhoneNumber: false };
+      }
+      return next;
+    });
+  }, [leadCaptureSettings.captureLeadEmail, leadCaptureSettings.captureLeadPhoneNumber]);
+
   const [whatsappNumberStatus, setWhatsappNumberStatus] = useState<WhatsappNumberStatus | undefined>(
     undefined
   );
@@ -69,7 +95,13 @@ export default function EditAppPage() {
 
   const [newNumberCountry, setNewNumberCountry] = useState('US');
   const [availableNumbers, setAvailableNumbers] = useState<
-    { phoneNumber: string; friendlyName?: string }[]
+    {
+      phoneNumber: string;
+      friendlyName?: string;
+      capabilities?: { sms: boolean; voice: boolean };
+      monthlyPrice?: string;
+      priceUnit?: string;
+    }[]
   >([]);
   const [loadingNumbers, setLoadingNumbers] = useState(false);
   const [loadingProvision, setLoadingProvision] = useState(false);
@@ -88,9 +120,22 @@ export default function EditAppPage() {
 
   const normalizeDigits = (value: string) => (value || '').replace(/\D/g, '');
 
+  const toCurrencySymbol = (unit?: string) => {
+    const map: Record<string, string> = {
+      GBP: '£', USD: '$', EUR: '€', CAD: 'CA$', AUD: 'A$', JPY: '¥', CHF: 'Fr',
+    };
+    return (unit && map[unit.toUpperCase()]) ? map[unit.toUpperCase()] : (unit ? unit + ' ' : '$');
+  };
+
   const uniqueAvailableNumbers = (() => {
     const seen = new Set<string>();
-    const out: { phoneNumber: string; friendlyName?: string }[] = [];
+    const out: {
+      phoneNumber: string;
+      friendlyName?: string;
+      capabilities?: { sms: boolean; voice: boolean };
+      monthlyPrice?: string;
+      priceUnit?: string;
+    }[] = [];
     for (const n of availableNumbers || []) {
       const key = normalizeDigits(n.phoneNumber);
       if (!key || seen.has(key)) continue;
@@ -161,6 +206,26 @@ export default function EditAppPage() {
           setFbConnectedPageId(app.facebookPageId || '');
           setFbConnectedPageName(app.facebookPageName || '');
           setFbTokenExpiry(app.facebookTokenExpiry || null);
+
+          // Load integration settings for app-level lead capture rules
+          try {
+            const integrationSvc = await useIntegrationService();
+            const iRes = await integrationSvc.getSettings(appId);
+            const integration = iRes.data?.integration;
+            setLeadCaptureSettings({
+              captureLeadName: integration?.captureLeadName !== false,
+              captureLeadEmail: integration?.captureLeadEmail !== false,
+              captureLeadPhoneNumber: integration?.captureLeadPhoneNumber !== false,
+              validateEmail: !!integration?.validateEmail,
+              validatePhoneNumber: !!integration?.validatePhoneNumber,
+              conversationStyle: !!integration?.conversationStyle,
+              captureFeedbackEnabled: !!integration?.captureFeedbackEnabled,
+              googleReviewEnabled: !!integration?.googleReviewEnabled,
+              googleReviewUrl: integration?.googleReviewUrl ?? '',
+            });
+          } catch (intErr) {
+            // non-blocking
+          }
         } else {
           setError('Failed to load app details');
           toast.error('Failed to load app');
@@ -377,6 +442,25 @@ export default function EditAppPage() {
       };
       const response = await appService.updateApp(appId, updateData);
       if (response.status === 'success') {
+        // Persist app-level lead capture rules (stored in Integration settings).
+        try {
+          const integrationSvc = await useIntegrationService();
+          await integrationSvc.updateSettings(appId, {
+            captureLeadName: !!leadCaptureSettings.captureLeadName,
+            captureLeadEmail: !!leadCaptureSettings.captureLeadEmail,
+            captureLeadPhoneNumber: !!leadCaptureSettings.captureLeadPhoneNumber,
+            validateEmail: !!leadCaptureSettings.validateEmail,
+            validatePhoneNumber: !!leadCaptureSettings.validatePhoneNumber,
+            conversationStyle: !!leadCaptureSettings.conversationStyle,
+            captureFeedbackEnabled: !!leadCaptureSettings.captureFeedbackEnabled,
+            googleReviewEnabled: !!leadCaptureSettings.googleReviewEnabled,
+            googleReviewUrl: leadCaptureSettings.googleReviewEnabled
+              ? (leadCaptureSettings.googleReviewUrl || '').trim()
+              : '',
+          });
+        } catch (e: any) {
+          toast.error(e?.message || 'Failed to save lead capture settings');
+        }
         toast.success('App updated successfully!');
         await refreshApps();
         await reloadAppWhatsAppFields();
@@ -642,6 +726,194 @@ export default function EditAppPage() {
                 </div>
               </div>
 
+              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Lead capture rules</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      These settings apply across Web, WhatsApp, Messenger, and Instagram for this app.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture Name</div>
+                        <div className="text-xs text-gray-600 mt-1">Collect customer name during chat.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureLeadName}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureLeadName: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture Email</div>
+                        <div className="text-xs text-gray-600 mt-1">Collect customer email during chat.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureLeadEmail}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureLeadEmail: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture Phone Number</div>
+                        <div className="text-xs text-gray-600 mt-1">Collect customer phone number during chat.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureLeadPhoneNumber}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureLeadPhoneNumber: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Validate Email</div>
+                        <div className="text-xs text-gray-600 mt-1">Require valid email when users provide email addresses.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.validateEmail}
+                          disabled={!leadCaptureSettings.captureLeadEmail}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, validateEmail: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                    {!leadCaptureSettings.captureLeadEmail && (
+                      <div className="mt-2 text-[11px] text-amber-700">
+                        Enable Capture Email to use email validation.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Validate Phone Number</div>
+                        <div className="text-xs text-gray-600 mt-1">Require valid phone number when users provide phone numbers.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.validatePhoneNumber}
+                          disabled={!leadCaptureSettings.captureLeadPhoneNumber}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, validatePhoneNumber: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                    {!leadCaptureSettings.captureLeadPhoneNumber && (
+                      <div className="mt-2 text-[11px] text-amber-700">
+                        Enable Capture Phone Number to use phone validation.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Conversational Style</div>
+                        <div className="text-xs text-gray-600 mt-1">When enabled, the bot uses free-form conversation.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.conversationStyle}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, conversationStyle: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Capture End Feedback</div>
+                        <div className="text-xs text-gray-600 mt-1">Ask for smiley experience and 1-5 rating when chat ends.</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.captureFeedbackEnabled}
+                          onChange={(e) => setLeadCaptureSettings((p) => ({ ...p, captureFeedbackEnabled: e.target.checked }))}
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm">Offer a review link after lead creation</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={leadCaptureSettings.googleReviewEnabled}
+                          onChange={(e) =>
+                            setLeadCaptureSettings((p) => ({
+                              ...p,
+                              googleReviewEnabled: e.target.checked,
+                              googleReviewUrl: e.target.checked ? p.googleReviewUrl : '',
+                            }))
+                          }
+                        />
+                        <div className="brand-toggle-track"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                {leadCaptureSettings.googleReviewEnabled && (
+                  <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Review page URL</label>
+                    <input
+                      type="url"
+                      className="input-field w-full"
+                      placeholder="https://example.com/reviews"
+                      value={leadCaptureSettings.googleReviewUrl}
+                      onChange={(e) =>
+                        setLeadCaptureSettings((p) => ({ ...p, googleReviewUrl: e.target.value }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* ── Actions ── */}
               <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200">
                 <button
@@ -888,22 +1160,43 @@ export default function EditAppPage() {
                                 disabled={uniqueAvailableNumbers.length === 0}
                               >
                                 <div className="relative w-full min-w-0">
-                                  <Listbox.Button className="input-field relative w-full pr-10 h-11 flex items-center disabled:opacity-60">
-                                    <span className="text-sm text-gray-800">
-                                      {selectedTwilioNumber ? (
-                                        <span className="font-mono">{selectedTwilioNumber}</span>
-                                      ) : uniqueAvailableNumbers.length === 0 ? (
-                                        'Search to load numbers'
-                                      ) : (
-                                        'Select a number'
-                                      )}
-                                    </span>
+                                  <Listbox.Button className="input-field relative w-full pr-10 h-11 flex items-center gap-2 overflow-hidden disabled:opacity-60">
+                                    {(() => {
+                                      const obj = uniqueAvailableNumbers.find(n => n.phoneNumber === selectedTwilioNumber);
+                                      if (selectedTwilioNumber) {
+                                        return (
+                                          <>
+                                            <span className="font-mono font-semibold text-gray-900 text-sm truncate shrink-0">{selectedTwilioNumber}</span>
+                                            {obj?.capabilities?.sms && (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 shrink-0">
+                                                <MessageSquare className="h-3 w-3" />SMS
+                                              </span>
+                                            )}
+                                            {obj?.capabilities?.voice && (
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 shrink-0">
+                                                <Phone className="h-3 w-3" />Call
+                                              </span>
+                                            )}
+                                            {obj?.monthlyPrice && (
+                                              <span className="inline-flex items-center rounded-full bg-[#c01721] px-2 py-0.5 text-[10px] font-bold text-white shrink-0">
+                                                {toCurrencySymbol(obj.priceUnit)}{parseFloat(obj.monthlyPrice).toFixed(2)}/mo
+                                              </span>
+                                            )}
+                                          </>
+                                        );
+                                      }
+                                      return (
+                                        <span className="text-sm text-gray-500">
+                                          {uniqueAvailableNumbers.length === 0 ? 'Search to load numbers' : 'Select a number'}
+                                        </span>
+                                      );
+                                    })()}
                                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                   </Listbox.Button>
 
                                   {uniqueAvailableNumbers.length > 0 && (
-                                    <Listbox.Options className="absolute z-20 bottom-full mb-2 w-full min-w-[360px] max-h-72 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg focus:outline-none">
-                                      <div className="sticky top-0 bg-white border-b border-gray-100 p-2">
+                                    <Listbox.Options className="absolute z-20 bottom-full mb-2 w-full min-w-[400px] max-h-72 overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl focus:outline-none divide-y divide-gray-100">
+                                      <div className="sticky top-0 bg-white border-b border-gray-100 p-2 z-10">
                                         <input
                                           value={numberSearch}
                                           onChange={(e) => setNumberSearch(e.target.value)}
@@ -916,15 +1209,15 @@ export default function EditAppPage() {
                                           key={n.phoneNumber}
                                           value={n.phoneNumber}
                                           className={({ active }) =>
-                                            `flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm ${
-                                              active ? 'bg-gray-50' : 'bg-white'
+                                            `flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors ${
+                                              active ? 'bg-red-50' : 'bg-white'
                                             }`
                                           }
                                         >
                                           {({ selected }) => (
                                             <>
                                               <div className="flex-1 min-w-0">
-                                                <div className="font-mono text-gray-900 truncate">{n.phoneNumber}</div>
+                                                <div className="font-mono font-semibold text-gray-900 text-sm tracking-wide truncate">{n.phoneNumber}</div>
                                                 {(() => {
                                                   const pd = normalizeDigits(n.phoneNumber);
                                                   const fd = normalizeDigits(n.friendlyName || '');
@@ -932,11 +1225,30 @@ export default function EditAppPage() {
                                                     !!pd && !!fd && (pd === fd || pd.endsWith(fd) || fd.endsWith(pd));
                                                   if (!n.friendlyName || same) return null;
                                                   return (
-                                                    <div className="text-xs text-gray-500 truncate">{n.friendlyName}</div>
+                                                    <div className="text-xs text-gray-400 truncate mt-0.5">{n.friendlyName}</div>
                                                   );
                                                 })()}
                                               </div>
-                                              {selected ? <Check className="h-4 w-4 text-[#c01721]" /> : null}
+                                              <div className="flex items-center gap-2 shrink-0">
+                                                {n.capabilities?.sms && (
+                                                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                    <MessageSquare className="h-3 w-3" />
+                                                    SMS
+                                                  </span>
+                                                )}
+                                                {n.capabilities?.voice && (
+                                                  <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                                                    <Phone className="h-3 w-3" />
+                                                    Call
+                                                  </span>
+                                                )}
+                                                {n.monthlyPrice && (
+                                                  <span className="inline-flex items-center rounded-full bg-[#c01721] px-2.5 py-1 text-[11px] font-bold text-white whitespace-nowrap shadow-sm">
+                                                    {toCurrencySymbol(n.priceUnit)}{parseFloat(n.monthlyPrice).toFixed(2)}/mo
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {selected ? <Check className="h-4 w-4 text-[#c01721] shrink-0" /> : null}
                                             </>
                                           )}
                                         </Listbox.Option>

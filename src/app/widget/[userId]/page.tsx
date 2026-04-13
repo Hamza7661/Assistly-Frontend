@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useWidgetService } from '@/services';
 import type { IntegrationSettings } from '@/models';
@@ -10,9 +10,19 @@ type BotMessage = { type: 'bot'; content: string; step?: string };
 type WarnMessage = { type: 'warn' | 'error'; content: string };
 type ReviewPromptMessage = { type: 'review_prompt'; content: string; reviewUrl: string };
 type UserFileMessage = { type: 'user'; content: string; fileInfo?: { filename: string; fileId: string; contentType: string } };
-type AnyMessage = BotMessage | WarnMessage | ReviewPromptMessage | UserFileMessage | { type: 'user'; content: string };
+type AnyMessage =
+  | BotMessage
+  | WarnMessage
+  | ReviewPromptMessage
+  | UserFileMessage
+  | { type: 'user'; content: string }
+  | { type: 'user_replay'; content: string }
+  | { type: 'session_complete' };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const MAX_RECONNECT_ATTEMPTS = 3;
+/** Set when flow is done: booking confirmation shown, or non-booking JSON after all questions. Cleared on widget close/reload. */
+const SESSION_FINISHED_STORAGE_SUFFIX = '__session_finished';
 
 export default function WidgetPage() {
   const params = useParams<{ userId?: string; appId?: string }>();
@@ -30,41 +40,20 @@ export default function WidgetPage() {
       document.body.style.backgroundColor = '';
     };
   }, []);
-  const rawWs = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+  const configuredWsUrl = process.env.NEXT_PUBLIC_WS_URL;
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<AnyMessage[]>([]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
+  const [sessionCompleted, setSessionCompleted] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [fileUploadEnabled, setFileUploadEnabled] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isIntentionalClose = useRef(false);
 
-  // Handle click outside to close widget
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Only respond to left mouse button clicks (button 0)
-      if (event.button === 0 && isOpen && widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        sendWidgetState(false);
-        if (wsRef.current) {
-          wsRef.current.close();
-        }
-        resizeIframe(100);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
   const [settings, setSettings] = useState<IntegrationSettings>({
     assistantName: 'Assistly Chatbot',
     greeting: '',
@@ -74,12 +63,242 @@ export default function WidgetPage() {
     validatePhoneNumber: true
   });
   const [imageData, setImageData] = useState<string | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [countryCode, setCountryCode] = useState<string>('US');
+  const [leadId, setLeadId] = useState<string | null>(null);
+  const [clickedItems, setClickedItems] = useState<string[]>([]);
+  const leadIdRef = useRef<string | null>(null);
+  const clickedItemsRef = useRef<string[]>([]);
+  useEffect(() => {
+    leadIdRef.current = leadId;
+  }, [leadId]);
+  useEffect(() => {
+    clickedItemsRef.current = clickedItems;
+  }, [clickedItems]);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messagesRef = useRef<AnyMessage[]>([]);
+  const [connectAttempt, setConnectAttempt] = useState(0);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
+  const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
+  const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
+  const [hasActiveConversation, setHasActiveConversation] = useState(false);
+
+  const persistConversationMeta = (meta: { active?: boolean; leadId?: string | null; clickedItems?: string[] }) => {
+    if (!conversationMetaStorageKey || typeof window === 'undefined') return;
+    try {
+      const existingRaw = sessionStorage.getItem(conversationMetaStorageKey);
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      const next = {
+        ...existing,
+        ...meta,
+      };
+      sessionStorage.setItem(conversationMetaStorageKey, JSON.stringify(next));
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!resumeStorageKey || typeof window === 'undefined') return;
+
+    // Full page reload after a completed flow: start clean (same as closing the widget after complete)
+    try {
+      const finishedKey = `${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`;
+      if (sessionStorage.getItem(finishedKey) === '1') {
+        sessionStorage.removeItem(finishedKey);
+        sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+        if (conversationMetaStorageKey) sessionStorage.removeItem(conversationMetaStorageKey);
+        const newId =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+        sessionStorage.setItem(resumeStorageKey, newId);
+        setWidgetSessionId(newId);
+        setMessages([]);
+        setLeadId(null);
+        setClickedItems([]);
+        setHasActiveConversation(false);
+        setFileUploadEnabled(false);
+        return;
+      }
+    } catch {}
+
+    let id = sessionStorage.getItem(resumeStorageKey);
+    if (!id) {
+      id =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      sessionStorage.setItem(resumeStorageKey, id);
+    }
+    setWidgetSessionId(id);
+
+    if (conversationMetaStorageKey) {
+      try {
+        const rawMeta = sessionStorage.getItem(conversationMetaStorageKey);
+        if (rawMeta) {
+          const meta = JSON.parse(rawMeta) as {
+            active?: boolean;
+            leadId?: string | null;
+            clickedItems?: string[];
+          };
+          const isActive = Boolean(meta.active);
+          setHasActiveConversation(isActive);
+          if (isActive && meta.leadId) setLeadId(meta.leadId);
+          if (Array.isArray(meta.clickedItems)) setClickedItems(meta.clickedItems);
+          if (isActive) {
+            try {
+              const rawMsgs = sessionStorage.getItem(`${resumeStorageKey}__msgs`);
+              if (rawMsgs) {
+                const parsed = JSON.parse(rawMsgs) as AnyMessage[];
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setMessages(parsed);
+                }
+              }
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+  }, [resumeStorageKey, conversationMetaStorageKey]);
+
+  // Do NOT depend on messages.length: after the first bot reply we persist __msgs, which would
+  // flip this to true, change fullWsUrl (skip_history_replay=1), and reconnect the WebSocket —
+  // the user's next tap can hit a closed socket (stuck chat). Snapshot is resume + active flag only.
+  const skipHistoryReplay = useMemo(() => {
+    if (typeof window === 'undefined' || !resumeStorageKey || !hasActiveConversation) return false;
+    try {
+      const raw = sessionStorage.getItem(`${resumeStorageKey}__msgs`);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      return false;
+    }
+  }, [resumeStorageKey, hasActiveConversation]);
+
+  useEffect(() => {
+    if (!resumeStorageKey || typeof window === 'undefined' || !hasActiveConversation) return;
+    if (messages.length === 0) return;
+    try {
+      sessionStorage.setItem(`${resumeStorageKey}__msgs`, JSON.stringify(messages));
+    } catch {}
+  }, [messages, hasActiveConversation, resumeStorageKey]);
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  };
+
+  const createInteractionLead = useCallback(async () => {
+    if (!identifier) return;
+    try {
+      const svc = await useWidgetService();
+      const json = await svc.createPublicLead(identifier, {
+        appId: appId || undefined,
+        status: 'interacting',
+        location: { countryCode },
+        initialInteraction: 'widget_opened',
+        clickedItems: [],
+        sourceChannel: 'web',
+      });
+      const id = json?.data?.lead?._id;
+      if (id) {
+        setLeadId(id);
+        setHasActiveConversation(true);
+        persistConversationMeta({ active: true, leadId: id, clickedItems: [] });
+      }
+    } catch {}
+  }, [identifier, appId, countryCode]);
+
+  const updateInteractionLead = async (payload: Record<string, unknown>) => {
+    if (!identifier || !leadId) return;
+    try {
+      const svc = await useWidgetService();
+      await svc.updatePublicLead(identifier, leadId, payload);
+    } catch {}
+  };
+
+  /** New resume id + cleared sessionStorage + UI — server treats next WS as a brand-new session. */
+  const resetChatToStart = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (
+      !window.confirm(
+        'Start over? This clears the chat and begins a new conversation from scratch.'
+      )
+    ) {
+      return;
+    }
+
+    isIntentionalClose.current = true;
+    clearReconnectTimer();
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {}
+      wsRef.current = null;
+    }
+
+    if (resumeStorageKey) {
+      try {
+        sessionStorage.removeItem(`${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`);
+        if (conversationMetaStorageKey) {
+          sessionStorage.removeItem(conversationMetaStorageKey);
+        }
+        sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+        const newId =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+        sessionStorage.setItem(resumeStorageKey, newId);
+        setWidgetSessionId(newId);
+      } catch {}
+    }
+
+    setMessages([]);
+    setLeadId(null);
+    setClickedItems([]);
+    setHasActiveConversation(false);
+    setFileUploadEnabled(false);
+    setChatEnded(false);
+    setSessionCompleted(false);
+    setConnectionError(null);
+    setInput('');
+    setIsTyping(true);
+    reconnectAttemptsRef.current = 0;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    void createInteractionLead();
+    setConnectAttempt((c) => c + 1);
+  }, [
+    resumeStorageKey,
+    conversationMetaStorageKey,
+    createInteractionLead,
+  ]);
 
   const fullWsUrl = useMemo(() => {
-    const base = rawWs.endsWith('/ws') ? rawWs : (rawWs.endsWith('/') ? `${rawWs}ws` : `${rawWs}/ws`);
+    const resolveDefaultWsBase = () => {
+      const toWsProtocol = (proto: string) => (proto === 'https:' ? 'wss:' : 'ws:');
+      if (typeof window !== 'undefined') {
+        const fromApi = process.env.NEXT_PUBLIC_API_URL;
+        if (fromApi && /^https?:\/\//i.test(fromApi)) {
+          const apiUrl = new URL(fromApi);
+          const basePath = apiUrl.pathname.replace(/\/api\/v\d+\/?$/i, '');
+          return `${toWsProtocol(apiUrl.protocol)}//${apiUrl.host}${basePath}`;
+        }
+        return `${toWsProtocol(window.location.protocol)}//${window.location.host}`;
+      }
+      return 'ws://localhost:8000';
+    };
+
+    const wsBase = configuredWsUrl || resolveDefaultWsBase();
+    const base = wsBase.endsWith('/ws') ? wsBase : (wsBase.endsWith('/') ? `${wsBase}ws` : `${wsBase}/ws`);
     const url = new URL(base);
     // Support both appId and userId for backward compatibility
     if (appId) {
@@ -89,11 +308,17 @@ export default function WidgetPage() {
     } else {
       url.searchParams.set('user_id', 'PUBLIC_USER_ID');
     }
-    // NOTE: countryCode is intentionally NOT included in the URL — the backend doesn't read it
-    // from the WebSocket query params, and including it causes unnecessary reconnects each time
-    // the country is detected, which breaks the greeting display.
+    if (countryCode) {
+      url.searchParams.set('country', countryCode.toUpperCase());
+    }
+    if (widgetSessionId) {
+      url.searchParams.set('resume', widgetSessionId);
+    }
+    if (skipHistoryReplay) {
+      url.searchParams.set('skip_history_replay', '1');
+    }
     return url.toString();
-  }, [rawWs, appId, userId]);
+  }, [configuredWsUrl, appId, userId, countryCode, widgetSessionId, skipHistoryReplay]);
 
   // Load integration settings and detect country
   useEffect(() => {
@@ -126,6 +351,8 @@ export default function WidgetPage() {
         }
       } catch (e) {
         console.error('Failed to load integration settings:', e);
+      } finally {
+        setSettingsLoaded(true);
       }
     };
 
@@ -153,6 +380,33 @@ export default function WidgetPage() {
     detectCountry();
   }, [identifier, countryFromUrl]);
 
+  // Auto-open the widget after a 2-second delay once settings are loaded.
+  // Bell sound is handled entirely by widget.js on the parent page — it queues
+  // and fires on first real user activation (click / keydown / touch).
+  useEffect(() => {
+    if (!settingsLoaded || !widgetSessionId) return;
+    const timer = setTimeout(() => {
+      if (!hasActiveConversation) {
+        setMessages([]);
+        setConnected(false);
+        setChatEnded(false);
+        setSessionCompleted(false);
+        setIsTyping(false);
+        setFileUploadEnabled(false);
+        setClickedItems([]);
+      }
+      setIsOpen(true);
+      sendWidgetState(true);
+      resizeIframe(600);
+      if (!hasActiveConversation) {
+        createInteractionLead();
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [settingsLoaded, countryCode, widgetSessionId, hasActiveConversation, leadId]);
+
+  // WebSocket must not reconnect when leadId/clickedItems change (e.g. after a button tap),
+  // or cleanup closes the socket before the bot reply is delivered.
   useEffect(() => {
     // Only connect when widget is opened
     if (!isOpen) return;
@@ -161,7 +415,10 @@ export default function WidgetPage() {
     try {
       ws = new WebSocket(fullWsUrl);
     } catch (e) {
-      setMessages((prev) => [...prev, { type: 'error', content: 'Failed to initialize websocket' } as WarnMessage]);
+      setConnectionError('Unable to start chat connection.');
+      setChatEnded(true);
+      setConnected(false);
+      setIsTyping(false);
       return;
     }
     wsRef.current = ws;
@@ -169,10 +426,18 @@ export default function WidgetPage() {
       // Guard: ignore events from a stale (already-replaced) WebSocket
       if (wsRef.current !== ws) return;
       isIntentionalClose.current = false;
+      reconnectAttemptsRef.current = 0;
+      clearReconnectTimer();
       setChatEnded(false);
       setConnected(true);
-      // Show typing indicator while waiting for the initial greeting from backend
-      setIsTyping(true);
+      setIsReconnecting(false);
+      setConnectionError(null);
+      // Resumed thread with cached messages: server skips transcript replay; no typing wait.
+      if (!skipHistoryReplay) {
+        setIsTyping(true);
+      } else {
+        setIsTyping(false);
+      }
     };
     ws.onmessage = (e) => {
       // Guard: ignore messages from a stale WebSocket
@@ -180,14 +445,75 @@ export default function WidgetPage() {
       try {
         const msg = JSON.parse(e.data) as AnyMessage;
         const msgType = (msg as any).type;
+        const msgContent = String((msg as { content?: string }).content || '');
+
+        // On reopen/resume we may already have the transcript loaded from sessionStorage.
+        // If backend replays older lines, skip them so chat does not append duplicates.
+        const isDuplicateOnResume = (type: string, content: string) => {
+          if (!skipHistoryReplay || !content) return false;
+          return messagesRef.current.some((m) => {
+            if (!('content' in m)) return false;
+            const existingContent = String((m as { content?: string }).content || '');
+            if (existingContent !== content) return false;
+            if (type === 'user_replay') {
+              return m.type === 'user_replay' || m.type === 'user';
+            }
+            return m.type === type;
+          });
+        };
 
         // Handle file upload enable signal (not a chat message)
         if (msgType === 'enable_file_upload') {
           setFileUploadEnabled(true);
+          setHasActiveConversation(true);
+          persistConversationMeta({
+            active: true,
+            leadId: leadIdRef.current,
+            clickedItems: clickedItemsRef.current,
+          });
           return;
         }
 
+        // Flow complete (booking confirmed with details shown, or non-booking JSON after all questions).
+        // Keep messages + same WebSocket; reset storage/UI only when user closes widget or reloads.
+        if (msgType === 'session_complete') {
+          if (typeof window !== 'undefined' && resumeStorageKey) {
+            try {
+              sessionStorage.setItem(`${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`, '1');
+            } catch {}
+          }
+          setSessionCompleted(true);
+          setIsTyping(false);
+          setFileUploadEnabled(false);
+          return;
+        }
+
+        if (msgType === 'user_replay') {
+          if (isDuplicateOnResume(msgType, msgContent)) return;
+          setMessages((prev) => [...prev, { type: 'user_replay', content: String((msg as { content?: string }).content || '') }]);
+          setHasActiveConversation(true);
+          persistConversationMeta({
+            active: true,
+            leadId: leadIdRef.current,
+            clickedItems: clickedItemsRef.current,
+          });
+          return;
+        }
+        if (
+          (msgType === 'bot' || msgType === 'review_prompt' || msgType === 'user')
+          && isDuplicateOnResume(msgType, msgContent)
+        ) {
+          return;
+        }
         setMessages((prev) => [...prev, msg]);
+        if (msgType === 'bot' || msgType === 'review_prompt') {
+          setHasActiveConversation(true);
+          persistConversationMeta({
+            active: true,
+            leadId: leadIdRef.current,
+            clickedItems: clickedItemsRef.current,
+          });
+        }
         if (msgType === 'warn' || msgType === 'error') {
           setIsTyping(false);
           return;
@@ -207,23 +533,45 @@ export default function WidgetPage() {
       // stale onclose always sees wsRef.current !== ws and skips the state update.
       if (wsRef.current !== ws) return;
       setConnected(false);
-      // Only mark chat as ended for unexpected closes, not controlled cleanup/reconnects
-      if (!isIntentionalClose.current) {
-        setChatEnded(true);
-        setIsTyping(false);
+      setIsTyping(false);
+      // Only reconnect for unexpected closes, not controlled cleanup/reconnects
+      if (!isIntentionalClose.current && isOpen) {
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttemptsRef.current += 1;
+          setIsReconnecting(true);
+          clearReconnectTimer();
+          const delay = Math.min(1000 * reconnectAttemptsRef.current, 3000);
+          reconnectTimerRef.current = setTimeout(() => {
+            setConnectAttempt((prev) => prev + 1);
+          }, delay);
+        } else {
+          setIsReconnecting(false);
+          setChatEnded(true);
+          setConnectionError('Connection lost. Please try reconnecting.');
+        }
       }
     };
     ws.onerror = () => {
       if (wsRef.current !== ws) return;
-      setMessages((prev) => [...prev, { type: 'error', content: 'WebSocket error' }]);
+      setConnectionError('Unable to connect to chat server.');
     };
 
     return () => {
       isIntentionalClose.current = true;
+      clearReconnectTimer();
       wsRef.current = null; // Clear ref BEFORE close so stale onclose is ignored
       ws?.close();
     };
-  }, [fullWsUrl, isOpen]);
+  }, [
+    fullWsUrl,
+    isOpen,
+    connectAttempt,
+    widgetSessionId,
+    conversationMetaStorageKey,
+    resumeStorageKey,
+    skipHistoryReplay,
+    createInteractionLead,
+  ]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -232,9 +580,14 @@ export default function WidgetPage() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      clearReconnectTimer();
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -242,15 +595,27 @@ export default function WidgetPage() {
     };
   }, []);
 
-  const sendText = (text: string) => {
+  const sendText = (text: string, displayText?: string) => {
     const value = text.trim();
     if (!value || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({ 
       type: 'user', 
       content: value,
-      country: countryCode 
+      country: countryCode
     }));
-    setMessages((prev) => [...prev, { type: 'user', content: value }]);
+    setMessages((prev) => [...prev, { type: 'user', content: (displayText || value) }]);
+    setHasActiveConversation(true);
+    persistConversationMeta({ active: true, leadId, clickedItems });
+    if (displayText) {
+      const nextClicked = [...clickedItems, displayText];
+      setClickedItems(nextClicked);
+      persistConversationMeta({ active: true, leadId, clickedItems: nextClicked });
+      updateInteractionLead({
+        initialInteraction: clickedItems.length === 0 ? displayText : undefined,
+        clickedItems: nextClicked,
+        status: 'in_progress',
+      });
+    }
     setIsTyping(true);
     // Hide the file upload button after the user sends any message — it will be re-shown
     // only if the bot explicitly asks for a file again via the enable_file_upload signal.
@@ -332,10 +697,92 @@ export default function WidgetPage() {
     }
   };
 
+  /** After booking / all questions answered: clear cached thread when user closes widget (or on reload). */
+  const applyCompletedFlowStorageReset = useCallback((): string | null => {
+    if (!resumeStorageKey || typeof window === 'undefined') return null;
+    try {
+      const fk = `${resumeStorageKey}${SESSION_FINISHED_STORAGE_SUFFIX}`;
+      if (sessionStorage.getItem(fk) !== '1') return null;
+      sessionStorage.removeItem(fk);
+      sessionStorage.removeItem(`${resumeStorageKey}__msgs`);
+      if (conversationMetaStorageKey) sessionStorage.removeItem(conversationMetaStorageKey);
+      const newId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `wk_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      sessionStorage.setItem(resumeStorageKey, newId);
+      return newId;
+    } catch {
+      return null;
+    }
+  }, [resumeStorageKey, conversationMetaStorageKey]);
+
+  const closeWidgetChrome = useCallback(() => {
+    const newId = applyCompletedFlowStorageReset();
+    if (newId) {
+      setWidgetSessionId(newId);
+      setMessages([]);
+      setLeadId(null);
+      setClickedItems([]);
+      setHasActiveConversation(false);
+      setFileUploadEnabled(false);
+      setInput('');
+      setIsTyping(false);
+      setChatEnded(false);
+      setSessionCompleted(false);
+      setConnectionError(null);
+      reconnectAttemptsRef.current = 0;
+    }
+    isIntentionalClose.current = true;
+    setIsOpen(false);
+    sendWidgetState(false);
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {}
+    }
+    resizeIframe(100);
+  }, [applyCompletedFlowStorageReset]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+        closeWidgetChrome();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, closeWidgetChrome]);
+
   // Format inline bullet points (•) so each starts on a new line
   const formatBulletPoints = (str: string) => str.replace(/ • /g, '\n• ');
 
-  // Render text with URLs as clickable links (opens in new tab)
+  const renderBoldSegments = (text: string, keyBase: string): React.ReactNode => {
+    const re = /\*\*([^*]+)\*\*/g;
+    const out: React.ReactNode[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let i = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) {
+        out.push(<span key={`${keyBase}-t-${i++}`}>{text.slice(last, m.index)}</span>);
+      }
+      out.push(
+        <strong key={`${keyBase}-b-${i++}`} className="font-semibold">
+          {m[1]}
+        </strong>
+      );
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) {
+      out.push(<span key={`${keyBase}-t-${i++}`}>{text.slice(last)}</span>);
+    }
+    return out.length > 0 ? out : text;
+  };
+
+  // Render **bold**, bullets, and URLs as clickable links
   const renderTextWithLinks = (str: string, keyPrefix: string): React.ReactNode => {
     const formatted = formatBulletPoints(str);
     const urlRegex = /https?:\/\/[^\s]+/g;
@@ -344,7 +791,11 @@ export default function WidgetPage() {
     let urlMatch: RegExpExecArray | null;
     while ((urlMatch = urlRegex.exec(formatted)) !== null) {
       if (urlMatch.index > lastIndex) {
-        parts.push(formatted.slice(lastIndex, urlMatch.index));
+        parts.push(
+          <span key={`${keyPrefix}-pre-${urlMatch.index}`} className="whitespace-pre-wrap">
+            {renderBoldSegments(formatted.slice(lastIndex, urlMatch.index), `${keyPrefix}-b-${urlMatch.index}`)}
+          </span>
+        );
       }
       const rawUrl = urlMatch[0];
       const href = rawUrl.replace(/[.,;?!)]+$/, '');
@@ -362,10 +813,77 @@ export default function WidgetPage() {
       lastIndex = urlMatch.index + rawUrl.length;
     }
     if (lastIndex < formatted.length) {
-      parts.push(formatted.slice(lastIndex));
+      parts.push(
+        <span key={`${keyPrefix}-tail`} className="whitespace-pre-wrap">
+          {renderBoldSegments(formatted.slice(lastIndex), `${keyPrefix}-tail`)}
+        </span>
+      );
     }
-    if (parts.length === 0) return formatted;
-    return <span key={keyPrefix} className="whitespace-pre-wrap">{parts}</span>;
+    if (parts.length === 0) {
+      return (
+        <span key={keyPrefix} className="whitespace-pre-wrap">
+          {renderBoldSegments(formatted, `${keyPrefix}-only`)}
+        </span>
+      );
+    }
+    return (
+      <span key={keyPrefix} className="whitespace-pre-wrap">
+        {parts}
+      </span>
+    );
+  };
+
+  const CheckboxChoiceGroup = ({
+    options,
+    groupKey,
+  }: {
+    options: Array<{ value: string; label: string }>;
+    groupKey: string;
+  }) => {
+    const [selected, setSelected] = useState<string[]>([]);
+    const toggle = (value: string) => {
+      setSelected((prev) =>
+        prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+      );
+    };
+
+    return (
+      <div className="w-full rounded-lg border border-gray-200 bg-white/80 p-2 space-y-2">
+        <p className="text-[11px] sm:text-xs text-gray-600">
+          Select one or more options, then click Submit.
+        </p>
+        <div className="space-y-1">
+          {options.map((opt, idx) => {
+            const id = `${groupKey}-${idx}`;
+            const isChecked = selected.includes(opt.value);
+            return (
+              <label key={id} htmlFor={id} className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
+                <input
+                  id={id}
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => toggle(opt.value)}
+                  className="rounded border-gray-300 text-[#c01721] focus:ring-[#c01721]"
+                />
+                <span>{opt.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          disabled={selected.length === 0}
+          className="rounded-full text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: settings.primaryColor || '#c01721' } as React.CSSProperties}
+          onClick={() => {
+            const payload = selected.join(', ');
+            sendText(payload, payload);
+          }}
+        >
+          Submit
+        </button>
+      </div>
+    );
   };
 
   const renderBotContent = (text: string) => {
@@ -373,24 +891,50 @@ export default function WidgetPage() {
     // Matches:
     // <button>text</button>
     // <button value="val">text</button>
+    // <checkbox value="val">text</checkbox>
     // <file url="..." name="filename">label</file>
-    const regex = /<(button|file)(?:\s+value=["']([^"']*)["'])?(?:\s+url=["']([^"']*)["'])?(?:\s+name=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
+    const regex = /<(button|file|checkbox)(?:\s+value=["']([^"']*)["'])?(?:\s+url=["']([^"']*)["'])?(?:\s+name=["']([^"']*)["'])?(?:\s+group=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
+    let pendingCheckboxes: Array<{ value: string; label: string }> = [];
+
+    const flushCheckboxes = (keySeed: number) => {
+      if (pendingCheckboxes.length === 0) return;
+      parts.push(
+        <CheckboxChoiceGroup
+          key={`cb-${keySeed}`}
+          groupKey={`cb-${keySeed}`}
+          options={pendingCheckboxes}
+        />
+      );
+      pendingCheckboxes = [];
+    };
     
     while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        const chunk = text.slice(lastIndex, match.index).trim();
-        if (chunk) parts.push(renderTextWithLinks(chunk, `t-${lastIndex}`));
-      }
-      
       const tagName = match[1].toLowerCase();
+      const gap = match.index > lastIndex ? text.slice(lastIndex, match.index) : '';
+      const gapTrim = gap.trim();
+
+      // Newlines/whitespace between consecutive <checkbox> tags must NOT flush — otherwise
+      // each option becomes its own group (repeated hint + Submit per row).
+      if (match.index > lastIndex) {
+        const mergeIntoCheckboxGroup =
+          tagName === 'checkbox' && pendingCheckboxes.length > 0 && gapTrim === '';
+        if (!mergeIntoCheckboxGroup) {
+          flushCheckboxes(match.index);
+          if (gapTrim) {
+            parts.push(renderTextWithLinks(gapTrim, `t-${lastIndex}`));
+          }
+        }
+      }
+
       const buttonValue = match[2] || '';
       const fileUrl = match[3] || '';
       const fileName = match[4] || 'Download';
-      const innerText = (match[5] || '').trim();
+      const innerText = (match[6] || '').trim();
 
       if (tagName === 'file' && fileUrl) {
+        flushCheckboxes(match.index);
         parts.push(
           <a
             key={`f-${match.index}`}
@@ -408,6 +952,7 @@ export default function WidgetPage() {
           </a>
         );
       } else if (tagName === 'button' && innerText) {
+        flushCheckboxes(match.index);
         const clickValue = buttonValue || innerText;
         parts.push(
           <button
@@ -422,15 +967,19 @@ export default function WidgetPage() {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = settings.primaryColor || '#c01721';
             }}
-            onClick={() => sendText(clickValue)}
+            onClick={() => sendText(clickValue, innerText)}
           >
             {innerText}
           </button>
         );
+      } else if (tagName === 'checkbox' && innerText) {
+        const checkboxValue = buttonValue || innerText;
+        pendingCheckboxes.push({ value: checkboxValue, label: innerText });
       }
       lastIndex = match.index + match[0].length;
     }
     
+    flushCheckboxes(lastIndex);
     if (lastIndex < text.length) {
       const rest = text.slice(lastIndex).trim();
       if (rest) parts.push(renderTextWithLinks(rest, `t-${lastIndex}`));
@@ -440,33 +989,69 @@ export default function WidgetPage() {
     return <div className="flex flex-wrap items-start gap-2">{parts}</div>;
   };
 
+  const requiresOptionSelection = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (msg.type !== 'bot') continue;
+      const content = String(msg.content || '');
+      return /<(button|checkbox)\b/i.test(content);
+    }
+    return false;
+  }, [messages]);
+
   if (!isOpen) {
+    if (!settingsLoaded) return null;
     // Compact widget - inline message and chat button
     return (
-      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 sm:gap-3">
-        {/* Chat message bubble - always visible in iframe */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-3 sm:p-4 max-w-sm relative">
-          <div className="text-base sm:text-lg text-gray-800 font-semibold">
-            Click here to chat
+      <>
+        <style>{`
+          @keyframes widget-ping {
+            0% { transform: scale(1); opacity: 0.7; }
+            70% { transform: scale(1.55); opacity: 0; }
+            100% { transform: scale(1.55); opacity: 0; }
+          }
+          .widget-pulse::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 9999px;
+            background: inherit;
+            animation: widget-ping 1.4s ease-out infinite;
+          }
+        `}</style>
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 sm:gap-3">
+          {/* Chat message bubble */}
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-3 sm:p-4 max-w-sm relative">
+            <div className="text-base sm:text-lg text-gray-800 font-semibold">
+              Click here to chat
+            </div>
+            <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-0 h-0 border-l-4 border-t-4 border-b-4 border-l-white border-t-transparent border-b-transparent"></div>
           </div>
-          {/* Arrow pointing to the button */}
-          <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-0 h-0 border-l-4 border-t-4 border-b-4 border-l-white border-t-transparent border-b-transparent"></div>
-        </div>
-        
-        {/* Chat button */}
-        <button
-          onClick={() => {
-            setMessages([]);
-            setConnected(false);
-            setChatEnded(false);
-            setIsTyping(false);
-            setFileUploadEnabled(false);
-            setIsOpen(true);
-            sendWidgetState(true);
-            resizeIframe(600);
-          }}
-          className="w-16 h-16 sm:w-18 sm:h-18 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+
+          {/* Chat button with pulse ring */}
+          <div className="relative flex-shrink-0">
+            <div
+              className="widget-pulse w-16 h-16 sm:w-18 sm:h-18 rounded-full"
+              style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+            />
+            <button
+              onClick={() => {
+                if (!hasActiveConversation) {
+                  setMessages([]);
+                  setConnected(false);
+                  setChatEnded(false);
+                  setIsTyping(false);
+                  setFileUploadEnabled(false);
+                }
+                setIsOpen(true);
+                sendWidgetState(true);
+                resizeIframe(600);
+                if (!hasActiveConversation) {
+                  createInteractionLead();
+                }
+              }}
+              className="absolute inset-0 w-full h-full rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center"
+              style={{ backgroundColor: settings.primaryColor || '#c01721' }}
           title={`Chat with ${settings.assistantName}`}
         >
           {imageData ? (
@@ -480,8 +1065,10 @@ export default function WidgetPage() {
               <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
             </svg>
           )}
-        </button>
-      </div>
+            </button>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -505,39 +1092,62 @@ export default function WidgetPage() {
       {/* Header */}
       <div className="p-3 border-b text-sm sm:text-base font-medium flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {imageData && (
-            <img 
-              src={imageData} 
-              alt="Chatbot" 
-              className="w-6 h-6 rounded-full object-cover"
-            />
-          )}
+          <div
+            className="w-8 h-8 rounded-full shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0"
+            style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+          >
+            {imageData ? (
+              <img
+                src={imageData}
+                alt="Chatbot"
+                className="w-6 h-6 rounded-full object-cover"
+              />
+            ) : (
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+              </svg>
+            )}
+          </div>
           <span>{settings.assistantName}</span>
         </div>
-        <button
-          onClick={() => {
-            setIsOpen(false);
-            sendWidgetState(false);
-            // Close WebSocket connection when closing widget
-            if (wsRef.current) {
-              wsRef.current.close();
-            }
-            // Resize iframe back to compact size
-            resizeIframe(100);
-          }}
-          className="text-gray-400 hover:text-gray-600 text-lg"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={resetChatToStart}
+            className="text-gray-400 hover:text-gray-700 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            title="Start over — clear chat and begin again"
+            aria-label="Start over — clear chat and begin again"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={closeWidgetChrome}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1.5 py-1 rounded-md hover:bg-gray-100"
+            title="Close chat"
+            aria-label="Close chat"
+          >
+            ×
+          </button>
+        </div>
       </div>
       
       {/* Messages */}
       <div className="flex-1 p-3 sm:p-4 overflow-auto custom-scrollbar space-y-4 text-sm sm:text-base">
-        {messages.map((m, idx) => (
-          <div key={idx} className={`flex items-start gap-3 ${m.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+        {messages.map((m, idx) => {
+          const isUserBubble = m.type === 'user' || m.type === 'user_replay';
+          return (
+          <div key={idx} className={`flex items-start gap-3 ${isUserBubble ? 'flex-row-reverse' : 'flex-row'}`}>
             {/* Avatar */}
-            <div className={`flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden ${m.type === 'user' ? 'w-9 h-9' : 'w-8 h-8'}`}>
-              {m.type === 'user' ? (
+            <div className={`flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden ${isUserBubble ? 'w-9 h-9' : 'w-8 h-8'}`}>
+              {isUserBubble ? (
                 <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: settings.primaryColor || '#c01721' }}>
                   <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -563,13 +1173,13 @@ export default function WidgetPage() {
             {/* Message bubble */}
             <div 
               className={`inline-block px-3 sm:px-4 py-2 sm:py-3 max-w-[85%] break-words relative ${
-                m.type === 'user' 
+                isUserBubble
                   ? 'text-white rounded-lg' 
                   : (m.type === 'bot' || m.type === 'review_prompt'
                     ? 'bg-gray-100 text-gray-800 rounded-lg' 
                     : 'bg-yellow-50 text-yellow-800 rounded-lg')
               }`}
-              style={m.type === 'user' ? { backgroundColor: settings.primaryColor || '#c01721' } : {}}
+              style={isUserBubble ? { backgroundColor: settings.primaryColor || '#c01721' } : {}}
             >
               {m.type === 'bot'
                 ? renderBotContent(m.content)
@@ -584,17 +1194,19 @@ export default function WidgetPage() {
                           className="inline-flex items-center gap-1.5 rounded-full text-white text-xs sm:text-sm font-medium px-3 py-2 shadow-sm hover:opacity-90 transition"
                           style={{ backgroundColor: settings.primaryColor || '#c01721' }}
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                          Write a review on Google
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Leave a review
                         </a>
                       </div>
                     )
-                  : (m.type === 'user'
-                    ? m.content
-                    : `${m.type.toUpperCase()}: ${m.content}`)}
+                  : isUserBubble
+                    ? renderTextWithLinks(m.content, `u-${idx}`)
+                    : `${m.type.toUpperCase()}: ${'content' in m ? m.content : ''}`}
               
               {/* Speech bubble tail */}
-              {m.type === 'user' ? (
+              {isUserBubble ? (
                 <div 
                   className="absolute -right-2 top-2 w-0 h-0"
                   style={{ 
@@ -607,7 +1219,7 @@ export default function WidgetPage() {
                 <div 
                   className="absolute -left-2 top-2 w-0 h-0"
                   style={{ 
-                    borderRight: '12px solid ' + (m.type === 'bot' || m.type === 'review_prompt' ? '#f3f4f6' : '#fef3c7'),
+                    borderRight: '12px solid ' + ((m.type === 'bot' || m.type === 'review_prompt') ? '#f3f4f6' : '#fef3c7'),
                     borderTop: '12px solid transparent',
                     borderBottom: '12px solid transparent'
                   }}
@@ -615,17 +1227,24 @@ export default function WidgetPage() {
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
         {!messages.length && (
           <div className="flex flex-col items-center gap-2 text-center">
             {chatEnded ? (
               <>
                 <div className="text-gray-400 text-sm">Connection lost.</div>
+                {connectionError && (
+                  <div className="text-gray-500 text-xs">{connectionError}</div>
+                )}
                 <button
                   onClick={() => {
+                    clearReconnectTimer();
+                    reconnectAttemptsRef.current = 0;
+                    setIsReconnecting(false);
+                    setConnectionError(null);
                     setChatEnded(false);
                     setConnected(false);
-                    setMessages([]);
                     setIsOpen(false);
                     setTimeout(() => setIsOpen(true), 100);
                   }}
@@ -638,7 +1257,7 @@ export default function WidgetPage() {
             ) : (
               <div className="flex items-center gap-2 text-gray-500 text-sm sm:text-base font-medium">
                 <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: settings.primaryColor || '#c01721' }}></div>
-                Connecting to chat...
+                {isReconnecting ? 'Reconnecting to chat...' : 'Connecting to chat...'}
               </div>
             )}
           </div>
@@ -688,19 +1307,25 @@ export default function WidgetPage() {
         )}
         <input
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
-          placeholder={connected ? 'Type a message...' : (chatEnded ? 'Chat ended' : 'Connecting...')}
-          disabled={!connected}
+          placeholder={
+            !connected
+              ? (chatEnded ? 'Chat ended' : 'Connecting...')
+              : (sessionCompleted
+                  ? 'Chat completed - Click Reset to start again.'
+                  : (requiresOptionSelection ? 'Please select from the options above' : 'Type a message...'))
+          }
+          disabled={!connected || requiresOptionSelection || sessionCompleted}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !sessionCompleted) send(); }}
         />
         <button 
           className="text-white text-sm sm:text-base px-2 sm:px-4 py-1.5 sm:py-2 rounded font-medium disabled:opacity-50 whitespace-nowrap" 
           style={{ backgroundColor: settings.primaryColor || '#c01721' }}
-          onClick={send} 
-          disabled={!connected}
+          onClick={sessionCompleted ? resetChatToStart : send}
+          disabled={sessionCompleted ? false : (!connected || requiresOptionSelection)}
         >
-          Send
+          {sessionCompleted ? 'Reset' : 'Send'}
         </button>
       </div>
 
