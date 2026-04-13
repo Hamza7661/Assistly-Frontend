@@ -880,6 +880,10 @@ export default function CreateAppPage() {
                               <div className="text-sm text-gray-500">
                                 Register your existing number
                               </div>
+                              <div className="text-xs text-amber-700 mt-1">
+                                If this number is already registered, deactivate it from the existing account first.
+                                You can use it here after 3 to 5 minutes.
+                              </div>
                             </div>
                           </label>
 

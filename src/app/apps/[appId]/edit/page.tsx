@@ -1013,6 +1013,9 @@ export default function EditAppPage() {
                           <div className="text-sm text-gray-500">
                             Register your existing number
                           </div>
+                          <div className="text-xs text-amber-700 mt-1">
+                            If this number is already registered, deactivate it from the existing account first.
+                          </div>
                         </div>
                       </label>
 
@@ -1071,8 +1074,8 @@ export default function EditAppPage() {
                       {twilioSubaccountReady === false && (
                         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                           <p className="text-sm text-amber-900">
-                            Phone provisioning isn&apos;t ready for this app yet. Try again later or
-                            contact support.
+                            No number is attached to this app yet. Please use your own WhatsApp number
+                            or buy a new number to continue.
                           </p>
                         </div>
                       )}
