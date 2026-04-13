@@ -125,6 +125,12 @@ class AppService extends HttpService {
     return this.request(`/apps/${appId}/latest-sms`, { method: 'GET' });
   }
 
+  async ensureSubaccountForApp(
+    appId: string
+  ): Promise<AppResponse & { data: { twilioSubaccountSid: string } }> {
+    return this.request(`/apps/${appId}/ensure-subaccount`, { method: 'POST' });
+  }
+
   async getAvailableNumbersForApp(
     appId: string,
     countryCode: string,

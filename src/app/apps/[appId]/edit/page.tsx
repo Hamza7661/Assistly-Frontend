@@ -286,6 +286,7 @@ export default function EditAppPage() {
     setAvailableNumbers([]);
     try {
       const appService = await useAppService();
+      await appService.ensureSubaccountForApp(appId);
       const res = await appService.getAvailableNumbersForApp(appId, newNumberCountry, 20);
       if (res.status === 'success' && res.data?.numbers) {
         setAvailableNumbers(res.data.numbers);
@@ -307,6 +308,7 @@ export default function EditAppPage() {
     setLoadingProvision(true);
     try {
       const appService = await useAppService();
+      await appService.ensureSubaccountForApp(appId);
       const res = await appService.provisionNumberForApp(appId, {
         countryCode: newNumberCountry,
         phoneNumber,
