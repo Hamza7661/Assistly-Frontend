@@ -286,7 +286,17 @@ export default function EditAppPage() {
     setAvailableNumbers([]);
     try {
       const appService = await useAppService();
-      await appService.ensureSubaccountForApp(appId);
+      try {
+        await appService.ensureSubaccountForApp(appId);
+      } catch (ensureErr: any) {
+        if (newNumberCountry === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.getAvailableNumbersForApp(appId, newNumberCountry, 20);
       if (res.status === 'success' && res.data?.numbers) {
         setAvailableNumbers(res.data.numbers);
@@ -308,7 +318,17 @@ export default function EditAppPage() {
     setLoadingProvision(true);
     try {
       const appService = await useAppService();
-      await appService.ensureSubaccountForApp(appId);
+      try {
+        await appService.ensureSubaccountForApp(appId);
+      } catch (ensureErr: any) {
+        if (newNumberCountry === 'GB') {
+          toast.warn(
+            'Could not initialize app subaccount. Continuing with parent Twilio account for UK numbers.'
+          );
+        } else {
+          throw ensureErr;
+        }
+      }
       const res = await appService.provisionNumberForApp(appId, {
         countryCode: newNumberCountry,
         phoneNumber,
