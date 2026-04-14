@@ -65,12 +65,50 @@ export default function IntegrationPage() {
     }
   }, [appId]);
 
-  const handleConnectCalendar = async () => {
+  const providerLabelMap: Record<'google_calendar' | 'outlook' | 'calendly', string> = {
+    google_calendar: 'Google Calendar',
+    outlook: 'Outlook Calendar',
+    calendly: 'Calendly'
+  };
+
+  const providerBadgeColorMap: Record<'google_calendar' | 'outlook' | 'calendly', string> = {
+    google_calendar: 'bg-blue-50 border-blue-200 text-blue-700',
+    outlook: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+    calendly: 'bg-purple-50 border-purple-200 text-purple-700'
+  };
+
+  const connectedProvider = integration?.calendarProvider as 'google_calendar' | 'outlook' | 'calendly' | null;
+
+  const normalizeConnectedEmail = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    // Guest UPN format example: user_domain.com#EXT#@tenant.onmicrosoft.com
+    if (trimmed.includes('#EXT#@')) {
+      const local = trimmed.split('#EXT#@')[0];
+      const firstUnderscore = local.indexOf('_');
+      if (firstUnderscore > 0) {
+        const user = local.slice(0, firstUnderscore);
+        const domain = local.slice(firstUnderscore + 1).replace(/_/g, '.');
+        return `${user}@${domain}`;
+      }
+      return null;
+    }
+
+    return trimmed.includes('@') ? trimmed : null;
+  };
+
+  const handleConnectCalendar = async (provider: 'google_calendar' | 'outlook' | 'calendly') => {
     if (!appId) return;
+    if (provider === 'calendly') {
+      setCalendarError('Calendly integration is coming soon. Please connect Google or Outlook for now.');
+      return;
+    }
     setCalendarLoading(true);
     setCalendarError(null);
     try {
-      const url = await integrationService.getCalendarAuthUrl(appId);
+      const url = await integrationService.getCalendarAuthUrl(appId, provider);
       if (url) window.location.href = url;
       else setCalendarError('Could not get calendar auth URL.');
     } catch (e) {
@@ -271,33 +309,86 @@ export default function IntegrationPage() {
                 Connect a calendar so the chatbot and WhatsApp can show availability and book appointments.
               </p>
               <div className="ml-11">
+                <div className="mb-4">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Calendar provider</p>
+                  <div className="space-y-3">
+                    {([
+                      { value: 'google_calendar', label: 'Google Calendar' },
+                      { value: 'outlook', label: 'Outlook Calendar' },
+                      { value: 'calendly', label: 'Calendly' }
+                    ] as const).map((item) => {
+                      const isConnectedProvider = connectedProvider === item.value && !!integration?.calendarConnected;
+                      const logoSrc = item.value === 'google_calendar'
+                        ? '/google-calendar.png'
+                        : item.value === 'outlook'
+                          ? '/outlook.png'
+                          : '/calendly-icon.png';
+                      const logoClass = item.value === 'google_calendar'
+                        ? 'w-4 h-4'
+                        : item.value === 'outlook'
+                          ? 'w-[15px] h-[15px]'
+                          : 'w-[13px] h-[13px]';
+                      const isCalendly = item.value === 'calendly';
+                      const canConnect = !isCalendly;
+                      return (
+                        <div
+                          key={item.value}
+                          className={`rounded-xl border px-4 py-3 transition-colors ${
+                            isConnectedProvider
+                              ? 'border-[#dbe7ff] bg-[#f4f7ff]'
+                              : 'border-gray-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                                <img src={logoSrc} alt="" className={`${logoClass} object-contain`} />
+                              </span>
+                              <span className="text-[32px] leading-none text-gray-300 -ml-1">|</span>
+                              <span className="text-xl font-semibold text-[#12324A] truncate">{item.label}</span>
+                            </div>
+                            {isConnectedProvider && (
+                              <div className="inline-flex items-center gap-2">
+                                <span className="inline-flex items-center gap-2 text-xl font-semibold text-[#0f9f76]">
+                                  Connected
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#0f9f76] text-white text-sm">✓</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={handleDisconnectCalendar}
+                                  disabled={calendarLoading}
+                                  className="ml-1 text-sm border border-red-200 rounded-lg px-3 py-1.5 bg-white text-red-700 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                                >
+                                  {calendarLoading ? 'Disconnecting…' : 'Disconnect'}
+                                </button>
+                              </div>
+                            )}
+                            {!isConnectedProvider && (
+                              <button
+                                type="button"
+                                onClick={() => handleConnectCalendar(item.value)}
+                                disabled={calendarLoading || !canConnect}
+                                className={`inline-flex items-center gap-2 text-xl font-semibold ${
+                                  canConnect
+                                    ? 'text-[#1976d2] hover:text-[#125aa0]'
+                                    : 'text-gray-400 cursor-not-allowed'
+                                } disabled:opacity-60`}
+                              >
+                                {isCalendly ? 'Coming soon' : 'Connect'}
+                                {!isCalendly && <span className="text-2xl leading-none">›</span>}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
                 {calendarError && (
                   <p className="text-sm text-red-600 mb-3">{calendarError}</p>
                 )}
                 {integration?.calendarConnected ? (
                   <div className="space-y-4">
-                    {/* Connection status row: badge left, Disconnect right */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 py-1">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                          <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                          <span className="text-sm font-medium text-gray-900">
-                            Connected ({integration.calendarProvider === 'google_calendar' ? 'Google Calendar' : integration.calendarProvider || 'Calendar'})
-                          </span>
-                        </div>
-                        {integration.calendarAccountEmail && (
-                          <p className="text-sm text-gray-500 font-mono pl-3">{integration.calendarAccountEmail}</p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleDisconnectCalendar}
-                        disabled={calendarLoading}
-                        className="text-sm border border-red-200 rounded-lg px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors shrink-0"
-                      >
-                        {calendarLoading ? 'Disconnecting…' : 'Disconnect'}
-                      </button>
-                    </div>
                     {/* Availability section: label + two actions */}
                     <div className="pt-3 border-t border-gray-100">
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Availability</p>
@@ -319,23 +410,7 @@ export default function IntegrationPage() {
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-                      <span className="w-2 h-2 rounded-full bg-gray-400" />
-                      <span className="text-sm text-gray-600">Not connected</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleConnectCalendar}
-                      disabled={calendarLoading}
-                      className="text-sm rounded-lg px-4 py-2 bg-[#c01721] text-white hover:bg-[#00a36d] disabled:opacity-50"
-                    >
-                      {calendarLoading ? 'Connecting…' : 'Connect Google Calendar'}
-                    </button>
-                    <span className="text-xs text-gray-500">Outlook &amp; Calendly coming soon.</span>
-                  </div>
-                )}
+                ) : null}
               </div>
               {availabilityDialogOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setAvailabilityDialogOpen(false)}>

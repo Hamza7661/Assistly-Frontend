@@ -29,6 +29,11 @@ export interface AvailabilityExceptionItem {
   allDayOff?: boolean;
   overrideAllDay?: boolean;
   slots?: Array<{ start: string; end: string }>;
+  label?: string | null;
+  syncStatus?: 'idle' | 'pending' | 'synced' | 'failed' | 'skipped';
+  syncError?: string | null;
+  lastSyncedAt?: string | null;
+  syncAttempts?: number;
 }
 
 export interface AvailabilityExceptionsResponse {
@@ -42,6 +47,7 @@ export interface AvailabilityExceptionUpsertRequest {
   allDayOff?: boolean;
   overrideAllDay?: boolean;
   slots?: Array<{ start: string; end: string }>;
+  label?: string | null;
 }
 
 export interface AvailabilityExceptionsBulkRequest {

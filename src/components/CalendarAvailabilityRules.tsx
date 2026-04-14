@@ -62,6 +62,7 @@ interface CalendarAvailabilityRulesProps {
 }
 
 export default function CalendarAvailabilityRules({ appId, defaultExpanded = false, dialogMode, onClose }: CalendarAvailabilityRulesProps) {
+  const browserTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', []);
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [days, setDays] = useState<AvailabilityDayUTC[]>([]);
   const [originalDays, setOriginalDays] = useState<AvailabilityDayUTC[]>([]);
@@ -74,9 +75,28 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [month, setMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [customSlots, setCustomSlots] = useState<Array<{ start: string; end: string }>>([{ start: '09:00', end: '17:00' }]);
   const [exceptionNotAvailable, setExceptionNotAvailable] = useState(false);
   const [exceptionAllDay, setExceptionAllDay] = useState(false);
+  const [exceptionLabel, setExceptionLabel] = useState('');
+  const [editingExistingException, setEditingExistingException] = useState(false);
+
+  const getSyncStatusMeta = (status?: AvailabilityExceptionItem['syncStatus']) => {
+    switch (status) {
+      case 'synced':
+        return { label: 'Synced', className: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+      case 'failed':
+        return { label: 'Sync failed', className: 'text-red-700 bg-red-50 border-red-200' };
+      case 'pending':
+        return { label: 'Sync pending', className: 'text-amber-700 bg-amber-50 border-amber-200' };
+      case 'skipped':
+        return { label: 'Sync skipped', className: 'text-gray-700 bg-gray-100 border-gray-200' };
+      default:
+        return { label: 'Not synced', className: 'text-gray-700 bg-gray-100 border-gray-200' };
+    }
+  };
 
   const sortedDays = useMemo(() => {
     if (days.length === 0) return [] as AvailabilityDayUTC[];
@@ -141,6 +161,8 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
       setCustomSlots([{ start: '09:00', end: '17:00' }]);
       setExceptionNotAvailable(false);
       setExceptionAllDay(false);
+      setExceptionLabel('');
+      setEditingExistingException(false);
     }
   }, [selectedDate]);
   const hasPending = useMemo(() => {
@@ -205,12 +227,15 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
     }
   };
 
-  const saveException = async (dateStr: string, payload: { allDayOff?: boolean; overrideAllDay?: boolean; slots?: Array<{ start: string; end: string }> }) => {
+  const saveException = async (
+    dateStr: string,
+    payload: { allDayOff?: boolean; overrideAllDay?: boolean; slots?: Array<{ start: string; end: string }>; label?: string | null }
+  ) => {
     if (!appId) return;
     try {
       const svc = await useAvailabilityService();
-      await svc.putException(appId, { date: dateStr, ...payload });
-      setExceptions((prev) => ({ ...prev, [dateStr]: { date: dateStr, ...payload } }));
+      await svc.putException(appId, { date: dateStr, timezone: browserTimezone, ...payload });
+      setExceptions((prev) => ({ ...prev, [dateStr]: { date: dateStr, timezone: browserTimezone, ...payload } }));
       setSelectedDate(null);
       toast.success('Exception saved');
     } catch {
@@ -218,11 +243,36 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
     }
   };
 
+  const saveExceptionsBulk = async (
+    dates: string[],
+    payload: { allDayOff?: boolean; overrideAllDay?: boolean; slots?: Array<{ start: string; end: string }>; label?: string | null }
+  ) => {
+    if (!appId || dates.length === 0) return;
+    try {
+      const svc = await useAvailabilityService();
+      await svc.putExceptionsBulk(appId, {
+        exceptions: dates.map((date) => ({ date, timezone: browserTimezone, ...payload }))
+      });
+      setExceptions((prev) => {
+        const next = { ...prev };
+        dates.forEach((date) => {
+          next[date] = { date, timezone: browserTimezone, ...payload };
+        });
+        return next;
+      });
+      setSelectedDate(null);
+      setSelectedDates([]);
+      toast.success(`Exceptions saved for ${dates.length} date${dates.length > 1 ? 's' : ''}`);
+    } catch {
+      toast.error('Failed to save exceptions');
+    }
+  };
+
   const removeException = async (dateStr: string) => {
     if (!appId) return;
     try {
       const svc = await useAvailabilityService();
-      await svc.putException(appId, { date: dateStr, allDayOff: false, overrideAllDay: false, slots: [] });
+      await svc.deleteException(appId, dateStr);
       setExceptions((prev) => {
         const next = { ...prev };
         delete next[dateStr];
@@ -233,6 +283,46 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
     } catch {
       toast.error('Failed to remove exception');
     }
+  };
+
+  const removeExceptionsBulk = async (dates: string[]) => {
+    if (!appId || dates.length === 0) return;
+    try {
+      const svc = await useAvailabilityService();
+      await Promise.all(dates.map((date) => svc.deleteException(appId, date)));
+      setExceptions((prev) => {
+        const next = { ...prev };
+        dates.forEach((date) => delete next[date]);
+        return next;
+      });
+      setSelectedDate(null);
+      setSelectedDates([]);
+      toast.success(`Exceptions removed for ${dates.length} date${dates.length > 1 ? 's' : ''}`);
+    } catch {
+      toast.error('Failed to remove selected exceptions');
+    }
+  };
+
+  const retryExceptionSync = async (dateStr: string) => {
+    if (!appId) return;
+    try {
+      const svc = await useAvailabilityService();
+      await svc.retryExceptionSync(appId, dateStr);
+      await loadExceptions();
+      toast.success('Sync retried');
+    } catch {
+      toast.error('Failed to retry sync');
+    }
+  };
+
+  const handleDateClick = (date: string) => {
+    if (!multiSelectMode) {
+      setSelectedDate(date);
+      setSelectedDates([date]);
+      return;
+    }
+    setSelectedDate(date);
+    setSelectedDates((prev) => (prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date]));
   };
 
   if (dialogMode === 'availability') {
@@ -295,37 +385,110 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
   if (dialogMode === 'exceptions') {
     return (
       <div className="space-y-4">
-        <p className="text-xs text-gray-500">Override specific dates (e.g. holidays).</p>
-        <div className="flex items-center gap-2 mb-3">
-          <button type="button" onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded">Prev</button>
-          <span className="text-sm font-medium">{MONTH_NAMES[month]} {year}</span>
-          <button type="button" onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded">Next</button>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded">Prev</button>
+            <span className="text-sm font-medium">{MONTH_NAMES[month]} {year}</span>
+            <button type="button" onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded">Next</button>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={multiSelectMode}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setMultiSelectMode(on);
+                  setSelectedDates(on && selectedDate ? [selectedDate] : []);
+                }}
+                className="sr-only peer"
+              />
+              <span className="relative h-6 w-11 shrink-0 rounded-full bg-gray-200 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-[#00bc7d] peer-checked:after:translate-x-5 peer-focus:outline-none" />
+              <span className="text-sm text-gray-700 font-medium">Multi-date</span>
+            </label>
+            {multiSelectMode && selectedDates.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedDates([])}
+                className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-1">{WEEKDAYS.map((w) => <div key={w}>{w}</div>)}</div>
         <div className="grid grid-cols-7 gap-1">
           {monthDays.map(({ date, day, isCurrentMonth }) => {
             const ex = exceptions[date];
-            const isSelected = selectedDate === date;
+            const isSelected = multiSelectMode ? selectedDates.includes(date) : selectedDate === date;
             return (
-              <button key={date} type="button" onClick={() => setSelectedDate(date)} className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''}`}>
+              <button key={date} type="button" onClick={() => handleDateClick(date)} className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''}`}>
                 {day}
-                {ex && <span className="block w-1 h-1 rounded-full mx-auto mt-0.5 bg-[#00bc7d]" />}
+                {ex && (
+                  <span className={`block w-1 h-1 rounded-full mx-auto mt-0.5 ${
+                    ex.syncStatus === 'failed'
+                      ? 'bg-red-500'
+                      : ex.syncStatus === 'pending'
+                        ? 'bg-amber-500'
+                        : 'bg-[#00bc7d]'
+                  }`} />
+                )}
               </button>
             );
           })}
         </div>
         {selectedDate && (
           <div className="mt-4 p-4 bg-white border rounded-lg shadow-sm w-full min-w-0 overflow-visible">
-            <p className="text-sm font-medium text-gray-800 mb-3">{selectedDate}</p>
-            {selectedException ? (
+            <p className="text-sm font-medium text-gray-800 mb-3">
+              {multiSelectMode && selectedDates.length > 1 ? `${selectedDates.length} selected dates` : selectedDate}
+            </p>
+            {selectedException && !editingExistingException && !(multiSelectMode && selectedDates.length > 1) ? (
               <div className="space-y-3">
                 <p className="text-xs text-gray-600">
                   {selectedException.allDayOff && 'Not available'}
                   {selectedException.overrideAllDay && 'All day available'}
                   {selectedException.slots?.length ? `Custom: ${selectedException.slots.map((s) => `${s.start}-${s.end}`).join(', ')}` : ''}
                 </p>
+                {selectedException.label && (
+                  <p className="text-xs text-gray-700">
+                    Label: <span className="font-medium">{selectedException.label}</span>
+                  </p>
+                )}
+                <div className={`inline-flex items-center text-[11px] px-2 py-1 rounded border ${getSyncStatusMeta(selectedException.syncStatus).className}`}>
+                  {getSyncStatusMeta(selectedException.syncStatus).label}
+                </div>
+                {selectedException.syncStatus === 'failed' && selectedException.syncError && (
+                  <p className="text-[11px] text-red-600 break-words">{selectedException.syncError}</p>
+                )}
                 <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExceptionNotAvailable(!!selectedException.allDayOff);
+                      setExceptionAllDay(!!selectedException.overrideAllDay);
+                      setCustomSlots(
+                        selectedException.slots && selectedException.slots.length > 0
+                          ? selectedException.slots
+                          : [{ start: '09:00', end: '17:00' }]
+                      );
+                      setExceptionLabel(selectedException.label || '');
+                      setEditingExistingException(true);
+                    }}
+                    className="text-xs px-2 py-1.5 border rounded hover:bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    Edit
+                  </button>
                   <button type="button" onClick={() => removeException(selectedDate)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1.5 border rounded hover:bg-red-50 text-red-600 border-red-200" title="Remove exception" aria-label="Remove exception"><Trash2 className="h-3.5 w-3.5" /> Remove</button>
+                  {selectedException.syncStatus === 'failed' && (
+                    <button
+                      type="button"
+                      onClick={() => retryExceptionSync(selectedDate)}
+                      className="text-xs px-2 py-1.5 border rounded hover:bg-amber-50 text-amber-700 border-amber-200"
+                    >
+                      Retry sync
+                    </button>
+                  )}
                   <button type="button" onClick={() => setSelectedDate(null)} className="text-xs px-2 py-1.5 border rounded hover:bg-gray-50">Close</button>
                 </div>
               </div>
@@ -343,6 +506,17 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                     <span className="text-sm text-gray-700 font-medium">All day</span>
                   </label>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Label (optional)</label>
+                  <input
+                    type="text"
+                    maxLength={80}
+                    value={exceptionLabel}
+                    onChange={(e) => setExceptionLabel(e.target.value)}
+                    placeholder="e.g. Vacation, Team meeting"
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  />
+                </div>
                 {!exceptionNotAvailable && !exceptionAllDay && (
                   <div className="space-y-3 pt-2 w-full min-w-0">
                     <p className="text-xs text-gray-500">Custom time slots for this date:</p>
@@ -358,7 +532,32 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                   </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
-                  <button type="button" onClick={async () => { if (exceptionNotAvailable) await saveException(selectedDate, { allDayOff: true }); else if (exceptionAllDay) await saveException(selectedDate, { overrideAllDay: true }); else await saveException(selectedDate, { slots: customSlots }); loadExceptions(); }} className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a]">Save</button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const label = exceptionLabel.trim() || null;
+                      const payload = exceptionNotAvailable
+                        ? { allDayOff: true, label }
+                        : exceptionAllDay
+                          ? { overrideAllDay: true, label }
+                          : { slots: customSlots, label };
+                      if (multiSelectMode && selectedDates.length > 1) await saveExceptionsBulk(selectedDates, payload);
+                      else await saveException(selectedDate, payload);
+                      loadExceptions();
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a]"
+                  >
+                    {multiSelectMode && selectedDates.length > 1 ? `Save for ${selectedDates.length} dates` : 'Save'}
+                  </button>
+                  {multiSelectMode && selectedDates.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeExceptionsBulk(selectedDates)}
+                      className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                    >
+                      Remove selected
+                    </button>
+                  )}
                   <button type="button" onClick={() => setSelectedDate(null)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
                 </div>
               </div>
@@ -477,13 +676,39 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
               {exceptionsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               Date exceptions
             </button>
-            <p className="text-xs text-gray-500 mt-0.5 ml-6">Override specific dates (e.g. holidays).</p>
             {exceptionsOpen && (
               <div className="mt-3 ml-0 border border-gray-200 rounded-lg p-4 bg-gray-50/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <button type="button" onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded">Prev</button>
-                  <span className="text-sm font-medium">{MONTH_NAMES[month]} {year}</span>
-                  <button type="button" onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded">Next</button>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded">Prev</button>
+                    <span className="text-sm font-medium">{MONTH_NAMES[month]} {year}</span>
+                    <button type="button" onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded">Next</button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={multiSelectMode}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setMultiSelectMode(on);
+                          setSelectedDates(on && selectedDate ? [selectedDate] : []);
+                        }}
+                        className="sr-only peer"
+                      />
+                      <span className="relative h-6 w-11 shrink-0 rounded-full bg-gray-200 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-[#00bc7d] peer-checked:after:translate-x-5 peer-focus:outline-none" />
+                      <span className="text-sm text-gray-700 font-medium">Multi-date</span>
+                    </label>
+                    {multiSelectMode && selectedDates.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDates([])}
+                        className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-1">
                   {WEEKDAYS.map((w) => <div key={w}>{w}</div>)}
@@ -491,35 +716,77 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                 <div className="grid grid-cols-7 gap-1">
                   {monthDays.map(({ date, day, isCurrentMonth }) => {
                     const ex = exceptions[date];
-                    const isSelected = selectedDate === date;
+                    const isSelected = multiSelectMode ? selectedDates.includes(date) : selectedDate === date;
                     return (
                       <button
                         key={date}
                         type="button"
-                        onClick={() => setSelectedDate(date)}
+                        onClick={() => handleDateClick(date)}
                         className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''}`}
                       >
                         {day}
-                        {ex && <span className="block w-1 h-1 rounded-full mx-auto mt-0.5 bg-[#00bc7d]" />}
+                        {ex && (
+                          <span className={`block w-1 h-1 rounded-full mx-auto mt-0.5 ${
+                            ex.syncStatus === 'failed'
+                              ? 'bg-red-500'
+                              : ex.syncStatus === 'pending'
+                                ? 'bg-amber-500'
+                                : 'bg-[#00bc7d]'
+                          }`} />
+                        )}
                       </button>
                     );
                   })}
                 </div>
                 {selectedDate && (
                   <div className="mt-4 p-4 bg-white border rounded-lg shadow-sm">
-                    <p className="text-sm font-medium text-gray-800 mb-3">{selectedDate}</p>
-                    {selectedException ? (
+                    <p className="text-sm font-medium text-gray-800 mb-3">
+                      {multiSelectMode && selectedDates.length > 1 ? `${selectedDates.length} selected dates` : selectedDate}
+                    </p>
+                    {selectedException && !editingExistingException && !(multiSelectMode && selectedDates.length > 1) ? (
                       <div className="space-y-3">
                         <p className="text-xs text-gray-600">
                           {selectedException.allDayOff && 'Not available'}
                           {selectedException.overrideAllDay && 'All day available'}
                           {selectedException.slots?.length ? `Custom: ${selectedException.slots.map((s) => `${s.start}-${s.end}`).join(', ')}` : ''}
                         </p>
+                        <div className={`inline-flex items-center text-[11px] px-2 py-1 rounded border ${getSyncStatusMeta(selectedException.syncStatus).className}`}>
+                          {getSyncStatusMeta(selectedException.syncStatus).label}
+                        </div>
+                        {selectedException.syncStatus === 'failed' && selectedException.syncError && (
+                          <p className="text-[11px] text-red-600 break-words">{selectedException.syncError}</p>
+                        )}
                         <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExceptionNotAvailable(!!selectedException.allDayOff);
+                              setExceptionAllDay(!!selectedException.overrideAllDay);
+                              setCustomSlots(
+                                selectedException.slots && selectedException.slots.length > 0
+                                  ? selectedException.slots
+                                  : [{ start: '09:00', end: '17:00' }]
+                              );
+                              setExceptionLabel(selectedException.label || '');
+                              setEditingExistingException(true);
+                            }}
+                            className="text-xs px-2 py-1.5 border rounded hover:bg-blue-50 text-blue-700 border-blue-200"
+                          >
+                            Edit
+                          </button>
                           <button type="button" onClick={() => removeException(selectedDate)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1.5 border rounded hover:bg-red-50 text-red-600 border-red-200" title="Remove exception" aria-label="Remove exception">
                             <Trash2 className="h-3.5 w-3.5" />
                             Remove
                           </button>
+                          {selectedException.syncStatus === 'failed' && (
+                            <button
+                              type="button"
+                              onClick={() => retryExceptionSync(selectedDate)}
+                              className="text-xs px-2 py-1.5 border rounded hover:bg-amber-50 text-amber-700 border-amber-200"
+                            >
+                              Retry sync
+                            </button>
+                          )}
                           <button type="button" onClick={() => setSelectedDate(null)} className="text-xs px-2 py-1.5 border rounded hover:bg-gray-50">Close</button>
                         </div>
                       </div>
@@ -555,6 +822,17 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                             <span className="text-sm text-gray-700 font-medium">All day</span>
                           </label>
                         </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500">Label (optional)</label>
+                          <input
+                            type="text"
+                            maxLength={80}
+                            value={exceptionLabel}
+                            onChange={(e) => setExceptionLabel(e.target.value)}
+                            placeholder="e.g. Vacation, Team meeting"
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                          />
+                        </div>
                         {!exceptionNotAvailable && !exceptionAllDay && (
                           <div className="space-y-3 pt-2 w-full min-w-0">
                             <p className="text-xs text-gray-500">Custom time slots for this date:</p>
@@ -577,15 +855,39 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                           <button
                             type="button"
                             onClick={async () => {
-                              if (exceptionNotAvailable) await saveException(selectedDate, { allDayOff: true });
-                              else if (exceptionAllDay) await saveException(selectedDate, { overrideAllDay: true });
-                              else await saveException(selectedDate, { slots: customSlots });
+                              const label = exceptionLabel.trim() || null;
+                              const payload = exceptionNotAvailable
+                                ? { allDayOff: true, label }
+                                : exceptionAllDay
+                                  ? { overrideAllDay: true, label }
+                                  : { slots: customSlots, label };
+                              if (multiSelectMode && selectedDates.length > 1) await saveExceptionsBulk(selectedDates, payload);
+                              else await saveException(selectedDate, payload);
+                              setEditingExistingException(false);
                               loadExceptions();
                             }}
                             className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a]"
                           >
-                            Save
+                            {multiSelectMode && selectedDates.length > 1 ? `Save for ${selectedDates.length} dates` : 'Save'}
                           </button>
+                          {multiSelectMode && selectedDates.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeExceptionsBulk(selectedDates)}
+                              className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                            >
+                              Remove selected
+                            </button>
+                          )}
+                          {selectedException && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingExistingException(false)}
+                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          )}
                           <button type="button" onClick={() => setSelectedDate(null)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
                         </div>
                       </div>

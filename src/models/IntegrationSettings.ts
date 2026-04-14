@@ -33,6 +33,10 @@ export interface IntegrationSettings {
   googleReviewUrl?: string | null;
   /** Calendar connected for scheduling/availability (same shape for all providers). */
   calendarConnected?: boolean;
+  /** Provider-specific calendar connection flags. */
+  googleCalendarConnected?: boolean;
+  outlookCalendarConnected?: boolean;
+  calendlyConnected?: boolean;
   /** Provider type: 'google_calendar' | 'outlook' | 'calendly'. */
   calendarProvider?: string | null;
   /** Email of the connected calendar account (e.g. Google). Shown in UI. */
