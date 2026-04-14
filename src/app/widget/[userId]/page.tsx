@@ -880,7 +880,9 @@ export default function WidgetPage() {
           className="rounded-full text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: settings.primaryColor || '#c01721' } as React.CSSProperties}
           onClick={() => {
-            const payload = selected.join(', ');
+            // Join with newline so option texts that contain commas
+            // are not confused with the multi-value separator.
+            const payload = selected.join('\n');
             sendText(payload, payload);
           }}
         >
