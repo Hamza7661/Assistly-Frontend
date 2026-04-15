@@ -836,6 +836,21 @@ export default function WidgetPage() {
     resizeIframe(100);
   }, [applyCompletedFlowStorageReset, isAdvancedMode, markUserInteracted]);
 
+  const openChatFromLauncher = useCallback(() => {
+    markUserInteracted();
+    setIsOpen(true);
+    sendWidgetState(true);
+    resizeIframe(600);
+    if (!hasConversationInProgress) {
+      setMessages([]);
+      setConnected(false);
+      setChatEnded(false);
+      setIsTyping(false);
+      setFileUploadEnabled(false);
+      createInteractionLead();
+    }
+  }, [hasConversationInProgress, createInteractionLead, markUserInteracted]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
@@ -1165,22 +1180,10 @@ export default function WidgetPage() {
             </p>
           </div>
 
-          <div className="px-3 pt-5">
+          <div className="px-3 pt-5 relative z-10">
             <button
-              onClick={() => {
-                markUserInteracted();
-                if (!hasConversationInProgress) {
-                  setMessages([]);
-                  setConnected(false);
-                  setChatEnded(false);
-                  setIsTyping(false);
-                  setFileUploadEnabled(false);
-                }
-                setIsOpen(true);
-                sendWidgetState(true);
-                resizeIframe(600);
-                if (!hasConversationInProgress) createInteractionLead();
-              }}
+              type="button"
+              onClick={openChatFromLauncher}
               className="w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white flex items-center justify-between shadow-sm hover:shadow transition"
             >
               <span className="text-gray-700 font-medium">Chat with us</span>
@@ -1205,13 +1208,7 @@ export default function WidgetPage() {
             <button
               type="button"
               className="flex flex-col items-center gap-1 text-gray-700 hover:text-gray-900 transition-colors"
-              onClick={() => {
-                markUserInteracted();
-                setIsOpen(true);
-                sendWidgetState(true);
-                resizeIframe(600);
-                if (!hasConversationInProgress) createInteractionLead();
-              }}
+              onClick={openChatFromLauncher}
             >
               <span className="w-7 h-7 rounded-md flex items-center justify-center border border-gray-300 bg-white">
                 <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
