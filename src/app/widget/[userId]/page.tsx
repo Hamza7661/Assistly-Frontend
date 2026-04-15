@@ -59,6 +59,7 @@ export default function WidgetPage() {
   const widgetRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isIntentionalClose = useRef(false);
+  const isOpenRef = useRef(false);
 
   const [settings, setSettings] = useState<IntegrationSettings>({
     assistantName: 'Assistly Chatbot',
@@ -93,12 +94,20 @@ export default function WidgetPage() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const autoOpenedRef = useRef(false);
+  const hasUserInteractedRef = useRef(false);
 
   const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
   const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
   const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
   const isAdvancedMode = settings.chatbotUiMode === ChatbotUiMode.Advanced;
+  const markUserInteracted = useCallback(() => {
+    hasUserInteractedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
   const formatGreetingText = useCallback((rawGreeting?: string) => {
     const assistantName = settings.assistantName?.trim() || 'our assistant';
@@ -422,6 +431,8 @@ export default function WidgetPage() {
     if (!settingsLoaded || !widgetSessionId || autoOpenedRef.current) return;
     autoOpenedRef.current = true;
     const timer = setTimeout(() => {
+      // Prevent initial auto-open timer from overriding manual user action.
+      if (isOpenRef.current || hasUserInteractedRef.current) return;
       setIsWidgetVisible(true);
       const selectedMode =
         settings.chatbotUiMode === ChatbotUiMode.Advanced
@@ -782,6 +793,7 @@ export default function WidgetPage() {
   }, [resumeStorageKey, conversationMetaStorageKey]);
 
   const closeWidgetChrome = useCallback(() => {
+    markUserInteracted();
     const newId = applyCompletedFlowStorageReset();
     if (newId) {
       setWidgetSessionId(newId);
@@ -809,7 +821,7 @@ export default function WidgetPage() {
       } catch {}
     }
     resizeIframe(100);
-  }, [applyCompletedFlowStorageReset, isAdvancedMode]);
+  }, [applyCompletedFlowStorageReset, isAdvancedMode, markUserInteracted]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1079,6 +1091,7 @@ export default function WidgetPage() {
         <button
           type="button"
           onClick={() => {
+            markUserInteracted();
             setIsWidgetVisible(true);
             if (isAdvancedMode && !hasConversationInProgress) {
               setIsOpen(false);
@@ -1148,6 +1161,7 @@ export default function WidgetPage() {
           <div className="px-3 pt-5">
             <button
               onClick={() => {
+                markUserInteracted();
                 if (!hasConversationInProgress) {
                   setMessages([]);
                   setConnected(false);
@@ -1185,6 +1199,7 @@ export default function WidgetPage() {
               type="button"
               className="flex flex-col items-center gap-1 text-gray-700 hover:text-gray-900 transition-colors"
               onClick={() => {
+                markUserInteracted();
                 setIsOpen(true);
                 sendWidgetState(true);
                 resizeIframe(600);
@@ -1238,6 +1253,7 @@ export default function WidgetPage() {
             />
             <button
               onClick={() => {
+                markUserInteracted();
                 if (!hasConversationInProgress) {
                   setMessages([]);
                   setConnected(false);
@@ -1298,6 +1314,7 @@ export default function WidgetPage() {
             <button
               type="button"
               onClick={() => {
+                markUserInteracted();
                 setIsOpen(false);
                 sendWidgetState(false);
                 resizeIframe(600);
