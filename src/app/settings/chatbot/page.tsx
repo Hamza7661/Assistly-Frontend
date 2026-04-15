@@ -602,7 +602,7 @@ export default function ChatbotSettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Web Chatbot UI</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Web Chatbot Mode</label>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -613,7 +613,7 @@ export default function ChatbotSettingsPage() {
                           : 'border-gray-300 text-gray-700 hover:border-gray-400'
                       }`}
                     >
-                      Basic (Default)
+                      Basic
                     </button>
                     <button
                       type="button"
@@ -627,9 +627,6 @@ export default function ChatbotSettingsPage() {
                       Advanced
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Basic keeps the current compact launcher. Advanced shows a modern branded home screen before chat opens.
-                  </p>
                 </div>
                 
                 <div className="md:col-span-2">
