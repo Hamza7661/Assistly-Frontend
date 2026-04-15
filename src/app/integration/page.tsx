@@ -45,6 +45,7 @@ export default function IntegrationPage() {
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
   const [exceptionsDialogOpen, setExceptionsDialogOpen] = useState(false);
+  const [exceptionOperationBusy, setExceptionOperationBusy] = useState(false);
 
   useEffect(() => {
     if (!appId) return;
@@ -428,16 +429,36 @@ export default function IntegrationPage() {
                 </div>
               )}
               {exceptionsDialogOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setExceptionsDialogOpen(false)}>
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                  onClick={(e) => {
+                    if (exceptionOperationBusy) return;
+                    if (e.target === e.currentTarget) setExceptionsDialogOpen(false);
+                  }}
+                >
                   <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative min-w-0">
-                    <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                    <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
                       <h3 className="text-lg font-semibold text-gray-900">Date exceptions</h3>
-                      <button type="button" onClick={() => setExceptionsDialogOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" aria-label="Close">
+                      <button
+                        type="button"
+                        disabled={exceptionOperationBusy}
+                        onClick={() => setExceptionsDialogOpen(false)}
+                        className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent"
+                        aria-label="Close"
+                      >
                         <X className="h-5 w-5" />
                       </button>
                     </div>
                     <div className="p-6 min-w-0">
-                      <CalendarAvailabilityRules appId={appId} dialogMode="exceptions" onClose={() => setExceptionsDialogOpen(false)} />
+                      <CalendarAvailabilityRules
+                        appId={appId}
+                        dialogMode="exceptions"
+                        onExceptionOperationBusy={setExceptionOperationBusy}
+                        onClose={() => {
+                          if (exceptionOperationBusy) return;
+                          setExceptionsDialogOpen(false);
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
