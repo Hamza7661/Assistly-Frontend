@@ -19,6 +19,11 @@ type AnyMessage =
   | { type: 'user_replay'; content: string }
   | { type: 'session_complete' };
 
+enum ChatbotUiMode {
+  Basic = 'basic',
+  Advanced = 'advanced',
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const MAX_RECONNECT_ATTEMPTS = 3;
 /** Set when flow is done: booking confirmation shown, or non-booking JSON after all questions. Cleared on widget close/reload. */
@@ -59,7 +64,7 @@ export default function WidgetPage() {
     companyName: '',
     greeting: '',
     primaryColor: '#c01721',
-    chatbotUiMode: 'basic',
+    chatbotUiMode: ChatbotUiMode.Basic,
     chatbotImage: '',
     validateEmail: false,
     validatePhoneNumber: true
@@ -363,7 +368,7 @@ export default function WidgetPage() {
              companyName: integration.companyName || '',
              greeting: integration.greeting || '',
              primaryColor: integration.primaryColor || '#c01721',
-             chatbotUiMode: integration.chatbotUiMode === 'advanced' ? 'advanced' : 'basic',
+             chatbotUiMode: integration.chatbotUiMode === ChatbotUiMode.Advanced ? ChatbotUiMode.Advanced : ChatbotUiMode.Basic,
              chatbotImage: integration.chatbotImage?.filename || '',
              validateEmail: integration.validateEmail || false,
              validatePhoneNumber: integration.validatePhoneNumber || true,
@@ -415,6 +420,26 @@ export default function WidgetPage() {
     if (!settingsLoaded || !widgetSessionId || autoOpenedRef.current) return;
     autoOpenedRef.current = true;
     const timer = setTimeout(() => {
+      const selectedMode =
+        settings.chatbotUiMode === ChatbotUiMode.Advanced
+          ? ChatbotUiMode.Advanced
+          : ChatbotUiMode.Basic;
+
+      if (selectedMode === ChatbotUiMode.Advanced) {
+        // Advanced mode mirrors basic resume behavior:
+        // - reopen full chat when a conversation is already active
+        // - otherwise keep the advanced launcher/home screen visible
+        if (hasActiveConversation) {
+          setIsOpen(true);
+          sendWidgetState(true);
+        } else {
+          setIsOpen(false);
+          sendWidgetState(false);
+        }
+        resizeIframe(600);
+        return;
+      }
+
       if (!hasActiveConversation) {
         setMessages([]);
         setConnected(false);
@@ -432,7 +457,7 @@ export default function WidgetPage() {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [settingsLoaded, widgetSessionId, hasActiveConversation, createInteractionLead]);
+  }, [settingsLoaded, widgetSessionId, hasActiveConversation, createInteractionLead, settings.chatbotUiMode]);
 
   // WebSocket must not reconnect when leadId/clickedItems change (e.g. after a button tap),
   // or cleanup closes the socket before the bot reply is delivered.
@@ -732,7 +757,7 @@ export default function WidgetPage() {
 
   useEffect(() => {
     if (isOpen || !settingsLoaded) return;
-    resizeIframe(settings.chatbotUiMode === 'advanced' ? 600 : 100);
+    resizeIframe(settings.chatbotUiMode === ChatbotUiMode.Advanced ? 600 : 100);
   }, [isOpen, settingsLoaded, settings.chatbotUiMode]);
 
   /** After booking / all questions answered: clear cached thread when user closes widget (or on reload). */
@@ -1041,7 +1066,7 @@ export default function WidgetPage() {
 
   if (!isOpen) {
     if (!settingsLoaded) return null;
-    const isAdvancedLauncher = settings.chatbotUiMode === 'advanced';
+    const isAdvancedLauncher = settings.chatbotUiMode === ChatbotUiMode.Advanced;
 
     if (isAdvancedLauncher) {
       return (
