@@ -56,6 +56,7 @@ export default function WidgetPage() {
 
   const [settings, setSettings] = useState<IntegrationSettings>({
     assistantName: 'Assistly Chatbot',
+    companyName: '',
     greeting: '',
     primaryColor: '#c01721',
     chatbotUiMode: 'basic',
@@ -85,11 +86,35 @@ export default function WidgetPage() {
   const [connectAttempt, setConnectAttempt] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const autoOpenedRef = useRef(false);
 
   const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
   const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
   const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
+
+  const formatGreetingText = useCallback((rawGreeting?: string) => {
+    const assistantName = settings.assistantName?.trim() || 'our assistant';
+    const companyName = settings.companyName?.trim() || '';
+    const fallback = `Hi! I'm ${assistantName}${companyName ? ` from ${companyName}` : ''}. How can I assist you today?`;
+    const source = (rawGreeting || '').trim() || fallback;
+
+    let output = source.replace(/{assistantName}/gi, assistantName);
+    if (companyName) {
+      output = output.replace(/{companyName}/gi, companyName);
+    } else {
+      output = output
+        .replace(/\s+from\s+\{companyName\}/gi, '')
+        .replace(/\s+at\s+\{companyName\}/gi, '')
+        .replace(/\s+of\s+\{companyName\}/gi, '')
+        .replace(/\s+with\s+\{companyName\}/gi, '')
+        .replace(/\{companyName\}/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s+([.,!?])/g, '$1');
+    }
+    return output;
+  }, [settings.assistantName, settings.companyName]);
 
   const persistConversationMeta = (meta: { active?: boolean; leadId?: string | null; clickedItems?: string[] }) => {
     if (!conversationMetaStorageKey || typeof window === 'undefined') return;
@@ -335,6 +360,7 @@ export default function WidgetPage() {
          if (integration) {
            setSettings({
              assistantName: integration.assistantName || 'Assistly Chatbot',
+             companyName: integration.companyName || '',
              greeting: integration.greeting || '',
              primaryColor: integration.primaryColor || '#c01721',
              chatbotUiMode: integration.chatbotUiMode === 'advanced' ? 'advanced' : 'basic',
@@ -386,7 +412,8 @@ export default function WidgetPage() {
   // Bell sound is handled entirely by widget.js on the parent page — it queues
   // and fires on first real user activation (click / keydown / touch).
   useEffect(() => {
-    if (!settingsLoaded || !widgetSessionId) return;
+    if (!settingsLoaded || !widgetSessionId || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
     const timer = setTimeout(() => {
       if (!hasActiveConversation) {
         setMessages([]);
@@ -405,7 +432,7 @@ export default function WidgetPage() {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [settingsLoaded, countryCode, widgetSessionId, hasActiveConversation, leadId]);
+  }, [settingsLoaded, widgetSessionId, hasActiveConversation, createInteractionLead]);
 
   // WebSocket must not reconnect when leadId/clickedItems change (e.g. after a button tap),
   // or cleanup closes the socket before the bot reply is delivered.
@@ -1024,11 +1051,13 @@ export default function WidgetPage() {
             style={{ backgroundColor: settings.primaryColor || '#c01721' }}
           >
             <div className="flex items-center justify-between">
-              <div className="w-7 h-7 rounded-full bg-white/20 overflow-hidden flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-white shadow-sm overflow-hidden flex items-center justify-center">
                 {imageData ? (
-                  <img src={imageData} alt="Chatbot" className="w-7 h-7 rounded-full object-cover" />
+                  <img src={imageData} alt="Chatbot" className="w-8 h-8 rounded-full object-cover" />
                 ) : (
-                  <span className="text-xs font-semibold">{(settings.assistantName || 'A').slice(0, 1)}</span>
+                  <span className="text-xs font-semibold" style={{ color: settings.primaryColor || '#c01721' }}>
+                    {(settings.assistantName || 'A').slice(0, 1).toUpperCase()}
+                  </span>
                 )}
               </div>
               <button
@@ -1045,9 +1074,9 @@ export default function WidgetPage() {
                 ×
               </button>
             </div>
-            <h2 className="mt-5 text-3xl font-semibold leading-tight">Hi there 👋</h2>
+            <h2 className="mt-5 text-3xl font-semibold leading-tight">Hey there 👋</h2>
             <p className="mt-2 text-white/90 text-base leading-snug">
-              {settings.greeting?.trim() || 'Welcome to our website. Feel free to ask us anything.'}
+              {formatGreetingText(settings.greeting)}
             </p>
           </div>
 
