@@ -429,16 +429,9 @@ export default function WidgetPage() {
           : ChatbotUiMode.Basic;
 
       if (selectedMode === ChatbotUiMode.Advanced) {
-        // Advanced mode mirrors basic resume behavior:
-        // - reopen full chat when a conversation is already active
-        // - otherwise keep the advanced launcher/home screen visible
-        if (hasActiveConversation) {
-          setIsOpen(true);
-          sendWidgetState(true);
-        } else {
-          setIsOpen(false);
-          sendWidgetState(false);
-        }
+        // Advanced mode should always land on the branded home screen first.
+        setIsOpen(false);
+        sendWidgetState(false);
         resizeIframe(600);
         return;
       }
@@ -1074,6 +1067,11 @@ export default function WidgetPage() {
     }
     return false;
   }, [messages]);
+  const hasUserResponded = useMemo(
+    () => messages.some((m) => m.type === 'user' || m.type === 'user_replay'),
+    [messages]
+  );
+  const hasConversationInProgress = (hasActiveConversation || hasUserResponded) && !sessionCompleted;
 
   if (!isWidgetVisible) {
     return (
@@ -1082,7 +1080,7 @@ export default function WidgetPage() {
           type="button"
           onClick={() => {
             setIsWidgetVisible(true);
-            if (isAdvancedMode && !hasActiveConversation) {
+            if (isAdvancedMode && !hasConversationInProgress) {
               setIsOpen(false);
               sendWidgetState(false);
               resizeIframe(600);
@@ -1091,7 +1089,7 @@ export default function WidgetPage() {
             setIsOpen(true);
             sendWidgetState(true);
             resizeIframe(600);
-            if (!hasActiveConversation) createInteractionLead();
+            if (!hasConversationInProgress) createInteractionLead();
           }}
           className="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center"
           style={{ backgroundColor: settings.primaryColor || '#c01721' }}
@@ -1143,14 +1141,14 @@ export default function WidgetPage() {
             </div>
             <h2 className="mt-5 text-3xl font-semibold leading-tight">Hey there 👋</h2>
             <p className="mt-2 text-white/90 text-base leading-snug">
-              {formatGreetingText(settings.greeting)}
+              Welcome to our website. Feel free to ask us anything.
             </p>
           </div>
 
           <div className="px-3 pt-5">
             <button
               onClick={() => {
-                if (!hasActiveConversation) {
+                if (!hasConversationInProgress) {
                   setMessages([]);
                   setConnected(false);
                   setChatEnded(false);
@@ -1160,7 +1158,7 @@ export default function WidgetPage() {
                 setIsOpen(true);
                 sendWidgetState(true);
                 resizeIframe(600);
-                if (!hasActiveConversation) createInteractionLead();
+                if (!hasConversationInProgress) createInteractionLead();
               }}
               className="w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white flex items-center justify-between shadow-sm hover:shadow transition"
             >
@@ -1171,23 +1169,34 @@ export default function WidgetPage() {
             </button>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 border-t border-gray-100 bg-white py-2 px-8 flex items-center justify-between text-xs text-gray-500">
+          <div className="absolute inset-x-0 bottom-0 border-t border-gray-100 bg-white py-2 px-8 flex items-center justify-between text-xs">
             <div className="flex flex-col items-center gap-1">
-              <span className="text-lg" style={{ color: settings.primaryColor || '#c01721' }}>⌂</span>
-              <span>Home</span>
+              <span
+                className="w-7 h-7 rounded-md flex items-center justify-center"
+                style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+              >
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z" />
+                </svg>
+              </span>
+              <span className="font-medium" style={{ color: settings.primaryColor || '#c01721' }}>Home</span>
             </div>
             <button
               type="button"
-              className="flex flex-col items-center gap-1"
+              className="flex flex-col items-center gap-1 text-gray-700 hover:text-gray-900 transition-colors"
               onClick={() => {
                 setIsOpen(true);
                 sendWidgetState(true);
                 resizeIframe(600);
-                if (!hasActiveConversation) createInteractionLead();
+                if (!hasConversationInProgress) createInteractionLead();
               }}
             >
-              <span className="text-lg">💬</span>
-              <span>Chat</span>
+              <span className="w-7 h-7 rounded-md flex items-center justify-center border border-gray-300 bg-white">
+                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8M8 14h5m-8 6l3-3h10a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                </svg>
+              </span>
+              <span className="font-medium text-gray-700">Chat</span>
             </button>
           </div>
         </div>
@@ -1229,7 +1238,7 @@ export default function WidgetPage() {
             />
             <button
               onClick={() => {
-                if (!hasActiveConversation) {
+                if (!hasConversationInProgress) {
                   setMessages([]);
                   setConnected(false);
                   setChatEnded(false);
@@ -1239,7 +1248,7 @@ export default function WidgetPage() {
                 setIsOpen(true);
                 sendWidgetState(true);
                 resizeIframe(600);
-                if (!hasActiveConversation) {
+                if (!hasConversationInProgress) {
                   createInteractionLead();
                 }
               }}
