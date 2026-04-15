@@ -33,6 +33,7 @@ export interface ChatbotWorkflowItem {
   attachment?: WorkflowAttachment;
   isRoot?: boolean;
   isActive?: boolean;
+  askForBookingAtEnd?: boolean;
   order?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -50,6 +51,7 @@ export class ChatbotWorkflow {
   attachment?: WorkflowAttachment;
   isRoot: boolean;
   isActive: boolean;
+  askForBookingAtEnd: boolean;
   order: number;
   createdAt?: string;
   updatedAt?: string;
@@ -66,6 +68,7 @@ export class ChatbotWorkflow {
     this.attachment = data.attachment;
     this.isRoot = data.isRoot ?? false;
     this.isActive = data.isActive ?? true;
+    this.askForBookingAtEnd = data.askForBookingAtEnd ?? true;
     this.order = data.order ?? 0;
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
@@ -86,6 +89,7 @@ export class ChatbotWorkflow {
       choiceInputMode: this.choiceInputMode,
       isRoot: this.isRoot,
       isActive: this.isActive,
+      askForBookingAtEnd: this.askForBookingAtEnd,
       order: this.order,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
