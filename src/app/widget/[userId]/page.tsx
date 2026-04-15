@@ -50,6 +50,7 @@ export default function WidgetPage() {
   const [messages, setMessages] = useState<AnyMessage[]>([]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [isWidgetVisible, setIsWidgetVisible] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
   const [sessionCompleted, setSessionCompleted] = useState(false);
@@ -97,6 +98,7 @@ export default function WidgetPage() {
   const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
   const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
+  const isAdvancedMode = settings.chatbotUiMode === ChatbotUiMode.Advanced;
 
   const formatGreetingText = useCallback((rawGreeting?: string) => {
     const assistantName = settings.assistantName?.trim() || 'our assistant';
@@ -420,6 +422,7 @@ export default function WidgetPage() {
     if (!settingsLoaded || !widgetSessionId || autoOpenedRef.current) return;
     autoOpenedRef.current = true;
     const timer = setTimeout(() => {
+      setIsWidgetVisible(true);
       const selectedMode =
         settings.chatbotUiMode === ChatbotUiMode.Advanced
           ? ChatbotUiMode.Advanced
@@ -756,9 +759,14 @@ export default function WidgetPage() {
   };
 
   useEffect(() => {
-    if (isOpen || !settingsLoaded) return;
+    if (!settingsLoaded) return;
+    if (!isWidgetVisible) {
+      resizeIframe(100);
+      return;
+    }
+    if (isOpen) return;
     resizeIframe(settings.chatbotUiMode === ChatbotUiMode.Advanced ? 600 : 100);
-  }, [isOpen, settingsLoaded, settings.chatbotUiMode]);
+  }, [isOpen, isWidgetVisible, settingsLoaded, settings.chatbotUiMode]);
 
   /** After booking / all questions answered: clear cached thread when user closes widget (or on reload). */
   const applyCompletedFlowStorageReset = useCallback((): string | null => {
@@ -798,6 +806,9 @@ export default function WidgetPage() {
     }
     isIntentionalClose.current = true;
     setIsOpen(false);
+    if (isAdvancedMode) {
+      setIsWidgetVisible(false);
+    }
     sendWidgetState(false);
     if (wsRef.current) {
       try {
@@ -805,7 +816,7 @@ export default function WidgetPage() {
       } catch {}
     }
     resizeIframe(100);
-  }, [applyCompletedFlowStorageReset]);
+  }, [applyCompletedFlowStorageReset, isAdvancedMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1064,6 +1075,41 @@ export default function WidgetPage() {
     return false;
   }, [messages]);
 
+  if (!isWidgetVisible) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          type="button"
+          onClick={() => {
+            setIsWidgetVisible(true);
+            if (isAdvancedMode && !hasActiveConversation) {
+              setIsOpen(false);
+              sendWidgetState(false);
+              resizeIframe(600);
+              return;
+            }
+            setIsOpen(true);
+            sendWidgetState(true);
+            resizeIframe(600);
+            if (!hasActiveConversation) createInteractionLead();
+          }}
+          className="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center"
+          style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+          title={`Open chat with ${settings.assistantName || 'assistant'}`}
+          aria-label="Open chatbot"
+        >
+          {imageData ? (
+            <img src={imageData} alt="Chatbot" className="w-10 h-10 rounded-full object-cover" />
+          ) : (
+            <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+            </svg>
+          )}
+        </button>
+      </div>
+    );
+  }
+
   if (!isOpen) {
     if (!settingsLoaded) return null;
     const isAdvancedLauncher = settings.chatbotUiMode === ChatbotUiMode.Advanced;
@@ -1088,11 +1134,7 @@ export default function WidgetPage() {
               <button
                 type="button"
                 className="text-white/90 text-lg leading-none px-1"
-                onClick={() => {
-                  setIsOpen(false);
-                  sendWidgetState(false);
-                  resizeIframe(100);
-                }}
+                onClick={closeWidgetChrome}
                 aria-label="Close"
                 title="Close"
               >
@@ -1243,6 +1285,23 @@ export default function WidgetPage() {
       {/* Header */}
       <div className="p-3 border-b text-sm sm:text-base font-medium flex items-center justify-between">
         <div className="flex items-center gap-2">
+          {isAdvancedMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                sendWidgetState(false);
+                resizeIframe(600);
+              }}
+              className="text-gray-500 hover:text-gray-700 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              title="Back to home"
+              aria-label="Back to home"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           <div
             className="w-8 h-8 rounded-full shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0"
             style={{ backgroundColor: settings.primaryColor || '#c01721' }}
