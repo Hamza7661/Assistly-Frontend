@@ -105,7 +105,9 @@ export default function WidgetPage() {
     () => messages.some((m) => m.type === 'user' || m.type === 'user_replay'),
     [messages]
   );
-  const hasConversationInProgress = (hasActiveConversation || hasUserResponded) && !sessionCompleted;
+  // "Started" means user interaction happened (typed/replied/selected option),
+  // not just bot greeting/history replay.
+  const hasConversationInProgress = (hasUserResponded || clickedItems.length > 0) && !sessionCompleted;
   const markUserInteracted = useCallback(() => {
     hasUserInteractedRef.current = true;
   }, []);
