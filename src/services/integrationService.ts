@@ -53,9 +53,20 @@ class IntegrationService extends HttpService {
 
   /** Get calendar OAuth URL for connecting selected provider; frontend redirects user to this URL. */
   async getCalendarAuthUrl(appId: string, provider: 'google_calendar' | 'outlook' | 'calendly' = 'google_calendar') {
-    const query = provider ? `?provider=${encodeURIComponent(provider)}` : '';
+    const params = new URLSearchParams();
+    if (provider) params.set('provider', provider);
+    try {
+      const tz =
+        typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function'
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : '';
+      if (tz) params.set('timezone', tz);
+    } catch {
+      /* ignore */
+    }
+    const qs = params.toString();
     const res = await this.request<{ status: string; data: { url: string } }>(
-      `/integration/apps/${appId}/calendar/auth-url${query}`,
+      `/integration/apps/${appId}/calendar/auth-url${qs ? `?${qs}` : ''}`,
       { method: 'GET' }
     );
     return res.data?.url;
