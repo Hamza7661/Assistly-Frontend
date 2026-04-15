@@ -838,18 +838,20 @@ export default function WidgetPage() {
 
   const openChatFromLauncher = useCallback(() => {
     markUserInteracted();
+    clearReconnectTimer();
+    reconnectAttemptsRef.current = 0;
+    setIsReconnecting(false);
+    setConnectionError(null);
+    setChatEnded(false);
     setIsOpen(true);
     sendWidgetState(true);
     resizeIframe(600);
-    if (!hasConversationInProgress) {
-      setMessages([]);
-      setConnected(false);
-      setChatEnded(false);
-      setIsTyping(false);
-      setFileUploadEnabled(false);
+    // Do not clear messages/state here; that can wipe a just-started thread
+    // and cause a "connecting" limbo on launcher opens.
+    if (!hasActiveConversation) {
       createInteractionLead();
     }
-  }, [hasConversationInProgress, createInteractionLead, markUserInteracted]);
+  }, [hasActiveConversation, createInteractionLead, markUserInteracted]);
 
   useEffect(() => {
     if (!isOpen) return;
