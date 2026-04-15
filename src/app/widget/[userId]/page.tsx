@@ -58,6 +58,7 @@ export default function WidgetPage() {
     assistantName: 'Assistly Chatbot',
     greeting: '',
     primaryColor: '#c01721',
+    chatbotUiMode: 'basic',
     chatbotImage: '',
     validateEmail: false,
     validatePhoneNumber: true
@@ -336,6 +337,7 @@ export default function WidgetPage() {
              assistantName: integration.assistantName || 'Assistly Chatbot',
              greeting: integration.greeting || '',
              primaryColor: integration.primaryColor || '#c01721',
+             chatbotUiMode: integration.chatbotUiMode === 'advanced' ? 'advanced' : 'basic',
              chatbotImage: integration.chatbotImage?.filename || '',
              validateEmail: integration.validateEmail || false,
              validatePhoneNumber: integration.validatePhoneNumber || true,
@@ -701,6 +703,11 @@ export default function WidgetPage() {
     }
   };
 
+  useEffect(() => {
+    if (isOpen || !settingsLoaded) return;
+    resizeIframe(settings.chatbotUiMode === 'advanced' ? 600 : 100);
+  }, [isOpen, settingsLoaded, settings.chatbotUiMode]);
+
   /** After booking / all questions answered: clear cached thread when user closes widget (or on reload). */
   const applyCompletedFlowStorageReset = useCallback((): string | null => {
     if (!resumeStorageKey || typeof window === 'undefined') return null;
@@ -1007,6 +1014,90 @@ export default function WidgetPage() {
 
   if (!isOpen) {
     if (!settingsLoaded) return null;
+    const isAdvancedLauncher = settings.chatbotUiMode === 'advanced';
+
+    if (isAdvancedLauncher) {
+      return (
+        <div className="fixed z-50 w-full h-full bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden">
+          <div
+            className="px-4 pt-4 pb-6 text-white"
+            style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-7 h-7 rounded-full bg-white/20 overflow-hidden flex items-center justify-center">
+                {imageData ? (
+                  <img src={imageData} alt="Chatbot" className="w-7 h-7 rounded-full object-cover" />
+                ) : (
+                  <span className="text-xs font-semibold">{(settings.assistantName || 'A').slice(0, 1)}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-white/90 text-lg leading-none px-1"
+                onClick={() => {
+                  setIsOpen(false);
+                  sendWidgetState(false);
+                  resizeIframe(100);
+                }}
+                aria-label="Close"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <h2 className="mt-5 text-3xl font-semibold leading-tight">Hi there 👋</h2>
+            <p className="mt-2 text-white/90 text-base leading-snug">
+              {settings.greeting?.trim() || 'Welcome to our website. Feel free to ask us anything.'}
+            </p>
+          </div>
+
+          <div className="px-3 pt-5">
+            <button
+              onClick={() => {
+                if (!hasActiveConversation) {
+                  setMessages([]);
+                  setConnected(false);
+                  setChatEnded(false);
+                  setIsTyping(false);
+                  setFileUploadEnabled(false);
+                }
+                setIsOpen(true);
+                sendWidgetState(true);
+                resizeIframe(600);
+                if (!hasActiveConversation) createInteractionLead();
+              }}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white flex items-center justify-between shadow-sm hover:shadow transition"
+            >
+              <span className="text-gray-700 font-medium">Chat with us</span>
+              <span className="text-white rounded-full w-7 h-7 flex items-center justify-center" style={{ backgroundColor: settings.primaryColor || '#c01721' }}>
+                ➤
+              </span>
+            </button>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 border-t border-gray-100 bg-white py-2 px-8 flex items-center justify-between text-xs text-gray-500">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-lg" style={{ color: settings.primaryColor || '#c01721' }}>⌂</span>
+              <span>Home</span>
+            </div>
+            <button
+              type="button"
+              className="flex flex-col items-center gap-1"
+              onClick={() => {
+                setIsOpen(true);
+                sendWidgetState(true);
+                resizeIframe(600);
+                if (!hasActiveConversation) createInteractionLead();
+              }}
+            >
+              <span className="text-lg">💬</span>
+              <span>Chat</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     // Compact widget - inline message and chat button
     return (
       <>
