@@ -26,6 +26,9 @@ class IntegrationService extends HttpService {
     if (settings.conversationStyle !== undefined) {
       formData.append('conversationStyle', settings.conversationStyle.toString());
     }
+    if (settings.chatbotUiMode !== undefined) {
+      formData.append('chatbotUiMode', settings.chatbotUiMode);
+    }
     
     // Google review (per-app)
     if (settings.googleReviewEnabled !== undefined) formData.append('googleReviewEnabled', settings.googleReviewEnabled.toString());
