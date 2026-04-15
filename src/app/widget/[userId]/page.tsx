@@ -101,6 +101,11 @@ export default function WidgetPage() {
   const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
   const isAdvancedMode = settings.chatbotUiMode === ChatbotUiMode.Advanced;
+  const hasUserResponded = useMemo(
+    () => messages.some((m) => m.type === 'user' || m.type === 'user_replay'),
+    [messages]
+  );
+  const hasConversationInProgress = (hasActiveConversation || hasUserResponded) && !sessionCompleted;
   const markUserInteracted = useCallback(() => {
     hasUserInteractedRef.current = true;
   }, []);
@@ -440,9 +445,15 @@ export default function WidgetPage() {
           : ChatbotUiMode.Basic;
 
       if (selectedMode === ChatbotUiMode.Advanced) {
-        // Advanced mode should always land on the branded home screen first.
-        setIsOpen(false);
-        sendWidgetState(false);
+        // Advanced mode: resume chat when conversation already started,
+        // otherwise keep the branded home screen.
+        if (hasConversationInProgress) {
+          setIsOpen(true);
+          sendWidgetState(true);
+        } else {
+          setIsOpen(false);
+          sendWidgetState(false);
+        }
         resizeIframe(600);
         return;
       }
@@ -464,7 +475,7 @@ export default function WidgetPage() {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [settingsLoaded, widgetSessionId, hasActiveConversation, createInteractionLead, settings.chatbotUiMode]);
+  }, [settingsLoaded, widgetSessionId, hasActiveConversation, hasConversationInProgress, createInteractionLead, settings.chatbotUiMode]);
 
   // WebSocket must not reconnect when leadId/clickedItems change (e.g. after a button tap),
   // or cleanup closes the socket before the bot reply is delivered.
@@ -1079,12 +1090,6 @@ export default function WidgetPage() {
     }
     return false;
   }, [messages]);
-  const hasUserResponded = useMemo(
-    () => messages.some((m) => m.type === 'user' || m.type === 'user_replay'),
-    [messages]
-  );
-  const hasConversationInProgress = (hasActiveConversation || hasUserResponded) && !sessionCompleted;
-
   if (!isWidgetVisible) {
     return (
       <div className="fixed bottom-4 right-4 z-50">
