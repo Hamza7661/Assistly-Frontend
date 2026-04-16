@@ -8,11 +8,13 @@ import { getCountryCode } from '@/utils/countryDetection';
 
 type BotMessage = { type: 'bot'; content: string; step?: string };
 type WarnMessage = { type: 'warn' | 'error'; content: string };
+type ChannelBlockedMessage = { type: 'channel_blocked'; content: string; code?: string };
 type ReviewPromptMessage = { type: 'review_prompt'; content: string; reviewUrl: string };
 type UserFileMessage = { type: 'user'; content: string; fileInfo?: { filename: string; fileId: string; contentType: string } };
 type AnyMessage =
   | BotMessage
   | WarnMessage
+  | ChannelBlockedMessage
   | ReviewPromptMessage
   | UserFileMessage
   | { type: 'user'; content: string }
@@ -93,8 +95,12 @@ export default function WidgetPage() {
   const [connectAttempt, setConnectAttempt] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [channelBlocked, setChannelBlocked] = useState(false);
+  const [channelBlockedMessage, setChannelBlockedMessage] = useState<string | null>(null);
   const autoOpenedRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
+  const blockedStateRef = useRef(false);
+  const blockedRetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
   const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
@@ -115,6 +121,10 @@ export default function WidgetPage() {
   useEffect(() => {
     isOpenRef.current = isOpen;
   }, [isOpen]);
+
+  useEffect(() => {
+    blockedStateRef.current = channelBlocked;
+  }, [channelBlocked]);
 
   const formatGreetingText = useCallback((rawGreeting?: string) => {
     const assistantName = settings.assistantName?.trim() || 'our assistant';
@@ -216,6 +226,13 @@ export default function WidgetPage() {
     }
   }, [resumeStorageKey, conversationMetaStorageKey]);
 
+  const clearBlockedRetryTimer = () => {
+    if (blockedRetryTimerRef.current) {
+      clearInterval(blockedRetryTimerRef.current);
+      blockedRetryTimerRef.current = null;
+    }
+  };
+
   // Do NOT depend on messages.length: after the first bot reply we persist __msgs, which would
   // flip this to true, change fullWsUrl (skip_history_replay=1), and reconnect the WebSocket —
   // the user's next tap can hit a closed socket (stuck chat). Snapshot is resume + active flag only.
@@ -288,6 +305,7 @@ export default function WidgetPage() {
 
     isIntentionalClose.current = true;
     clearReconnectTimer();
+    clearBlockedRetryTimer();
     if (wsRef.current) {
       try {
         wsRef.current.close();
@@ -317,6 +335,8 @@ export default function WidgetPage() {
     setHasActiveConversation(false);
     setFileUploadEnabled(false);
     setChatEnded(false);
+    setChannelBlocked(false);
+    setChannelBlockedMessage(null);
     setSessionCompleted(false);
     setConnectionError(null);
     setInput('');
@@ -502,10 +522,14 @@ export default function WidgetPage() {
       isIntentionalClose.current = false;
       reconnectAttemptsRef.current = 0;
       clearReconnectTimer();
+      clearBlockedRetryTimer();
       setChatEnded(false);
       setConnected(true);
       setIsReconnecting(false);
       setConnectionError(null);
+      setChannelBlocked(false);
+      setChannelBlockedMessage(null);
+      setMessages((prev) => prev.filter((item) => item.type !== 'channel_blocked'));
       // If we already have rendered messages, treat early incoming frames as potential
       // transcript replay and dedupe by (type, content) until a new message arrives.
       replayDedupGuardRef.current = messagesRef.current.length > 0;
@@ -562,6 +586,22 @@ export default function WidgetPage() {
           return;
         }
 
+        if (msgType === 'channel_blocked') {
+          const blockedText = msgContent || 'This chat channel is currently unavailable for this organization. Please contact them through another channel.';
+          setChannelBlocked(true);
+          setChannelBlockedMessage(blockedText);
+          setChatEnded(true);
+          setIsTyping(false);
+          setIsReconnecting(false);
+          setConnectionError(null);
+          clearReconnectTimer();
+          setMessages((prev) => {
+            if (prev.some((item) => item.type === 'channel_blocked')) return prev;
+            return [...prev, { type: 'channel_blocked', content: blockedText, code: (msg as { code?: string }).code }];
+          });
+          return;
+        }
+
         if (msgType === 'user_replay') {
           if (isDuplicateOnResume(msgType, msgContent)) return;
           setMessages((prev) => [...prev, { type: 'user_replay', content: String((msg as { content?: string }).content || '') }]);
@@ -612,6 +652,11 @@ export default function WidgetPage() {
       if (wsRef.current !== ws) return;
       setConnected(false);
       setIsTyping(false);
+      if (blockedStateRef.current) {
+        setIsReconnecting(false);
+        setChatEnded(true);
+        return;
+      }
       // Only reconnect for unexpected closes, not controlled cleanup/reconnects
       if (!isIntentionalClose.current && isOpen) {
         if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
@@ -637,6 +682,7 @@ export default function WidgetPage() {
     return () => {
       isIntentionalClose.current = true;
       clearReconnectTimer();
+      clearBlockedRetryTimer();
       wsRef.current = null; // Clear ref BEFORE close so stale onclose is ignored
       ws?.close();
     };
@@ -650,6 +696,16 @@ export default function WidgetPage() {
     skipHistoryReplay,
     createInteractionLead,
   ]);
+
+  useEffect(() => {
+    clearBlockedRetryTimer();
+    if (!channelBlocked || !isOpen || !widgetSessionId) return;
+    blockedRetryTimerRef.current = setInterval(() => {
+      setIsReconnecting(true);
+      setConnectAttempt((prev) => prev + 1);
+    }, 15000);
+    return () => clearBlockedRetryTimer();
+  }, [channelBlocked, isOpen, widgetSessionId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -1264,6 +1320,8 @@ export default function WidgetPage() {
                   setMessages([]);
                   setConnected(false);
                   setChatEnded(false);
+                  setChannelBlocked(false);
+                  setChannelBlockedMessage(null);
                   setIsTyping(false);
                   setFileUploadEnabled(false);
                 }
@@ -1475,16 +1533,21 @@ export default function WidgetPage() {
           <div className="flex flex-col items-center gap-2 text-center">
             {chatEnded ? (
               <>
-                <div className="text-gray-400 text-sm">Connection lost.</div>
-                {connectionError && (
-                  <div className="text-gray-500 text-xs">{connectionError}</div>
-                )}
+                <div className="text-gray-400 text-sm">{channelBlocked ? 'Chat unavailable' : 'Connection lost.'}</div>
+                <div className="text-gray-500 text-xs">
+                  {channelBlocked
+                    ? (channelBlockedMessage || 'This chat channel is currently unavailable for this organization. Please contact them through another channel.')
+                    : connectionError}
+                </div>
                 <button
                   onClick={() => {
                     clearReconnectTimer();
+                    clearBlockedRetryTimer();
                     reconnectAttemptsRef.current = 0;
                     setIsReconnecting(false);
                     setConnectionError(null);
+                    setChannelBlocked(false);
+                    setChannelBlockedMessage(null);
                     setChatEnded(false);
                     setConnected(false);
                     setIsOpen(false);
@@ -1493,7 +1556,7 @@ export default function WidgetPage() {
                   className="text-xs px-3 py-1.5 rounded-full text-white font-medium"
                   style={{ backgroundColor: settings.primaryColor || '#c01721' }}
                 >
-                  Reconnect
+                  {channelBlocked ? 'Check again' : 'Reconnect'}
                 </button>
               </>
             ) : (
@@ -1550,13 +1613,15 @@ export default function WidgetPage() {
         <input
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
           placeholder={
-            !connected
-              ? (chatEnded ? 'Chat ended' : 'Connecting...')
+            channelBlocked
+              ? 'Chat is temporarily unavailable for this organization.'
+              : !connected
+                ? (chatEnded ? 'Chat ended' : 'Connecting...')
               : (sessionCompleted
                   ? 'Chat completed - Click Reset to start again.'
                   : (requiresOptionSelection ? 'Please select from the options above' : 'Type a message...'))
           }
-          disabled={!connected || requiresOptionSelection || sessionCompleted}
+          disabled={!connected || requiresOptionSelection || sessionCompleted || channelBlocked}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !sessionCompleted) send(); }}
@@ -1565,7 +1630,7 @@ export default function WidgetPage() {
           className="text-white text-sm sm:text-base px-2 sm:px-4 py-1.5 sm:py-2 rounded font-medium disabled:opacity-50 whitespace-nowrap" 
           style={{ backgroundColor: settings.primaryColor || '#c01721' }}
           onClick={sessionCompleted ? resetChatToStart : send}
-          disabled={sessionCompleted ? false : (!connected || requiresOptionSelection)}
+          disabled={sessionCompleted ? false : (!connected || requiresOptionSelection || channelBlocked)}
         >
           {sessionCompleted ? 'Reset' : 'Send'}
         </button>
