@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -19,6 +19,7 @@ type AppStats = { leadTypes: number; services: number; workflows: number; leads:
 
 export default function AppsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { apps, currentApp, switchApp, refreshApps } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
@@ -358,6 +359,7 @@ export default function AppsPage() {
     { href: '/chatbot-workflow',   icon: FileText,      label: 'Conversation Flows' },
     { href: '/settings',           icon: User,          label: 'Account Settings' },
   ];
+
 
   if (isLoading) {
     return (
