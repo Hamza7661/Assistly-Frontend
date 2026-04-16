@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { Suspense, useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera, Phone, Copy, ExternalLink, Mail, User, Monitor, MousePointerClick, CalendarDays, CalendarCheck, Maximize2 } from 'lucide-react';
 import { ProtectedRoute, NoAppEmptyState, ConfirmModal } from '@/components';
@@ -13,7 +13,7 @@ import type { Lead } from '@/models/Lead';
 import { toast } from 'react-toastify';
 import { COUNTRY_INFO, getCountryInfo } from '@/enums/Region';
 
-export default function LeadsPage() {
+function LeadsPageContent() {
   type SourceTab = 'all' | 'web' | 'whatsapp' | 'instagram' | 'facebook' | 'voice';
   type StatusFilter = 'all' | 'interacting' | 'in_progress' | 'confirmed' | 'complete';
   type DatePreset = 'all' | 'today' | 'last7' | 'thisMonth' | 'custom';
@@ -2064,6 +2064,14 @@ export default function LeadsPage() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <LeadsPageContent />
+    </Suspense>
   );
 }
 
