@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Home, 
   FileText,
@@ -15,7 +16,11 @@ import {
   ChevronDown,
   ChevronRight,
   Settings,
-  MessageCircle
+  MessageCircle,
+  BarChart3,
+  Wallet,
+  Receipt,
+  SlidersHorizontal
 } from 'lucide-react';
 
 interface MenuItem {
@@ -25,7 +30,7 @@ interface MenuItem {
   subItems?: MenuItem[];
 }
 
-const navigation: MenuItem[] = [
+const baseNavigation: MenuItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   {
     name: 'Content Management',
@@ -51,6 +56,15 @@ const navigation: MenuItem[] = [
       { name: 'Account Settings', href: '/settings', icon: User },
     ]
   },
+  {
+    name: 'Subscription',
+    icon: Wallet,
+    subItems: [
+      { name: 'Usage', href: '/usage', icon: BarChart3 },
+      { name: 'Spending', href: '/spending', icon: Wallet },
+      { name: 'Billing & Invoices', href: '/billing-invoices', icon: Receipt },
+    ]
+  },
   { name: 'Integration', href: '/integration', icon: Plug },
 ];
 
@@ -59,12 +73,17 @@ const hiddenTabs = new Set(['Packages']);
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
   const { isOpen: isSidebarOpen } = useSidebar();
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const [isHovered, setIsHovered] = useState(false);
   
   // Show expanded state when sidebar is open OR when hovered
   const isExpanded = isSidebarOpen || isHovered;
+  const canAccessAdmin = user?.role === 'super_admin';
+  const navigation: MenuItem[] = canAccessAdmin
+    ? [...baseNavigation, { name: 'Plans', href: '/admin/subscriptions', icon: SlidersHorizontal }]
+    : baseNavigation;
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev => {

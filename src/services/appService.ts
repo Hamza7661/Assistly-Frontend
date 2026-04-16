@@ -69,6 +69,13 @@ class AppService extends HttpService {
     });
   }
 
+  async getAllAppsForAdmin(includeInactive?: boolean): Promise<AppResponse> {
+    const query = includeInactive ? '?includeInactive=true' : '';
+    return this.request<AppResponse>(`/apps/admin/all${query}`, {
+      method: 'GET',
+    });
+  }
+
   async getApp(appId: string): Promise<AppResponse> {
     return this.request<AppResponse>(`/apps/${appId}`, {
       method: 'GET',
