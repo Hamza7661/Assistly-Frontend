@@ -100,7 +100,6 @@ export default function WidgetPage() {
   const autoOpenedRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
   const blockedStateRef = useRef(false);
-  const blockedRetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
   const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
@@ -129,7 +128,7 @@ export default function WidgetPage() {
   const normalizeBlockedMessage = (raw?: string | null) => {
     const fallback = 'Service is unavailable right now.';
     const cleaned = String(raw || '')
-      .replace(/^CHANNEL_BLOCKED:\s*/i, '')
+      .replace(/^CHANNEL_BLOCKED(?:\s*[:\-])?\s*/i, '')
       .trim();
     return cleaned || fallback;
   };
@@ -234,13 +233,6 @@ export default function WidgetPage() {
     }
   }, [resumeStorageKey, conversationMetaStorageKey]);
 
-  const clearBlockedRetryTimer = () => {
-    if (blockedRetryTimerRef.current) {
-      clearInterval(blockedRetryTimerRef.current);
-      blockedRetryTimerRef.current = null;
-    }
-  };
-
   // Do NOT depend on messages.length: after the first bot reply we persist __msgs, which would
   // flip this to true, change fullWsUrl (skip_history_replay=1), and reconnect the WebSocket —
   // the user's next tap can hit a closed socket (stuck chat). Snapshot is resume + active flag only.
@@ -313,7 +305,6 @@ export default function WidgetPage() {
 
     isIntentionalClose.current = true;
     clearReconnectTimer();
-    clearBlockedRetryTimer();
     if (wsRef.current) {
       try {
         wsRef.current.close();
@@ -530,7 +521,6 @@ export default function WidgetPage() {
       isIntentionalClose.current = false;
       reconnectAttemptsRef.current = 0;
       clearReconnectTimer();
-      clearBlockedRetryTimer();
       setChatEnded(false);
       setConnected(true);
       setIsReconnecting(false);
@@ -690,7 +680,6 @@ export default function WidgetPage() {
     return () => {
       isIntentionalClose.current = true;
       clearReconnectTimer();
-      clearBlockedRetryTimer();
       wsRef.current = null; // Clear ref BEFORE close so stale onclose is ignored
       ws?.close();
     };
@@ -704,16 +693,6 @@ export default function WidgetPage() {
     skipHistoryReplay,
     createInteractionLead,
   ]);
-
-  useEffect(() => {
-    clearBlockedRetryTimer();
-    if (!channelBlocked || !isOpen || !widgetSessionId) return;
-    blockedRetryTimerRef.current = setInterval(() => {
-      setIsReconnecting(true);
-      setConnectAttempt((prev) => prev + 1);
-    }, 15000);
-    return () => clearBlockedRetryTimer();
-  }, [channelBlocked, isOpen, widgetSessionId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -1550,7 +1529,6 @@ export default function WidgetPage() {
                 <button
                   onClick={() => {
                     clearReconnectTimer();
-                    clearBlockedRetryTimer();
                     reconnectAttemptsRef.current = 0;
                     setIsReconnecting(false);
                     setConnectionError(null);
