@@ -542,6 +542,7 @@ export default function WidgetPage() {
         const msg = JSON.parse(e.data) as AnyMessage;
         const msgType = (msg as any).type;
         const msgContent = String((msg as { content?: string }).content || '');
+        const looksLikeBlockedToken = /^CHANNEL_BLOCKED(?:\s*[:\-])?/i.test(msgContent.trim());
 
         // On reopen/resume we may already have transcript in-memory. If backend replays
         // older lines, skip them so chat does not append duplicates.
@@ -596,6 +597,24 @@ export default function WidgetPage() {
           setMessages((prev) => {
             if (prev.some((item) => item.type === 'channel_blocked')) return prev;
             return [...prev, { type: 'channel_blocked', content: blockedText, code: (msg as { code?: string }).code }];
+          });
+          return;
+        }
+
+        // Safety net: if backend sends blocked token as a plain bot message,
+        // treat it as blocked-state instead of rendering raw control text.
+        if (msgType === 'bot' && looksLikeBlockedToken) {
+          const blockedText = normalizeBlockedMessage(msgContent);
+          setChannelBlocked(true);
+          setChannelBlockedMessage(blockedText);
+          setChatEnded(true);
+          setIsTyping(false);
+          setIsReconnecting(false);
+          setConnectionError(null);
+          clearReconnectTimer();
+          setMessages((prev) => {
+            if (prev.some((item) => item.type === 'channel_blocked')) return prev;
+            return [...prev, { type: 'channel_blocked', content: blockedText }];
           });
           return;
         }
