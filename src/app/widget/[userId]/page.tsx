@@ -126,6 +126,14 @@ export default function WidgetPage() {
     blockedStateRef.current = channelBlocked;
   }, [channelBlocked]);
 
+  const normalizeBlockedMessage = (raw?: string | null) => {
+    const fallback = 'Service is unavailable right now.';
+    const cleaned = String(raw || '')
+      .replace(/^CHANNEL_BLOCKED:\s*/i, '')
+      .trim();
+    return cleaned || fallback;
+  };
+
   const formatGreetingText = useCallback((rawGreeting?: string) => {
     const assistantName = settings.assistantName?.trim() || 'our assistant';
     const companyName = settings.companyName?.trim() || '';
@@ -587,7 +595,7 @@ export default function WidgetPage() {
         }
 
         if (msgType === 'channel_blocked') {
-          const blockedText = msgContent || 'This chat channel is currently unavailable for this organization. Please contact them through another channel.';
+          const blockedText = normalizeBlockedMessage(msgContent);
           setChannelBlocked(true);
           setChannelBlockedMessage(blockedText);
           setChatEnded(true);
@@ -1536,7 +1544,7 @@ export default function WidgetPage() {
                 <div className="text-gray-400 text-sm">{channelBlocked ? 'Chat unavailable' : 'Connection lost.'}</div>
                 <div className="text-gray-500 text-xs">
                   {channelBlocked
-                    ? (channelBlockedMessage || 'This chat channel is currently unavailable for this organization. Please contact them through another channel.')
+                    ? normalizeBlockedMessage(channelBlockedMessage)
                     : connectionError}
                 </div>
                 <button
@@ -1614,7 +1622,7 @@ export default function WidgetPage() {
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
           placeholder={
             channelBlocked
-              ? 'Chat is temporarily unavailable for this organization.'
+              ? 'Service is unavailable right now.'
               : !connected
                 ? (chatEnded ? 'Chat ended' : 'Connecting...')
               : (sessionCompleted
