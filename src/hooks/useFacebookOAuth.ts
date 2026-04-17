@@ -127,10 +127,11 @@ export function useFacebookOAuth(): UseFacebookOAuthReturn {
     setFbSelectedPageId('');
     setFbSelectedPageName('');
 
-    console.log(`${FB_LOG} Calling FB.login with scope: "${FACEBOOK_LOGIN_SCOPE}", auth_type: "rerequest"`);
+    const doLogin = () => {
+      console.log(`${FB_LOG} Calling FB.login with scope: "${FACEBOOK_LOGIN_SCOPE}", auth_type: "rerequest"`);
 
-    fbSdk.login(
-      (response: FacebookLoginResponse) => {
+      fbSdk.login(
+        (response: FacebookLoginResponse) => {
         console.log(`${FB_LOG} FB.login callback received`, {
           status: response.status,
           hasAuthResponse: !!response.authResponse,
@@ -212,11 +213,37 @@ export function useFacebookOAuth(): UseFacebookOAuthReturn {
             } else {
               console.log(`${FB_LOG} Multiple pages found, waiting for user to select one`);
             }
+
+            // Clear the SDK session immediately after capturing the token.
+            // This prevents the cached session from being restored on next FB.init()
+            // which causes the "overriding access token" warning and stale /me/accounts results.
+            console.log(`${FB_LOG} Clearing SDK session to prevent stale token on next connect`);
+            fbSdk.logout(() => {
+              console.log(`${FB_LOG} SDK session cleared successfully`);
+            });
           }
         );
       },
-      { scope: FACEBOOK_LOGIN_SCOPE, auth_type: 'rerequest' }
-    );
+        { scope: FACEBOOK_LOGIN_SCOPE, auth_type: 'rerequest' }
+      );
+    };
+
+    // Always logout first to clear any cached session/token so FB.login
+    // always shows a fresh dialog and /me/accounts returns current pages
+    console.log(`${FB_LOG} Checking login status before connect`);
+    fbSdk.getLoginStatus((statusRes) => {
+      console.log(`${FB_LOG} Current login status: ${statusRes.status}`);
+      if (statusRes.status === 'connected') {
+        console.log(`${FB_LOG} Active session detected — logging out to clear cached token`);
+        fbSdk.logout(() => {
+          console.log(`${FB_LOG} Logout complete, proceeding with fresh login`);
+          doLogin();
+        });
+      } else {
+        console.log(`${FB_LOG} No active session, proceeding directly to login`);
+        doLogin();
+      }
+    });
   };
 
   /**

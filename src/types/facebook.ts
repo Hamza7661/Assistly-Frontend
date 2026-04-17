@@ -73,6 +73,8 @@ export interface FacebookSDK {
     callback: (response: FacebookLoginResponse) => void,
     options?: { scope: string; auth_type?: string }
   ) => void;
+  logout: (callback: () => void) => void;
+  getLoginStatus: (callback: (response: FacebookLoginResponse) => void) => void;
   api: (
     path: string,
     options: FacebookApiOptions,
