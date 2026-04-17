@@ -71,7 +71,7 @@ export interface FacebookSDK {
   init: (options: FacebookSDKInitOptions) => void;
   login: (
     callback: (response: FacebookLoginResponse) => void,
-    options?: { scope: string }
+    options?: { scope: string; auth_type?: string }
   ) => void;
   api: (
     path: string,
