@@ -307,7 +307,7 @@ export default function IntegrationPage() {
                 <h2 className="text-lg font-semibold text-gray-900">Calendar</h2>
               </div>
               <p className="text-gray-600 mb-6 ml-11">
-                Connect a calendar so the chatbot and WhatsApp can show availability and book appointments.
+                Connect a calendar to enable availability and appointment booking across your conversation workflows.
               </p>
               <div className="ml-11">
                 <div className="mb-4">
@@ -344,14 +344,14 @@ export default function IntegrationPage() {
                               <span className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
                                 <img src={logoSrc} alt="" className={`${logoClass} object-contain`} />
                               </span>
-                              <span className="text-[32px] leading-none text-gray-300 -ml-1">|</span>
-                              <span className="text-xl font-semibold text-[#12324A] truncate">{item.label}</span>
+                              <span className="text-lg leading-none text-gray-300 -ml-1">|</span>
+                              <span className="text-sm font-medium text-gray-900 truncate">{item.label}</span>
                             </div>
                             {isConnectedProvider && (
                               <div className="inline-flex items-center gap-2">
-                                <span className="inline-flex items-center gap-2 text-xl font-semibold text-[#0f9f76]">
+                                <span className="inline-flex items-center gap-2 text-sm font-medium text-[#0f9f76]">
                                   Connected
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#0f9f76] text-white text-sm">✓</span>
+                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#0f9f76] text-white text-xs">✓</span>
                                 </span>
                                 <button
                                   type="button"
@@ -368,13 +368,13 @@ export default function IntegrationPage() {
                                 type="button"
                                 onClick={() => handleConnectCalendar(item.value)}
                                 disabled={calendarLoading || !canConnect}
-                                className={`inline-flex items-center gap-2 text-xl font-semibold ${canConnect
+                                className={`inline-flex items-center gap-2 text-sm font-medium ${canConnect
                                     ? 'text-[#1976d2] hover:text-[#125aa0]'
                                     : 'text-gray-400 cursor-not-allowed'
                                   } disabled:opacity-60`}
                               >
                                 {isCalendly ? 'Coming soon' : 'Connect'}
-                                {!isCalendly && <span className="text-2xl leading-none">›</span>}
+                                {!isCalendly && <span className="text-base leading-none">›</span>}
                               </button>
                             )}
                           </div>
