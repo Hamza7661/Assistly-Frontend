@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { Suspense, useEffect, useMemo, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Bell, X, Globe, Camera, Phone, Copy, ExternalLink, Mail, User, Monitor, MousePointerClick, CalendarDays, CalendarCheck, Maximize2 } from 'lucide-react';
 import { ProtectedRoute, NoAppEmptyState, ConfirmModal } from '@/components';
 import Navigation from '@/components/Navigation';
@@ -12,13 +13,14 @@ import type { Lead } from '@/models/Lead';
 import { toast } from 'react-toastify';
 import { COUNTRY_INFO, getCountryInfo } from '@/enums/Region';
 
-export default function LeadsPage() {
+function LeadsPageContent() {
   type SourceTab = 'all' | 'web' | 'whatsapp' | 'instagram' | 'facebook' | 'voice';
   type StatusFilter = 'all' | 'interacting' | 'in_progress' | 'confirmed' | 'complete';
   type DatePreset = 'all' | 'today' | 'last7' | 'thisMonth' | 'custom';
   const { user } = useAuth();
-  const { currentApp, isLoading: isLoadingApp } = useApp();
+  const { currentApp, isLoading: isLoadingApp, switchApp } = useApp();
   const { isOpen: isSidebarOpen } = useSidebar();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,6 +120,13 @@ export default function LeadsPage() {
   const [primaryColor, setPrimaryColor] = useState('#c01721');
   const sourceChannelFilter = activeSourceTab === 'all' ? undefined : activeSourceTab;
   const page = pageByTab[activeSourceTab] || 1;
+  const requestedLeadId = searchParams.get('leadId');
+  const requestedAppId = searchParams.get('appId');
+
+  useEffect(() => {
+    if (!requestedAppId || !isLoadingApp || currentApp?.id === requestedAppId) return;
+    void switchApp(requestedAppId);
+  }, [requestedAppId, currentApp?.id, isLoadingApp, switchApp]);
   const total = totalByTab[activeSourceTab] ?? null;
   const [readLeadMap, setReadLeadMap] = useState<Record<string, string>>({});
   const pendingReadIdsRef = useRef<Set<string>>(new Set());
@@ -812,7 +821,16 @@ export default function LeadsPage() {
       isCancelled = true;
       window.removeEventListener('assistly:open-lead-detail', handleOpenLeadEvent as EventListener);
     };
-  }, [items]);
+  }, [items, requestedLeadId]);
+
+  useEffect(() => {
+    if (!requestedLeadId || !currentApp?.id) return;
+    if (viewItem?._id === requestedLeadId) return;
+    const localMatch = items.find((lead) => lead._id === requestedLeadId);
+    if (localMatch) {
+      openView(localMatch);
+    }
+  }, [requestedLeadId, currentApp?.id, items, viewItem?._id]);
 
   const openEdit = (lead: Lead) => { setEditItem(lead); setIsEditOpen(true); };
   const closeEdit = () => { setIsEditOpen(false); setEditItem(null); };
@@ -2046,6 +2064,14 @@ export default function LeadsPage() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <LeadsPageContent />
+    </Suspense>
   );
 }
 

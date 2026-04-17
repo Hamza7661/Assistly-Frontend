@@ -8,16 +8,23 @@ import { getCountryCode } from '@/utils/countryDetection';
 
 type BotMessage = { type: 'bot'; content: string; step?: string };
 type WarnMessage = { type: 'warn' | 'error'; content: string };
+type ChannelBlockedMessage = { type: 'channel_blocked'; content: string; code?: string };
 type ReviewPromptMessage = { type: 'review_prompt'; content: string; reviewUrl: string };
 type UserFileMessage = { type: 'user'; content: string; fileInfo?: { filename: string; fileId: string; contentType: string } };
 type AnyMessage =
   | BotMessage
   | WarnMessage
+  | ChannelBlockedMessage
   | ReviewPromptMessage
   | UserFileMessage
   | { type: 'user'; content: string }
   | { type: 'user_replay'; content: string }
   | { type: 'session_complete' };
+
+enum ChatbotUiMode {
+  Basic = 'basic',
+  Advanced = 'advanced',
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -45,6 +52,7 @@ export default function WidgetPage() {
   const [messages, setMessages] = useState<AnyMessage[]>([]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [isWidgetVisible, setIsWidgetVisible] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
   const [sessionCompleted, setSessionCompleted] = useState(false);
@@ -53,11 +61,14 @@ export default function WidgetPage() {
   const widgetRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isIntentionalClose = useRef(false);
+  const isOpenRef = useRef(false);
 
   const [settings, setSettings] = useState<IntegrationSettings>({
     assistantName: 'Assistly Chatbot',
+    companyName: '',
     greeting: '',
     primaryColor: '#c01721',
+    chatbotUiMode: ChatbotUiMode.Basic,
     chatbotImage: '',
     validateEmail: false,
     validatePhoneNumber: true
@@ -84,11 +95,66 @@ export default function WidgetPage() {
   const [connectAttempt, setConnectAttempt] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [channelBlocked, setChannelBlocked] = useState(false);
+  const [channelBlockedMessage, setChannelBlockedMessage] = useState<string | null>(null);
+  const autoOpenedRef = useRef(false);
+  const hasUserInteractedRef = useRef(false);
+  const blockedStateRef = useRef(false);
 
   const resumeStorageKey = identifier ? `assistly_chat_resume_v1_${identifier}` : null;
   const conversationMetaStorageKey = resumeStorageKey ? `${resumeStorageKey}__meta` : null;
   const [widgetSessionId, setWidgetSessionId] = useState<string | null>(null);
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
+  const isAdvancedMode = settings.chatbotUiMode === ChatbotUiMode.Advanced;
+  const hasUserResponded = useMemo(
+    () => messages.some((m) => m.type === 'user' || m.type === 'user_replay'),
+    [messages]
+  );
+  // "Started" means user interaction happened (typed/replied/selected option),
+  // not just bot greeting/history replay.
+  const hasConversationInProgress = (hasUserResponded || clickedItems.length > 0) && !sessionCompleted;
+  const markUserInteracted = useCallback(() => {
+    hasUserInteractedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    blockedStateRef.current = channelBlocked;
+  }, [channelBlocked]);
+
+  const normalizeBlockedMessage = (raw?: string | null) => {
+    const fallback = 'Service is unavailable right now.';
+    const cleaned = String(raw || '')
+      .replace(/^CHANNEL_BLOCKED(?:\s*[:\-])?\s*/i, '')
+      .trim();
+    return cleaned || fallback;
+  };
+
+  const formatGreetingText = useCallback((rawGreeting?: string) => {
+    const assistantName = settings.assistantName?.trim() || 'our assistant';
+    const companyName = settings.companyName?.trim() || '';
+    const fallback = `Hi! I'm ${assistantName}${companyName ? ` from ${companyName}` : ''}. How can I assist you today?`;
+    const source = (rawGreeting || '').trim() || fallback;
+
+    let output = source.replace(/{assistantName}/gi, assistantName);
+    if (companyName) {
+      output = output.replace(/{companyName}/gi, companyName);
+    } else {
+      output = output
+        .replace(/\s+from\s+\{companyName\}/gi, '')
+        .replace(/\s+at\s+\{companyName\}/gi, '')
+        .replace(/\s+of\s+\{companyName\}/gi, '')
+        .replace(/\s+with\s+\{companyName\}/gi, '')
+        .replace(/\{companyName\}/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s+([.,!?])/g, '$1');
+    }
+    return output;
+  }, [settings.assistantName, settings.companyName]);
 
   const persistConversationMeta = (meta: { active?: boolean; leadId?: string | null; clickedItems?: string[] }) => {
     if (!conversationMetaStorageKey || typeof window === 'undefined') return;
@@ -268,6 +334,8 @@ export default function WidgetPage() {
     setHasActiveConversation(false);
     setFileUploadEnabled(false);
     setChatEnded(false);
+    setChannelBlocked(false);
+    setChannelBlockedMessage(null);
     setSessionCompleted(false);
     setConnectionError(null);
     setInput('');
@@ -334,8 +402,10 @@ export default function WidgetPage() {
          if (integration) {
            setSettings({
              assistantName: integration.assistantName || 'Assistly Chatbot',
+             companyName: integration.companyName || '',
              greeting: integration.greeting || '',
              primaryColor: integration.primaryColor || '#c01721',
+             chatbotUiMode: integration.chatbotUiMode === ChatbotUiMode.Advanced ? ChatbotUiMode.Advanced : ChatbotUiMode.Basic,
              chatbotImage: integration.chatbotImage?.filename || '',
              validateEmail: integration.validateEmail || false,
              validatePhoneNumber: integration.validatePhoneNumber || true,
@@ -384,8 +454,31 @@ export default function WidgetPage() {
   // Bell sound is handled entirely by widget.js on the parent page — it queues
   // and fires on first real user activation (click / keydown / touch).
   useEffect(() => {
-    if (!settingsLoaded || !widgetSessionId) return;
+    if (!settingsLoaded || !widgetSessionId || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
     const timer = setTimeout(() => {
+      // Prevent initial auto-open timer from overriding manual user action.
+      if (isOpenRef.current || hasUserInteractedRef.current) return;
+      setIsWidgetVisible(true);
+      const selectedMode =
+        settings.chatbotUiMode === ChatbotUiMode.Advanced
+          ? ChatbotUiMode.Advanced
+          : ChatbotUiMode.Basic;
+
+      if (selectedMode === ChatbotUiMode.Advanced) {
+        // Advanced mode: resume chat when conversation already started,
+        // otherwise keep the branded home screen.
+        if (hasConversationInProgress) {
+          setIsOpen(true);
+          sendWidgetState(true);
+        } else {
+          setIsOpen(false);
+          sendWidgetState(false);
+        }
+        resizeIframe(600);
+        return;
+      }
+
       if (!hasActiveConversation) {
         setMessages([]);
         setConnected(false);
@@ -403,7 +496,7 @@ export default function WidgetPage() {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [settingsLoaded, countryCode, widgetSessionId, hasActiveConversation, leadId]);
+  }, [settingsLoaded, widgetSessionId, hasActiveConversation, hasConversationInProgress, createInteractionLead, settings.chatbotUiMode]);
 
   // WebSocket must not reconnect when leadId/clickedItems change (e.g. after a button tap),
   // or cleanup closes the socket before the bot reply is delivered.
@@ -432,6 +525,9 @@ export default function WidgetPage() {
       setConnected(true);
       setIsReconnecting(false);
       setConnectionError(null);
+      setChannelBlocked(false);
+      setChannelBlockedMessage(null);
+      setMessages((prev) => prev.filter((item) => item.type !== 'channel_blocked'));
       // If we already have rendered messages, treat early incoming frames as potential
       // transcript replay and dedupe by (type, content) until a new message arrives.
       replayDedupGuardRef.current = messagesRef.current.length > 0;
@@ -446,6 +542,7 @@ export default function WidgetPage() {
         const msg = JSON.parse(e.data) as AnyMessage;
         const msgType = (msg as any).type;
         const msgContent = String((msg as { content?: string }).content || '');
+        const looksLikeBlockedToken = /^CHANNEL_BLOCKED(?:\s*[:\-])?/i.test(msgContent.trim());
 
         // On reopen/resume we may already have transcript in-memory. If backend replays
         // older lines, skip them so chat does not append duplicates.
@@ -485,6 +582,40 @@ export default function WidgetPage() {
           setSessionCompleted(true);
           setIsTyping(false);
           setFileUploadEnabled(false);
+          return;
+        }
+
+        if (msgType === 'channel_blocked') {
+          const blockedText = normalizeBlockedMessage(msgContent);
+          setChannelBlocked(true);
+          setChannelBlockedMessage(blockedText);
+          setChatEnded(true);
+          setIsTyping(false);
+          setIsReconnecting(false);
+          setConnectionError(null);
+          clearReconnectTimer();
+          setMessages((prev) => {
+            if (prev.some((item) => item.type === 'channel_blocked')) return prev;
+            return [...prev, { type: 'channel_blocked', content: blockedText, code: (msg as { code?: string }).code }];
+          });
+          return;
+        }
+
+        // Safety net: if backend sends blocked token as a plain bot message,
+        // treat it as blocked-state instead of rendering raw control text.
+        if (msgType === 'bot' && looksLikeBlockedToken) {
+          const blockedText = normalizeBlockedMessage(msgContent);
+          setChannelBlocked(true);
+          setChannelBlockedMessage(blockedText);
+          setChatEnded(true);
+          setIsTyping(false);
+          setIsReconnecting(false);
+          setConnectionError(null);
+          clearReconnectTimer();
+          setMessages((prev) => {
+            if (prev.some((item) => item.type === 'channel_blocked')) return prev;
+            return [...prev, { type: 'channel_blocked', content: blockedText }];
+          });
           return;
         }
 
@@ -538,6 +669,11 @@ export default function WidgetPage() {
       if (wsRef.current !== ws) return;
       setConnected(false);
       setIsTyping(false);
+      if (blockedStateRef.current) {
+        setIsReconnecting(false);
+        setChatEnded(true);
+        return;
+      }
       // Only reconnect for unexpected closes, not controlled cleanup/reconnects
       if (!isIntentionalClose.current && isOpen) {
         if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
@@ -701,6 +837,16 @@ export default function WidgetPage() {
     }
   };
 
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    if (!isWidgetVisible) {
+      resizeIframe(100);
+      return;
+    }
+    if (isOpen) return;
+    resizeIframe(settings.chatbotUiMode === ChatbotUiMode.Advanced ? 600 : 100);
+  }, [isOpen, isWidgetVisible, settingsLoaded, settings.chatbotUiMode]);
+
   /** After booking / all questions answered: clear cached thread when user closes widget (or on reload). */
   const applyCompletedFlowStorageReset = useCallback((): string | null => {
     if (!resumeStorageKey || typeof window === 'undefined') return null;
@@ -722,6 +868,7 @@ export default function WidgetPage() {
   }, [resumeStorageKey, conversationMetaStorageKey]);
 
   const closeWidgetChrome = useCallback(() => {
+    markUserInteracted();
     const newId = applyCompletedFlowStorageReset();
     if (newId) {
       setWidgetSessionId(newId);
@@ -739,6 +886,9 @@ export default function WidgetPage() {
     }
     isIntentionalClose.current = true;
     setIsOpen(false);
+    if (isAdvancedMode) {
+      setIsWidgetVisible(false);
+    }
     sendWidgetState(false);
     if (wsRef.current) {
       try {
@@ -746,7 +896,24 @@ export default function WidgetPage() {
       } catch {}
     }
     resizeIframe(100);
-  }, [applyCompletedFlowStorageReset]);
+  }, [applyCompletedFlowStorageReset, isAdvancedMode, markUserInteracted]);
+
+  const openChatFromLauncher = useCallback(() => {
+    markUserInteracted();
+    clearReconnectTimer();
+    reconnectAttemptsRef.current = 0;
+    setIsReconnecting(false);
+    setConnectionError(null);
+    setChatEnded(false);
+    setIsOpen(true);
+    sendWidgetState(true);
+    resizeIframe(600);
+    // Do not clear messages/state here; that can wipe a just-started thread
+    // and cause a "connecting" limbo on launcher opens.
+    if (!hasActiveConversation) {
+      createInteractionLead();
+    }
+  }, [hasActiveConversation, createInteractionLead, markUserInteracted]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1004,9 +1171,121 @@ export default function WidgetPage() {
     }
     return false;
   }, [messages]);
+  if (!isWidgetVisible) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          type="button"
+          onClick={() => {
+            markUserInteracted();
+            setIsWidgetVisible(true);
+            if (isAdvancedMode && !hasConversationInProgress) {
+              setIsOpen(false);
+              sendWidgetState(false);
+              resizeIframe(600);
+              return;
+            }
+            setIsOpen(true);
+            sendWidgetState(true);
+            resizeIframe(600);
+            if (!hasConversationInProgress) createInteractionLead();
+          }}
+          className="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center"
+          style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+          title={`Open chat with ${settings.assistantName || 'assistant'}`}
+          aria-label="Open chatbot"
+        >
+          {imageData ? (
+            <img src={imageData} alt="Chatbot" className="w-10 h-10 rounded-full object-cover" />
+          ) : (
+            <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+            </svg>
+          )}
+        </button>
+      </div>
+    );
+  }
 
   if (!isOpen) {
     if (!settingsLoaded) return null;
+    const isAdvancedLauncher = settings.chatbotUiMode === ChatbotUiMode.Advanced;
+
+    if (isAdvancedLauncher) {
+      return (
+        <div className="fixed z-50 w-full h-full bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden">
+          <div
+            className="px-4 pt-4 pb-6 text-white"
+            style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-full bg-white shadow-sm overflow-hidden flex items-center justify-center">
+                {imageData ? (
+                  <img src={imageData} alt="Chatbot" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <span className="text-xs font-semibold" style={{ color: settings.primaryColor || '#c01721' }}>
+                    {(settings.assistantName || 'A').slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-white/90 text-lg leading-none px-1"
+                onClick={closeWidgetChrome}
+                aria-label="Close"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <h2 className="mt-5 text-3xl font-semibold leading-tight">Hey there 👋</h2>
+            <p className="mt-2 text-white/90 text-base leading-snug">
+              Welcome to our website. Feel free to ask us anything.
+            </p>
+          </div>
+
+          <div className="px-3 pt-5 relative z-10">
+            <button
+              type="button"
+              onClick={openChatFromLauncher}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white flex items-center justify-between shadow-sm hover:shadow transition"
+            >
+              <span className="text-gray-700 font-medium">Chat with us</span>
+              <span className="text-white rounded-full w-7 h-7 flex items-center justify-center" style={{ backgroundColor: settings.primaryColor || '#c01721' }}>
+                ➤
+              </span>
+            </button>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 border-t border-gray-100 bg-white py-2 px-8 flex items-center justify-between text-xs">
+            <div className="flex flex-col items-center gap-1">
+              <span
+                className="w-7 h-7 rounded-md flex items-center justify-center"
+                style={{ backgroundColor: settings.primaryColor || '#c01721' }}
+              >
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z" />
+                </svg>
+              </span>
+              <span className="font-medium" style={{ color: settings.primaryColor || '#c01721' }}>Home</span>
+            </div>
+            <button
+              type="button"
+              className="flex flex-col items-center gap-1 text-gray-700 hover:text-gray-900 transition-colors"
+              onClick={openChatFromLauncher}
+            >
+              <span className="w-7 h-7 rounded-md flex items-center justify-center border border-gray-300 bg-white">
+                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8M8 14h5m-8 6l3-3h10a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                </svg>
+              </span>
+              <span className="font-medium text-gray-700">Chat</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     // Compact widget - inline message and chat button
     return (
       <>
@@ -1042,17 +1321,20 @@ export default function WidgetPage() {
             />
             <button
               onClick={() => {
-                if (!hasActiveConversation) {
+                markUserInteracted();
+                if (!hasConversationInProgress) {
                   setMessages([]);
                   setConnected(false);
                   setChatEnded(false);
+                  setChannelBlocked(false);
+                  setChannelBlockedMessage(null);
                   setIsTyping(false);
                   setFileUploadEnabled(false);
                 }
                 setIsOpen(true);
                 sendWidgetState(true);
                 resizeIframe(600);
-                if (!hasActiveConversation) {
+                if (!hasConversationInProgress) {
                   createInteractionLead();
                 }
               }}
@@ -1098,6 +1380,24 @@ export default function WidgetPage() {
       {/* Header */}
       <div className="p-3 border-b text-sm sm:text-base font-medium flex items-center justify-between">
         <div className="flex items-center gap-2">
+          {isAdvancedMode && (
+            <button
+              type="button"
+              onClick={() => {
+                markUserInteracted();
+                setIsOpen(false);
+                sendWidgetState(false);
+                resizeIframe(600);
+              }}
+              className="text-gray-500 hover:text-gray-700 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              title="Back to home"
+              aria-label="Back to home"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           <div
             className="w-8 h-8 rounded-full shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0"
             style={{ backgroundColor: settings.primaryColor || '#c01721' }}
@@ -1239,16 +1539,20 @@ export default function WidgetPage() {
           <div className="flex flex-col items-center gap-2 text-center">
             {chatEnded ? (
               <>
-                <div className="text-gray-400 text-sm">Connection lost.</div>
-                {connectionError && (
-                  <div className="text-gray-500 text-xs">{connectionError}</div>
-                )}
+                <div className="text-gray-400 text-sm">{channelBlocked ? 'Chat unavailable' : 'Connection lost.'}</div>
+                <div className="text-gray-500 text-xs">
+                  {channelBlocked
+                    ? normalizeBlockedMessage(channelBlockedMessage)
+                    : connectionError}
+                </div>
                 <button
                   onClick={() => {
                     clearReconnectTimer();
                     reconnectAttemptsRef.current = 0;
                     setIsReconnecting(false);
                     setConnectionError(null);
+                    setChannelBlocked(false);
+                    setChannelBlockedMessage(null);
                     setChatEnded(false);
                     setConnected(false);
                     setIsOpen(false);
@@ -1257,7 +1561,7 @@ export default function WidgetPage() {
                   className="text-xs px-3 py-1.5 rounded-full text-white font-medium"
                   style={{ backgroundColor: settings.primaryColor || '#c01721' }}
                 >
-                  Reconnect
+                  {channelBlocked ? 'Check again' : 'Reconnect'}
                 </button>
               </>
             ) : (
@@ -1314,13 +1618,15 @@ export default function WidgetPage() {
         <input
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
           placeholder={
-            !connected
-              ? (chatEnded ? 'Chat ended' : 'Connecting...')
+            channelBlocked
+              ? 'Service is unavailable right now.'
+              : !connected
+                ? (chatEnded ? 'Chat ended' : 'Connecting...')
               : (sessionCompleted
                   ? 'Chat completed - Click Reset to start again.'
                   : (requiresOptionSelection ? 'Please select from the options above' : 'Type a message...'))
           }
-          disabled={!connected || requiresOptionSelection || sessionCompleted}
+          disabled={!connected || requiresOptionSelection || sessionCompleted || channelBlocked}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !sessionCompleted) send(); }}
@@ -1329,7 +1635,7 @@ export default function WidgetPage() {
           className="text-white text-sm sm:text-base px-2 sm:px-4 py-1.5 sm:py-2 rounded font-medium disabled:opacity-50 whitespace-nowrap" 
           style={{ backgroundColor: settings.primaryColor || '#c01721' }}
           onClick={sessionCompleted ? resetChatToStart : send}
-          disabled={sessionCompleted ? false : (!connected || requiresOptionSelection)}
+          disabled={sessionCompleted ? false : (!connected || requiresOptionSelection || channelBlocked)}
         >
           {sessionCompleted ? 'Reset' : 'Send'}
         </button>

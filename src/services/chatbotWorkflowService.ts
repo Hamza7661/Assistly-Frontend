@@ -152,6 +152,7 @@ class ChatbotWorkflowService extends HttpService {
     if (workflow.workflowGroupId !== undefined) clean.workflowGroupId = workflow.workflowGroupId;
     if (workflow.isRoot !== undefined) clean.isRoot = workflow.isRoot;
     if (workflow.isActive !== undefined) clean.isActive = workflow.isActive;
+    if (workflow.askForBookingAtEnd !== undefined) clean.askForBookingAtEnd = workflow.askForBookingAtEnd;
     if (workflow.order !== undefined) clean.order = workflow.order;
     if (workflow.options !== undefined) clean.options = workflow.options;
     

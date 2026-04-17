@@ -359,6 +359,7 @@ export default function AppsPage() {
     { href: '/settings',           icon: User,          label: 'Account Settings' },
   ];
 
+
   if (isLoading) {
     return (
       <ProtectedRoute>

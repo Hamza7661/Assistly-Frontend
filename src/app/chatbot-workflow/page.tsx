@@ -53,6 +53,7 @@ function ChatbotWorkflowPageContent() {
     options: [],
     isRoot: false,
     isActive: true,
+    askForBookingAtEnd: false,
     order: 0
   });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -157,6 +158,7 @@ function ChatbotWorkflowPageContent() {
       options: [],
       isRoot: true,
       isActive: true,
+      askForBookingAtEnd: false,
       order: 0,
       workflowGroupId: null
     });
@@ -176,6 +178,7 @@ function ChatbotWorkflowPageContent() {
       options: [],
       isRoot: false,
       isActive: true,
+      askForBookingAtEnd: false,
       order: nextOrder,
       workflowGroupId: workflowGroupId
     });
@@ -234,6 +237,7 @@ function ChatbotWorkflowPageContent() {
         title: newQuestion.title?.trim() || newQuestion.question.trim().substring(0, 100),
         questionTypeId: resolvedQuestionTypeId,
         choiceInputMode: resolveChoiceInputModeForPersist(resolvedQuestionTypeId),
+        askForBookingAtEnd: newQuestion.isRoot ? (newQuestion.askForBookingAtEnd ?? false) : undefined,
       };
 
       let savedWorkflowId: string | null = null;
@@ -294,6 +298,7 @@ function ChatbotWorkflowPageContent() {
         options: [],
         isRoot: false,
         isActive: true,
+        askForBookingAtEnd: false,
         order: 0
       });
     } catch (error: any) {
@@ -317,6 +322,7 @@ function ChatbotWorkflowPageContent() {
       options: [],
       isRoot: false,
       isActive: true,
+      askForBookingAtEnd: false,
       order: 0
     });
   };
@@ -333,6 +339,7 @@ function ChatbotWorkflowPageContent() {
       questionTypeId: typeId,
       choiceInputMode: resolveChoiceInputModeForPersist(typeId),
       options: ensureChoiceTypeHasButtonRow(typeId, question.options),
+      askForBookingAtEnd: question.askForBookingAtEnd ?? false,
     });
     setPendingAttachmentFile(null);
     setRemovingAttachment(false);
@@ -962,7 +969,7 @@ function ChatbotWorkflowPageContent() {
                 <h2 className="text-base sm:text-xl font-semibold text-gray-900">Edit Question</h2>
                 <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-5 w-5" /></button>
               </div>
-              <div className="p-4 sm:p-6">{renderQuestionForm(false)}</div>
+              <div className="p-4 sm:p-6">{renderQuestionForm(Boolean(newQuestion.isRoot))}</div>
             </div>
           </div>
         )}
@@ -1295,6 +1302,28 @@ function ChatbotWorkflowPageContent() {
         )}
 
         {/* Active toggle */}
+        {isRoot && (
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-sm font-medium text-gray-700">Do you want to ask for booking at the end of this workflow?</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  For appointment lead types, booking remains compulsory. This toggle controls non-booking lead types only.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={newQuestion.askForBookingAtEnd ?? false}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, askForBookingAtEnd: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="brand-toggle-track"></div>
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-end">
           <label className="flex items-center">
             <input

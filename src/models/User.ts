@@ -7,6 +7,7 @@ export class User {
   phoneNumber: string;
   twilioPhoneNumber?: string;
   email: string;
+  role: 'user' | 'admin' | 'super_admin';
   professionDescription: string;
   industry?: string;
   region?: string;
@@ -31,6 +32,7 @@ export class User {
     this.phoneNumber = data.phoneNumber || '';
     this.twilioPhoneNumber = data.twilioPhoneNumber || undefined;
     this.email = data.email || '';
+    this.role = data.role || 'user';
     this.professionDescription = data.professionDescription || '';
     this.industry = data.industry || '';
     this.region = data.region || 'us';
@@ -81,6 +83,7 @@ export class User {
       phoneNumber: this.phoneNumber,
       twilioPhoneNumber: this.twilioPhoneNumber,
       email: this.email,
+      role: this.role,
       professionDescription: this.professionDescription,
       website: this.website,
       package: this.package?.toJson() || null,

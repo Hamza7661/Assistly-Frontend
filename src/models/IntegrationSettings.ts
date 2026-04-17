@@ -28,6 +28,7 @@ export interface IntegrationSettings {
    * (no option buttons/numbered lists for lead type, service selection, and workflow questions).
    */
   conversationStyle?: boolean;
+  chatbotUiMode?: 'basic' | 'advanced';
   captureFeedbackEnabled?: boolean;
   googleReviewEnabled?: boolean;
   googleReviewUrl?: string | null;
