@@ -130,6 +130,7 @@ export function useFacebookOAuth(): UseFacebookOAuthReturn {
             }
 
             const pages: FbPage[] = pagesRes.data;
+            debugger;
             if (pages.length === 0) {
               toast.error('No Facebook pages found. Make sure you admin at least one page.');
               return;
@@ -146,7 +147,7 @@ export function useFacebookOAuth(): UseFacebookOAuthReturn {
           }
         );
       },
-      { scope: FACEBOOK_LOGIN_SCOPE }
+      { scope: FACEBOOK_LOGIN_SCOPE, auth_type: 'reauthenticate' }
     );
   };
 
