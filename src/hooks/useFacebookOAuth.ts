@@ -49,7 +49,9 @@ export function useFacebookOAuth(): UseFacebookOAuthReturn {
 
           fbSdk.init({
             appId: FACEBOOK_APP_ID,
-            cookie: true,
+            cookie: false, // Disable cookie-based session persistence — prevents SDK from
+                           // restoring a stale token on init which causes the
+                           // "overriding access token" warning on every login
             xfbml: false,
             version: FACEBOOK_API_VERSION,
           });
@@ -162,8 +164,9 @@ export function useFacebookOAuth(): UseFacebookOAuthReturn {
         console.log(`${FB_LOG} Login response`, response);
 
         if (response.status !== 'connected' || !response.authResponse) {
+          // User cancelled the dialog or denied permissions — no toast, fail silently
+          console.warn(`${FB_LOG} Login cancelled or denied`, { status: response.status });
           setFbConnecting(false);
-          toast.error('Facebook login failed or cancelled.');
           return;
         }
 
