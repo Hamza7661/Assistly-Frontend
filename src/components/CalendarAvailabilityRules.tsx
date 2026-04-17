@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAvailabilityService } from '@/services';
 import { integrationService } from '@/services/integrationService';
 import type { AvailabilityDayUTC, AvailabilityExceptionItem, DayOfWeek } from '@/models/Availability';
@@ -59,9 +59,24 @@ interface CalendarAvailabilityRulesProps {
   dialogMode?: 'availability' | 'exceptions';
   /** Called when the user closes the dialog (e.g. Close button). */
   onClose?: () => void;
+  /** Fires when a date exception save/remove/retry is in flight (for disabling modal chrome). */
+  onExceptionOperationBusy?: (busy: boolean) => void;
 }
 
-export default function CalendarAvailabilityRules({ appId, defaultExpanded = false, dialogMode, onClose }: CalendarAvailabilityRulesProps) {
+function ExceptionBusyOverlay({ label }: { label: string }) {
+  return (
+    <div
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg bg-white/75 backdrop-blur-[1px]"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="animate-spin rounded-full h-9 w-9 border-2 border-[#c01721] border-t-transparent" aria-hidden />
+      <p className="mt-3 text-sm font-medium text-gray-600">{label}</p>
+    </div>
+  );
+}
+
+export default function CalendarAvailabilityRules({ appId, defaultExpanded = false, dialogMode, onClose, onExceptionOperationBusy }: CalendarAvailabilityRulesProps) {
   const browserTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', []);
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [days, setDays] = useState<AvailabilityDayUTC[]>([]);
@@ -82,6 +97,14 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
   const [exceptionAllDay, setExceptionAllDay] = useState(false);
   const [exceptionLabel, setExceptionLabel] = useState('');
   const [editingExistingException, setEditingExistingException] = useState(false);
+  const [exceptionBusy, setExceptionBusy] = useState(false);
+  const [exceptionsLoading, setExceptionsLoading] = useState(false);
+  const loadExceptionsFetchIdRef = useRef(0);
+  const loadExceptionsNonSilentIdRef = useRef(0);
+
+  useEffect(() => {
+    onExceptionOperationBusy?.(exceptionBusy || exceptionsLoading);
+  }, [exceptionBusy, exceptionsLoading, onExceptionOperationBusy]);
 
   const getSyncStatusMeta = (status?: AvailabilityExceptionItem['syncStatus']) => {
     switch (status) {
@@ -133,8 +156,15 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
 
   useEffect(() => { load(); }, [load]);
 
-  const loadExceptions = useCallback(async () => {
+  const loadExceptions = useCallback(async (options?: { silent?: boolean }) => {
     if (!appId) return;
+    const silent = options?.silent === true;
+    const fetchId = ++loadExceptionsFetchIdRef.current;
+    let nonSilentId = 0;
+    if (!silent) {
+      nonSilentId = ++loadExceptionsNonSilentIdRef.current;
+      setExceptionsLoading(true);
+    }
     try {
       const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const lastDay = new Date(year, month + 1, 0).getDate();
@@ -143,9 +173,17 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
       const res = await svc.getExceptions(appId, from, to);
       const map: Record<string, AvailabilityExceptionItem> = {};
       (res.data?.exceptions ?? []).forEach((ex: AvailabilityExceptionItem) => { map[ex.date] = ex; });
-      setExceptions(map);
+      if (loadExceptionsFetchIdRef.current === fetchId) {
+        setExceptions(map);
+      }
     } catch {
-      toast.error('Failed to load exceptions');
+      if (loadExceptionsFetchIdRef.current === fetchId) {
+        toast.error('Failed to load exceptions');
+      }
+    } finally {
+      if (!silent && loadExceptionsNonSilentIdRef.current === nonSilentId) {
+        setExceptionsLoading(false);
+      }
     }
   }, [appId, year, month]);
 
@@ -232,14 +270,18 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
     payload: { allDayOff?: boolean; overrideAllDay?: boolean; slots?: Array<{ start: string; end: string }>; label?: string | null }
   ) => {
     if (!appId) return;
+    setExceptionBusy(true);
     try {
       const svc = await useAvailabilityService();
       await svc.putException(appId, { date: dateStr, timezone: browserTimezone, ...payload });
       setExceptions((prev) => ({ ...prev, [dateStr]: { date: dateStr, timezone: browserTimezone, ...payload } }));
       setSelectedDate(null);
+      await loadExceptions({ silent: true });
       toast.success('Exception saved');
     } catch {
       toast.error('Failed to save exception');
+    } finally {
+      setExceptionBusy(false);
     }
   };
 
@@ -248,6 +290,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
     payload: { allDayOff?: boolean; overrideAllDay?: boolean; slots?: Array<{ start: string; end: string }>; label?: string | null }
   ) => {
     if (!appId || dates.length === 0) return;
+    setExceptionBusy(true);
     try {
       const svc = await useAvailabilityService();
       await svc.putExceptionsBulk(appId, {
@@ -262,14 +305,18 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
       });
       setSelectedDate(null);
       setSelectedDates([]);
+      await loadExceptions({ silent: true });
       toast.success(`Exceptions saved for ${dates.length} date${dates.length > 1 ? 's' : ''}`);
     } catch {
       toast.error('Failed to save exceptions');
+    } finally {
+      setExceptionBusy(false);
     }
   };
 
   const removeException = async (dateStr: string) => {
     if (!appId) return;
+    setExceptionBusy(true);
     try {
       const svc = await useAvailabilityService();
       await svc.deleteException(appId, dateStr);
@@ -279,14 +326,18 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
         return next;
       });
       setSelectedDate(null);
+      await loadExceptions({ silent: true });
       toast.success('Exception removed');
     } catch {
       toast.error('Failed to remove exception');
+    } finally {
+      setExceptionBusy(false);
     }
   };
 
   const removeExceptionsBulk = async (dates: string[]) => {
     if (!appId || dates.length === 0) return;
+    setExceptionBusy(true);
     try {
       const svc = await useAvailabilityService();
       await Promise.all(dates.map((date) => svc.deleteException(appId, date)));
@@ -297,21 +348,27 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
       });
       setSelectedDate(null);
       setSelectedDates([]);
+      await loadExceptions({ silent: true });
       toast.success(`Exceptions removed for ${dates.length} date${dates.length > 1 ? 's' : ''}`);
     } catch {
       toast.error('Failed to remove selected exceptions');
+    } finally {
+      setExceptionBusy(false);
     }
   };
 
   const retryExceptionSync = async (dateStr: string) => {
     if (!appId) return;
+    setExceptionBusy(true);
     try {
       const svc = await useAvailabilityService();
       await svc.retryExceptionSync(appId, dateStr);
-      await loadExceptions();
+      await loadExceptions({ silent: true });
       toast.success('Sync retried');
     } catch {
       toast.error('Failed to retry sync');
+    } finally {
+      setExceptionBusy(false);
     }
   };
 
@@ -324,6 +381,8 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
     setSelectedDate(date);
     setSelectedDates((prev) => (prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date]));
   };
+
+  const exceptionsUiLocked = exceptionBusy || exceptionsLoading;
 
   if (dialogMode === 'availability') {
     return (
@@ -384,17 +443,21 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
 
   if (dialogMode === 'exceptions') {
     return (
-      <div className="space-y-4">
+      <div className="relative space-y-4 min-w-0" aria-busy={exceptionsUiLocked}>
+        {(exceptionsLoading || exceptionBusy) && (
+          <ExceptionBusyOverlay label={exceptionBusy ? 'Please wait…' : 'Loading exceptions…'} />
+        )}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded">Prev</button>
+            <button type="button" disabled={exceptionsUiLocked} onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded disabled:opacity-50 disabled:pointer-events-none">Prev</button>
             <span className="text-sm font-medium">{MONTH_NAMES[month]} {year}</span>
-            <button type="button" onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded">Next</button>
+            <button type="button" disabled={exceptionsUiLocked} onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded disabled:opacity-50 disabled:pointer-events-none">Next</button>
           </div>
           <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-3 cursor-pointer">
+            <label className={`inline-flex items-center gap-3 ${exceptionsUiLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
+                disabled={exceptionsUiLocked}
                 checked={multiSelectMode}
                 onChange={(e) => {
                   const on = e.target.checked;
@@ -409,8 +472,9 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
             {multiSelectMode && selectedDates.length > 0 && (
               <button
                 type="button"
+                disabled={exceptionsUiLocked}
                 onClick={() => setSelectedDates([])}
-                className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50"
+                className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
               >
                 Clear
               </button>
@@ -423,7 +487,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
             const ex = exceptions[date];
             const isSelected = multiSelectMode ? selectedDates.includes(date) : selectedDate === date;
             return (
-              <button key={date} type="button" onClick={() => handleDateClick(date)} className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''}`}>
+              <button key={date} type="button" disabled={exceptionsUiLocked} onClick={() => handleDateClick(date)} className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''} disabled:opacity-50 disabled:pointer-events-none`}>
                 {day}
                 {ex && (
                   <span className={`block w-1 h-1 rounded-full mx-auto mt-0.5 ${
@@ -464,6 +528,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    disabled={exceptionsUiLocked}
                     onClick={() => {
                       setExceptionNotAvailable(!!selectedException.allDayOff);
                       setExceptionAllDay(!!selectedException.overrideAllDay);
@@ -475,33 +540,34 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                       setExceptionLabel(selectedException.label || '');
                       setEditingExistingException(true);
                     }}
-                    className="text-xs px-2 py-1.5 border rounded hover:bg-blue-50 text-blue-700 border-blue-200"
+                    className="text-xs px-2 py-1.5 border rounded hover:bg-blue-50 text-blue-700 border-blue-200 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     Edit
                   </button>
-                  <button type="button" onClick={() => removeException(selectedDate)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1.5 border rounded hover:bg-red-50 text-red-600 border-red-200" title="Remove exception" aria-label="Remove exception"><Trash2 className="h-3.5 w-3.5" /> Remove</button>
+                  <button type="button" disabled={exceptionsUiLocked} onClick={() => removeException(selectedDate)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1.5 border rounded hover:bg-red-50 text-red-600 border-red-200 disabled:opacity-50 disabled:pointer-events-none" title="Remove exception" aria-label="Remove exception"><Trash2 className="h-3.5 w-3.5" /> Remove</button>
                   {selectedException.syncStatus === 'failed' && (
                     <button
                       type="button"
+                      disabled={exceptionsUiLocked}
                       onClick={() => retryExceptionSync(selectedDate)}
-                      className="text-xs px-2 py-1.5 border rounded hover:bg-amber-50 text-amber-700 border-amber-200"
+                      className="text-xs px-2 py-1.5 border rounded hover:bg-amber-50 text-amber-700 border-amber-200 disabled:opacity-50 disabled:pointer-events-none"
                     >
                       Retry sync
                     </button>
                   )}
-                  <button type="button" onClick={() => setSelectedDate(null)} className="text-xs px-2 py-1.5 border rounded hover:bg-gray-50">Close</button>
+                  <button type="button" disabled={exceptionsUiLocked} onClick={() => setSelectedDate(null)} className="text-xs px-2 py-1.5 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">Close</button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4 w-full min-w-0">
                 <div className="flex flex-wrap items-center gap-6">
-                  <label className="inline-flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={exceptionNotAvailable} onChange={(e) => { const on = e.target.checked; setExceptionNotAvailable(on); if (on) setExceptionAllDay(false); }} className="sr-only peer" />
+                  <label className={`inline-flex items-center gap-3 ${exceptionsUiLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                    <input type="checkbox" disabled={exceptionsUiLocked} checked={exceptionNotAvailable} onChange={(e) => { const on = e.target.checked; setExceptionNotAvailable(on); if (on) setExceptionAllDay(false); }} className="sr-only peer" />
                     <span className="relative h-6 w-11 shrink-0 rounded-full bg-gray-200 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-[#00bc7d] peer-checked:after:translate-x-5 peer-focus:outline-none" />
                     <span className="text-sm text-gray-700 font-medium">Not available</span>
                   </label>
-                  <label className="inline-flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={exceptionAllDay} onChange={(e) => { const on = e.target.checked; setExceptionAllDay(on); if (on) setExceptionNotAvailable(false); }} className="sr-only peer" />
+                  <label className={`inline-flex items-center gap-3 ${exceptionsUiLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                    <input type="checkbox" disabled={exceptionsUiLocked} checked={exceptionAllDay} onChange={(e) => { const on = e.target.checked; setExceptionAllDay(on); if (on) setExceptionNotAvailable(false); }} className="sr-only peer" />
                     <span className="relative h-6 w-11 shrink-0 rounded-full bg-gray-200 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-[#00bc7d] peer-checked:after:translate-x-5 peer-focus:outline-none" />
                     <span className="text-sm text-gray-700 font-medium">All day</span>
                   </label>
@@ -511,10 +577,11 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                   <input
                     type="text"
                     maxLength={80}
+                    disabled={exceptionsUiLocked}
                     value={exceptionLabel}
                     onChange={(e) => setExceptionLabel(e.target.value)}
                     placeholder="e.g. Vacation, Team meeting"
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                   />
                 </div>
                 {!exceptionNotAvailable && !exceptionAllDay && (
@@ -522,18 +589,19 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                     <p className="text-xs text-gray-500">Custom time slots for this date:</p>
                     {customSlots.map((slot, idx) => (
                       <div key={idx} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] gap-2 items-center w-full">
-                        <input type="time" value={slot.start} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full" />
+                        <input type="time" disabled={exceptionsUiLocked} value={slot.start} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full disabled:bg-gray-50" />
                         <span className="text-gray-500 text-sm shrink-0">–</span>
-                        <input type="time" value={slot.end} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full" />
-                        <button type="button" onClick={() => setCustomSlots((s) => s.filter((_, i) => i !== idx))} className="p-1.5 rounded text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0" title="Remove slot" aria-label="Remove slot"><Trash2 className="h-4 w-4" /></button>
+                        <input type="time" disabled={exceptionsUiLocked} value={slot.end} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full disabled:bg-gray-50" />
+                        <button type="button" disabled={exceptionsUiLocked} onClick={() => setCustomSlots((s) => s.filter((_, i) => i !== idx))} className="p-1.5 rounded text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none" title="Remove slot" aria-label="Remove slot"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     ))}
-                    <div className="pt-2"><button type="button" onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#c01721] hover:underline font-medium">+ Add slot</button></div>
+                    <div className="pt-2"><button type="button" disabled={exceptionsUiLocked} onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#c01721] hover:underline font-medium disabled:opacity-50 disabled:pointer-events-none">+ Add slot</button></div>
                   </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
                   <button
                     type="button"
+                    disabled={exceptionsUiLocked}
                     onClick={async () => {
                       const label = exceptionLabel.trim() || null;
                       const payload = exceptionNotAvailable
@@ -543,28 +611,28 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                           : { slots: customSlots, label };
                       if (multiSelectMode && selectedDates.length > 1) await saveExceptionsBulk(selectedDates, payload);
                       else await saveException(selectedDate, payload);
-                      loadExceptions();
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a]"
+                    className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a] disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {multiSelectMode && selectedDates.length > 1 ? `Save for ${selectedDates.length} dates` : 'Save'}
                   </button>
                   {multiSelectMode && selectedDates.length > 1 && (
                     <button
                       type="button"
+                      disabled={exceptionsUiLocked}
                       onClick={() => removeExceptionsBulk(selectedDates)}
-                      className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                      className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:pointer-events-none"
                     >
                       Remove selected
                     </button>
                   )}
-                  <button type="button" onClick={() => setSelectedDate(null)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
+                  <button type="button" disabled={exceptionsUiLocked} onClick={() => setSelectedDate(null)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">Close</button>
                 </div>
               </div>
             )}
           </div>
         )}
-        {onClose && <div className="pt-4 border-t border-gray-200 flex justify-end"><button type="button" onClick={onClose} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Close</button></div>}
+        {onClose && <div className="pt-4 border-t border-gray-200 flex justify-end"><button type="button" disabled={exceptionsUiLocked} onClick={onClose} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">Close</button></div>}
       </div>
     );
   }
@@ -677,17 +745,21 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
               Date exceptions
             </button>
             {exceptionsOpen && (
-              <div className="mt-3 ml-0 border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+              <div className="relative mt-3 ml-0 border border-gray-200 rounded-lg p-4 bg-gray-50/50 min-w-0" aria-busy={exceptionsUiLocked}>
+                {(exceptionsLoading || exceptionBusy) && (
+                  <ExceptionBusyOverlay label={exceptionBusy ? 'Please wait…' : 'Loading exceptions…'} />
+                )}
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded">Prev</button>
+                    <button type="button" disabled={exceptionsUiLocked} onClick={() => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); }} className="text-sm px-2 py-1 border rounded disabled:opacity-50 disabled:pointer-events-none">Prev</button>
                     <span className="text-sm font-medium">{MONTH_NAMES[month]} {year}</span>
-                    <button type="button" onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded">Next</button>
+                    <button type="button" disabled={exceptionsUiLocked} onClick={() => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); }} className="text-sm px-2 py-1 border rounded disabled:opacity-50 disabled:pointer-events-none">Next</button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="inline-flex items-center gap-3 cursor-pointer">
+                    <label className={`inline-flex items-center gap-3 ${exceptionsUiLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
+                        disabled={exceptionsUiLocked}
                         checked={multiSelectMode}
                         onChange={(e) => {
                           const on = e.target.checked;
@@ -702,8 +774,9 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                     {multiSelectMode && selectedDates.length > 0 && (
                       <button
                         type="button"
+                        disabled={exceptionsUiLocked}
                         onClick={() => setSelectedDates([])}
-                        className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50"
+                        className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
                       >
                         Clear
                       </button>
@@ -721,8 +794,9 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                       <button
                         key={date}
                         type="button"
+                        disabled={exceptionsUiLocked}
                         onClick={() => handleDateClick(date)}
-                        className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''}`}
+                        className={`py-1.5 rounded text-sm ${isCurrentMonth ? 'bg-white text-gray-900' : 'text-gray-400 bg-gray-100'} ${isSelected ? 'ring-2 ring-[#c01721]' : ''} disabled:opacity-50 disabled:pointer-events-none`}
                       >
                         {day}
                         {ex && (
@@ -759,6 +833,7 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                         <div className="flex gap-2">
                           <button
                             type="button"
+                            disabled={exceptionsUiLocked}
                             onClick={() => {
                               setExceptionNotAvailable(!!selectedException.allDayOff);
                               setExceptionAllDay(!!selectedException.overrideAllDay);
@@ -770,32 +845,34 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                               setExceptionLabel(selectedException.label || '');
                               setEditingExistingException(true);
                             }}
-                            className="text-xs px-2 py-1.5 border rounded hover:bg-blue-50 text-blue-700 border-blue-200"
+                            className="text-xs px-2 py-1.5 border rounded hover:bg-blue-50 text-blue-700 border-blue-200 disabled:opacity-50 disabled:pointer-events-none"
                           >
                             Edit
                           </button>
-                          <button type="button" onClick={() => removeException(selectedDate)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1.5 border rounded hover:bg-red-50 text-red-600 border-red-200" title="Remove exception" aria-label="Remove exception">
+                          <button type="button" disabled={exceptionsUiLocked} onClick={() => removeException(selectedDate)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1.5 border rounded hover:bg-red-50 text-red-600 border-red-200 disabled:opacity-50 disabled:pointer-events-none" title="Remove exception" aria-label="Remove exception">
                             <Trash2 className="h-3.5 w-3.5" />
                             Remove
                           </button>
                           {selectedException.syncStatus === 'failed' && (
                             <button
                               type="button"
+                              disabled={exceptionsUiLocked}
                               onClick={() => retryExceptionSync(selectedDate)}
-                              className="text-xs px-2 py-1.5 border rounded hover:bg-amber-50 text-amber-700 border-amber-200"
+                              className="text-xs px-2 py-1.5 border rounded hover:bg-amber-50 text-amber-700 border-amber-200 disabled:opacity-50 disabled:pointer-events-none"
                             >
                               Retry sync
                             </button>
                           )}
-                          <button type="button" onClick={() => setSelectedDate(null)} className="text-xs px-2 py-1.5 border rounded hover:bg-gray-50">Close</button>
+                          <button type="button" disabled={exceptionsUiLocked} onClick={() => setSelectedDate(null)} className="text-xs px-2 py-1.5 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">Close</button>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center gap-6">
-                          <label className="inline-flex items-center gap-3 cursor-pointer">
+                          <label className={`inline-flex items-center gap-3 ${exceptionsUiLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                             <input
                               type="checkbox"
+                              disabled={exceptionsUiLocked}
                               checked={exceptionNotAvailable}
                               onChange={(e) => {
                                 const on = e.target.checked;
@@ -807,9 +884,10 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                             <span className="relative h-6 w-11 shrink-0 rounded-full bg-gray-200 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-[#00bc7d] peer-checked:after:translate-x-5 peer-focus:outline-none" />
                             <span className="text-sm text-gray-700 font-medium">Not available</span>
                           </label>
-                          <label className="inline-flex items-center gap-3 cursor-pointer">
+                          <label className={`inline-flex items-center gap-3 ${exceptionsUiLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                             <input
                               type="checkbox"
+                              disabled={exceptionsUiLocked}
                               checked={exceptionAllDay}
                               onChange={(e) => {
                                 const on = e.target.checked;
@@ -827,10 +905,11 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                           <input
                             type="text"
                             maxLength={80}
+                            disabled={exceptionsUiLocked}
                             value={exceptionLabel}
                             onChange={(e) => setExceptionLabel(e.target.value)}
                             placeholder="e.g. Vacation, Team meeting"
-                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                           />
                         </div>
                         {!exceptionNotAvailable && !exceptionAllDay && (
@@ -838,22 +917,23 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                             <p className="text-xs text-gray-500">Custom time slots for this date:</p>
                             {customSlots.map((slot, idx) => (
                               <div key={idx} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] gap-2 items-center w-full">
-                                <input type="time" value={slot.start} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full" />
+                                <input type="time" disabled={exceptionsUiLocked} value={slot.start} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, start: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full disabled:bg-gray-50" />
                                 <span className="text-gray-500 text-sm shrink-0">–</span>
-                                <input type="time" value={slot.end} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full" />
-                                <button type="button" onClick={() => setCustomSlots((s) => s.filter((_, i) => i !== idx))} className="p-1.5 rounded text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0" title="Remove slot" aria-label="Remove slot">
+                                <input type="time" disabled={exceptionsUiLocked} value={slot.end} onChange={(e) => setCustomSlots((s) => s.map((x, i) => (i === idx ? { ...x, end: e.target.value } : x)))} className="border border-gray-300 rounded px-2 py-1.5 text-sm min-w-0 w-full disabled:bg-gray-50" />
+                                <button type="button" disabled={exceptionsUiLocked} onClick={() => setCustomSlots((s) => s.filter((_, i) => i !== idx))} className="p-1.5 rounded text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none" title="Remove slot" aria-label="Remove slot">
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
                             ))}
                             <div className="pt-2">
-                              <button type="button" onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#c01721] hover:underline font-medium">+ Add slot</button>
+                              <button type="button" disabled={exceptionsUiLocked} onClick={() => setCustomSlots((s) => [...s, { start: '09:00', end: '17:00' }])} className="text-sm text-[#c01721] hover:underline font-medium disabled:opacity-50 disabled:pointer-events-none">+ Add slot</button>
                             </div>
                           </div>
                         )}
                         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
                           <button
                             type="button"
+                            disabled={exceptionsUiLocked}
                             onClick={async () => {
                               const label = exceptionLabel.trim() || null;
                               const payload = exceptionNotAvailable
@@ -864,17 +944,17 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                               if (multiSelectMode && selectedDates.length > 1) await saveExceptionsBulk(selectedDates, payload);
                               else await saveException(selectedDate, payload);
                               setEditingExistingException(false);
-                              loadExceptions();
                             }}
-                            className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a]"
+                            className="px-3 py-1.5 rounded-lg bg-[#00bc7d] text-white text-sm hover:bg-[#00a06a] disabled:opacity-50 disabled:pointer-events-none"
                           >
                             {multiSelectMode && selectedDates.length > 1 ? `Save for ${selectedDates.length} dates` : 'Save'}
                           </button>
                           {multiSelectMode && selectedDates.length > 1 && (
                             <button
                               type="button"
+                              disabled={exceptionsUiLocked}
                               onClick={() => removeExceptionsBulk(selectedDates)}
-                              className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                              className="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:pointer-events-none"
                             >
                               Remove selected
                             </button>
@@ -882,13 +962,14 @@ export default function CalendarAvailabilityRules({ appId, defaultExpanded = fal
                           {selectedException && (
                             <button
                               type="button"
+                              disabled={exceptionsUiLocked}
                               onClick={() => setEditingExistingException(false)}
-                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
                             >
                               Cancel
                             </button>
                           )}
-                          <button type="button" onClick={() => setSelectedDate(null)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
+                          <button type="button" disabled={exceptionsUiLocked} onClick={() => setSelectedDate(null)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">Close</button>
                         </div>
                       </div>
                     )}

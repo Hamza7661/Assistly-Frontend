@@ -60,7 +60,7 @@ export interface FacebookSDKInitOptions {
  * Facebook SDK API call options
  */
 export interface FacebookApiOptions {
-  access_token: string;
+  access_token?: string;
   fields: string;
 }
 

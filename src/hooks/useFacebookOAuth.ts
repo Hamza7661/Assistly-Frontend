@@ -117,7 +117,7 @@ export function useFacebookOAuth(): UseFacebookOAuthReturn {
 
         fbSdk.api(
           '/me/accounts',
-          { access_token: token, fields: 'id,name,access_token' },
+          { fields: 'id,name,access_token' },
           (pagesRes: FacebookPagesApiResponse) => {
             setFbConnecting(false);
 
