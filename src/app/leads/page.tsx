@@ -455,12 +455,23 @@ function LeadsPageContent() {
     return message.content;
   };
 
+  const parseTagAttributes = (attrs: string): Record<string, string> => {
+    const map: Record<string, string> = {};
+    const attrRegex = /([a-zA-Z0-9_-]+)\s*=\s*["']([^"']*)["']/g;
+    let m: RegExpExecArray | null;
+    while ((m = attrRegex.exec(attrs)) !== null) {
+      map[m[1].toLowerCase()] = m[2];
+    }
+    return map;
+  };
+
   const renderBotContent = (text: string) => {
     const parts: React.ReactNode[] = [];
     // Supports both:
     // 1) <button ...>Label</button>
     // 2) <checkbox ...>Label</checkbox>
-    const regex = /<(button|checkbox)(?:\s+value=["']([^"']*)["'])?>([\s\S]*?)<\/\1>/gi;
+    // 3) <file url="..." name="...">Label</file>
+    const regex = /<(button|checkbox|file)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     
@@ -472,23 +483,46 @@ function LeadsPageContent() {
       
       // Extract control type, label and value.
       const controlType = (match[1] || '').toLowerCase();
-      const controlValue = match[2] || '';
+      const attrs = parseTagAttributes(match[2] || '');
+      const controlValue = attrs.value || '';
       const controlText = (match[3] || '').trim();
       
       if (controlText) {
-        parts.push(
-          <div
-            key={`b-${match.index}`}
-            className={`block w-full text-left text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm mt-1 whitespace-normal break-words ${
-              controlType === 'checkbox' ? 'rounded-lg bg-white text-gray-800 border border-gray-200' : 'rounded-full text-white'
-            }`}
-            style={{ 
-              backgroundColor: controlType === 'checkbox' ? undefined : primaryColor,
-            } as React.CSSProperties}
-          >
-            {controlText}
-          </div>
-        );
+        if (controlType === 'file') {
+          const fileUrl = attrs.url || '';
+          const fileName = attrs.name || controlText || 'file';
+          if (fileUrl) {
+            parts.push(
+              <a
+                key={`f-${match.index}`}
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                download={fileName}
+                className="inline-flex items-center gap-2 rounded-lg text-white text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm mt-1 hover:opacity-90 transition"
+                style={{ backgroundColor: primaryColor } as React.CSSProperties}
+              >
+                {controlText}
+              </a>
+            );
+          } else {
+            parts.push(renderTextWithLinks(controlText, `f-t-${match.index}`));
+          }
+        } else {
+          parts.push(
+            <div
+              key={`b-${match.index}`}
+              className={`block w-full text-left text-xs sm:text-sm font-medium px-3 sm:px-3 py-2 sm:py-1.5 shadow-sm mt-1 whitespace-normal break-words ${
+                controlType === 'checkbox' ? 'rounded-lg bg-white text-gray-800 border border-gray-200' : 'rounded-full text-white'
+              }`}
+              style={{
+                backgroundColor: controlType === 'checkbox' ? undefined : primaryColor,
+              } as React.CSSProperties}
+            >
+              {controlText}
+            </div>
+          );
+        }
       }
       lastIndex = match.index + match[0].length;
     }
