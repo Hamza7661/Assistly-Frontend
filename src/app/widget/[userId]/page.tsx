@@ -129,6 +129,7 @@ export default function WidgetPage() {
     const fallback = 'Service is unavailable right now.';
     const cleaned = String(raw || '')
       .replace(/^CHANNEL_BLOCKED(?:\s*[:\-])?\s*/i, '')
+      .replace(/^channel_blocked(?:\s*[:\-])?\s*/i, '')
       .trim();
     return cleaned || fallback;
   };
@@ -1481,7 +1482,7 @@ export default function WidgetPage() {
               className={`inline-block px-3 sm:px-4 py-2 sm:py-3 max-w-[85%] break-words relative ${
                 isUserBubble
                   ? 'text-white rounded-lg' 
-                  : (m.type === 'bot' || m.type === 'review_prompt'
+                  : (m.type === 'bot' || m.type === 'review_prompt' || m.type === 'channel_blocked'
                     ? 'bg-gray-100 text-gray-800 rounded-lg' 
                     : 'bg-yellow-50 text-yellow-800 rounded-lg')
               }`}
@@ -1507,9 +1508,11 @@ export default function WidgetPage() {
                         </a>
                       </div>
                     )
-                  : isUserBubble
-                    ? renderTextWithLinks(m.content, `u-${idx}`)
-                    : `${m.type.toUpperCase()}: ${'content' in m ? m.content : ''}`}
+                  : m.type === 'channel_blocked'
+                    ? normalizeBlockedMessage((m as ChannelBlockedMessage).content)
+                    : isUserBubble
+                      ? renderTextWithLinks(m.content, `u-${idx}`)
+                      : `${m.type.toUpperCase()}: ${'content' in m ? m.content : ''}`}
               
               {/* Speech bubble tail */}
               {isUserBubble ? (
@@ -1525,7 +1528,7 @@ export default function WidgetPage() {
                 <div 
                   className="absolute -left-2 top-2 w-0 h-0"
                   style={{ 
-                    borderRight: '12px solid ' + ((m.type === 'bot' || m.type === 'review_prompt') ? '#f3f4f6' : '#fef3c7'),
+                    borderRight: '12px solid ' + ((m.type === 'bot' || m.type === 'review_prompt' || m.type === 'channel_blocked') ? '#f3f4f6' : '#fef3c7'),
                     borderTop: '12px solid transparent',
                     borderBottom: '12px solid transparent'
                   }}
@@ -1619,7 +1622,7 @@ export default function WidgetPage() {
           className="flex-1 border border-gray-300 rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base"
           placeholder={
             channelBlocked
-              ? 'Service is unavailable right now.'
+              ? normalizeBlockedMessage(channelBlockedMessage)
               : !connected
                 ? (chatEnded ? 'Chat ended' : 'Connecting...')
               : (sessionCompleted
