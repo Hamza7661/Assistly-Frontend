@@ -5,205 +5,229 @@ import {
   FACEBOOK_API_VERSION,
   FACEBOOK_SDK_SRC,
   FACEBOOK_LOGIN_SCOPE,
-  FACEBOOK_POLL_INTERVAL_MS,
 } from '@/constants/facebook';
-import type {
-  FbPage,
-  UseFacebookOAuthReturn,
-  FacebookSDK,
-  FacebookLoginResponse,
-  FacebookPagesApiResponse,
-  WindowWithFB,
-} from '@/types/facebook';
 
 const FB_LOG = '[FacebookOAuth]';
 
-export function useFacebookOAuth(): UseFacebookOAuthReturn {
-  const [fbSdkReady, setFbSdkReady] = useState(false);
-  const [fbConnecting, setFbConnecting] = useState(false);
-  const [fbPages, setFbPages] = useState<FbPage[]>([]);
-  const [fbShortLivedToken, setFbShortLivedToken] = useState('');
-  const [fbSelectedPageId, setFbSelectedPageId] = useState('');
-  const [fbSelectedPageName, setFbSelectedPageName] = useState('');
-  const fbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sdkInitializedRef = useRef(false); // ✅ prevent double init
+type FbState =
+  | 'idle'
+  | 'sdk_loading'
+  | 'ready'
+  | 'auth_start'
+  | 'auth_success'
+  | 'fetching_pages'
+  | 'success'
+  | 'error';
+
+type FbErrorType =
+  | 'SDK_NOT_READY'
+  | 'LOGIN_CANCELLED'
+  | 'PERMISSION_DENIED'
+  | 'NO_PAGES'
+  | 'API_ERROR'
+  | 'UNKNOWN';
+
+export function useFacebookOAuth() {
+  const [state, setState] = useState<FbState>('idle');
+  const [error, setError] = useState<FbErrorType | null>(null);
+
+  const [pages, setPages] = useState<any[]>([]);
+  const [token, setToken] = useState('');
+
+  const sdkInitializedRef = useRef(false);
 
   /**
-   * Load Facebook SDK
+   * SDK INIT
    */
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    setState('sdk_loading');
 
-    const windowWithFB = window as WindowWithFB;
+    const init = () => {
+      if (sdkInitializedRef.current) return;
 
-    const initSdk = () => {
-      if (sdkInitializedRef.current) return; // ✅ prevent double init
+      const FB = (window as any).FB;
+      if (!FB) return;
 
-      try {
-        const fbSdk = windowWithFB.FB;
-        if (fbSdk) {
-          console.log(`${FB_LOG} Initializing SDK`, {
-            appId: FACEBOOK_APP_ID,
-            version: FACEBOOK_API_VERSION,
-          });
+      FB.init({
+        appId: FACEBOOK_APP_ID,
+        cookie: false,
+        xfbml: false,
+        version: FACEBOOK_API_VERSION,
+      });
 
-          fbSdk.init({
-            appId: FACEBOOK_APP_ID,
-            cookie: false, // Disable cookie-based session persistence — prevents SDK from
-                           // restoring a stale token on init which causes the
-                           // "overriding access token" warning on every login
-            xfbml: false,
-            version: FACEBOOK_API_VERSION,
-          });
+      sdkInitializedRef.current = true;
+      setState('ready');
 
-          sdkInitializedRef.current = true;
-          setFbSdkReady(true);
-
-          console.log(`${FB_LOG} SDK initialized successfully`);
-        }
-      } catch (err) {
-        console.error(`${FB_LOG} SDK initialization failed`, err);
-      }
+      console.log(`${FB_LOG} SDK ready`);
     };
 
-    if (windowWithFB.FB) {
-      initSdk();
+    if ((window as any).FB) {
+      init();
       return;
     }
 
-    windowWithFB.fbAsyncInit = initSdk;
+    (window as any).fbAsyncInit = init;
 
-    if (!document.getElementById('facebook-jssdk')) {
-      const script = document.createElement('script');
-      script.id = 'facebook-jssdk';
-      script.src = FACEBOOK_SDK_SRC;
-      script.async = true;
-      script.defer = true;
-      document.body.appendChild(script);
-    }
-
-    fbPollRef.current = setInterval(() => {
-      if (windowWithFB.FB) {
-        clearInterval(fbPollRef.current!);
-        initSdk(); // ✅ ensure init happens only once
-      }
-    }, FACEBOOK_POLL_INTERVAL_MS);
-
-    return () => {
-      if (fbPollRef.current) clearInterval(fbPollRef.current);
-    };
+    const script = document.createElement('script');
+    script.src = FACEBOOK_SDK_SRC;
+    script.async = true;
+    document.body.appendChild(script);
   }, []);
 
   /**
-   * Fetch pages (✅ explicit token usage)
+   * ERROR CLASSIFIER
    */
-  const fetchPages = (token: string, fbSdk: FacebookSDK) => {
-    console.log(`${FB_LOG} Fetching pages via /me/accounts`);
+  const classifyError = (res: any): FbErrorType => {
+    if (!res) return 'UNKNOWN';
 
-    fbSdk.api(
+    if (res.status === 'not_authorized') return 'PERMISSION_DENIED';
+    if (res.status === 'unknown') return 'LOGIN_CANCELLED';
+
+    if (res.error) return 'API_ERROR';
+
+    return 'UNKNOWN';
+  };
+
+  /**
+   * RETRY LOGIC
+   */
+  const fetchPagesWithRetry = (
+    FB: any,
+    accessToken: string,
+    attempt = 0
+  ) => {
+    setState('fetching_pages');
+
+    FB.api(
       '/me/accounts',
       {
-        access_token: token, // ✅ CRITICAL FIX
-        fields: 'id,name,access_token',
+        access_token: accessToken,
+        fields: 'id,name,access_token,tasks',
       },
-      (pagesRes: FacebookPagesApiResponse) => {
-        console.log(`${FB_LOG} /me/accounts response`, pagesRes);
+      (res: any) => {
+        console.log(`${FB_LOG} Pages attempt ${attempt + 1}`, res);
 
-        setFbConnecting(false);
-
-        if (pagesRes.error || !pagesRes.data) {
-          console.error(`${FB_LOG} Error fetching pages`, pagesRes.error);
-          toast.error(
-            pagesRes.error?.message ||
-              'Failed to fetch Facebook pages. Check permissions.'
-          );
+        if (res.error) {
+          setState('error');
+          setError('API_ERROR');
+          toast.error(res.error.message);
           return;
         }
 
-        const pages = pagesRes.data;
+        const data = res.data || [];
 
-        if (pages.length === 0) {
-          console.warn(`${FB_LOG} No pages found`);
-          toast.error('No Facebook pages found. Ensure you are an admin.');
+        // Retry if empty
+        if (data.length === 0 && attempt < 3) {
+          console.warn(`${FB_LOG} Empty pages, retrying...`);
+
+          setTimeout(() => {
+            fetchPagesWithRetry(FB, accessToken, attempt + 1);
+          }, 1000 * (attempt + 1));
+
           return;
         }
 
-        setFbShortLivedToken(token);
-        setFbPages(pages);
-
-        if (pages.length === 1) {
-          setFbSelectedPageId(pages[0].id);
-          setFbSelectedPageName(pages[0].name);
+        if (data.length === 0) {
+          setState('error');
+          setError('NO_PAGES');
+          toast.error('No pages found. Try again.');
+          return;
         }
+
+        setPages(data);
+        setToken(accessToken);
+        setState('success');
       }
     );
   };
 
   /**
-   * Connect Facebook
+   * CLEAN LOGIN (avoids stale sessions)
    */
-  const handleFacebookConnect = () => {
-    const windowWithFB = window as WindowWithFB;
-    const fbSdk = windowWithFB.FB;
+  const performLogin = (FB: any) => {
+    setState('auth_start');
 
-    if (!fbSdk) {
-      toast.error('Facebook SDK not loaded yet.');
+    const triggerLogin = () => {
+      FB.login(
+        (response: any) => {
+          console.log(`${FB_LOG} Login response`, response);
+
+          if (
+            response.status !== 'connected' ||
+            !response.authResponse
+          ) {
+            const err = classifyError(response);
+            setError(err);
+            setState('error');
+
+            if (err !== 'LOGIN_CANCELLED') {
+              toast.error('Facebook login failed');
+            }
+
+            return;
+          }
+
+          const accessToken = response.authResponse.accessToken;
+
+          console.log(`${FB_LOG} Auth success`);
+          setState('auth_success');
+
+          // slight delay to avoid race condition
+          setTimeout(() => {
+            fetchPagesWithRetry(FB, accessToken);
+          }, 500);
+        },
+        {
+          scope: FACEBOOK_LOGIN_SCOPE,
+          auth_type: 'rerequest',
+          return_scopes: true,
+        }
+      );
+    };
+
+    // Clear stale session first
+    FB.getLoginStatus((res: any) => {
+      if (res.status === 'connected') {
+        console.log(`${FB_LOG} Logging out stale session`);
+        FB.logout(() => triggerLogin());
+      } else {
+        triggerLogin();
+      }
+    });
+  };
+
+  /**
+   * PUBLIC API
+   */
+  const connect = () => {
+    const FB = (window as any).FB;
+
+    if (!FB || !sdkInitializedRef.current) {
+      setError('SDK_NOT_READY');
+      toast.error('Facebook SDK not ready');
       return;
     }
 
-    setFbConnecting(true);
-    setFbPages([]);
-    setFbShortLivedToken('');
-    setFbSelectedPageId('');
-    setFbSelectedPageName('');
+    setPages([]);
+    setToken('');
+    setError(null);
 
-    console.log(`${FB_LOG} Starting FB.login`);
-
-    fbSdk.login(
-      (response: FacebookLoginResponse) => {
-        console.log(`${FB_LOG} Login response`, response);
-
-        if (response.status !== 'connected' || !response.authResponse) {
-          // User cancelled the dialog or denied permissions — no toast, fail silently
-          console.warn(`${FB_LOG} Login cancelled or denied`, { status: response.status });
-          setFbConnecting(false);
-          return;
-        }
-
-        const token = response.authResponse.accessToken;
-
-        console.log(`${FB_LOG} Login successful, token received`);
-
-        // ✅ directly fetch pages (NO getLoginStatus, NO logout)
-        fetchPages(token, fbSdk);
-      },
-      {
-        scope: FACEBOOK_LOGIN_SCOPE,
-        auth_type: 'rerequest',
-      }
-    );
+    performLogin(FB);
   };
 
-  /**
-   * Reset state
-   */
-  const resetFacebookSelection = () => {
-    setFbShortLivedToken('');
-    setFbPages([]);
-    setFbSelectedPageId('');
-    setFbSelectedPageName('');
+  const reset = () => {
+    setState('idle');
+    setPages([]);
+    setToken('');
+    setError(null);
   };
 
   return {
-    fbSdkReady,
-    fbConnecting,
-    fbPages,
-    fbShortLivedToken,
-    fbSelectedPageId,
-    fbSelectedPageName,
-    handleFacebookConnect,
-    resetFacebookSelection,
-    setFbSelectedPageId,
-    setFbSelectedPageName,
+    state,
+    error,
+    pages,
+    token,
+    connect,
+    reset,
   };
 }
