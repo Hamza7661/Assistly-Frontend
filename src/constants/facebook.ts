@@ -14,9 +14,11 @@ export const FACEBOOK_SDK_SRC =
   'https://connect.facebook.net/en_US/sdk.js';
 
 // Comma-separated list of OAuth permissions requested during FB.login.
+// business_management is required to access pages managed via Meta Business Manager
+// (those pages do not appear in /me/accounts without it).
 export const FACEBOOK_LOGIN_SCOPE =
   process.env.NEXT_PUBLIC_FACEBOOK_LOGIN_SCOPE ||
-  'pages_show_list,pages_messaging,pages_read_engagement';
+  'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata,business_management';
 
 // Poll interval (ms) while waiting for the FB SDK global to be available.
 export const FACEBOOK_POLL_INTERVAL_MS = Number(

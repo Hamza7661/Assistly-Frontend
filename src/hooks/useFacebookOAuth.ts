@@ -89,6 +89,46 @@ export function useFacebookOAuth() {
   };
 
   /**
+   * Fallback: fetch pages via Meta Business Manager API.
+   * Used when /me/accounts returns empty, which happens after reauthorize because
+   * Facebook reclassifies the page grant as a Business Integration asset.
+   */
+  const fetchPagesFromBusinessAPI = (FB: any, accessToken: string) => {
+    console.log(`${FB_LOG} /me/accounts empty — trying Business API fallback`);
+
+    FB.api(
+      '/me/businesses',
+      { access_token: accessToken, fields: 'id,name,owned_pages{id,name,access_token}' },
+      (bizRes: any) => {
+        if (bizRes?.error) {
+          console.warn(`${FB_LOG} Business API error`, bizRes.error);
+          setState('error');
+          setError('NO_PAGES');
+          toast.error('No pages found. Make sure you are a Page admin.');
+          return;
+        }
+
+        const pages = (bizRes?.data || []).flatMap(
+          (biz: any) => biz.owned_pages?.data || []
+        );
+
+        console.log(`${FB_LOG} Business API pages`, pages);
+
+        if (pages.length === 0) {
+          setState('error');
+          setError('NO_PAGES');
+          toast.error('No pages found. Make sure you are a Page admin.');
+          return;
+        }
+
+        setPages(pages);
+        setToken(accessToken);
+        setState('success');
+      }
+    );
+  };
+
+  /**
    * RETRY LOGIC
    */
   const fetchPagesWithRetry = (
@@ -116,7 +156,7 @@ export function useFacebookOAuth() {
 
         const data = res.data || [];
 
-        // Retry if empty
+        // Retry if empty (brief propagation delay on Facebook's side)
         if (data.length === 0 && attempt < 3) {
           console.warn(`${FB_LOG} Empty pages, retrying...`);
 
@@ -128,9 +168,10 @@ export function useFacebookOAuth() {
         }
 
         if (data.length === 0) {
-          setState('error');
-          setError('NO_PAGES');
-          toast.error('No pages found. Try again.');
+          // After all retries, fall back to Business Manager API.
+          // On reconnect (reauthorize), Facebook reclassifies page grants as
+          // Business Integration assets which don't appear in /me/accounts.
+          fetchPagesFromBusinessAPI(FB, accessToken);
           return;
         }
 
@@ -179,7 +220,7 @@ export function useFacebookOAuth() {
         },
         {
           scope: FACEBOOK_LOGIN_SCOPE,
-          auth_type: 'rerequest',
+          auth_type: 'reauthorize',
           return_scopes: true,
         }
       );
